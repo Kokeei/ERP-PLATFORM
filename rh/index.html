@@ -237,6 +237,26 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 .teams-time{font-size:10.5px; color:var(--ink-3); margin-top:5px; text-align:right}
 #teamsMsg{width:100%; min-height:70px; padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:13.5px; resize:vertical}
 
+/* Historique de workflow */
+.wf-timeline{display:flex; flex-direction:column; gap:16px; position:relative; padding-left:4px}
+.wf-item{display:flex; gap:12px; position:relative}
+.wf-item:not(:last-child)::before{content:""; position:absolute; left:4px; top:16px; bottom:-16px; width:1px; background:var(--border)}
+.wf-dot{width:9px;height:9px;border-radius:50%; background:var(--primary); margin-top:5px; flex:0 0 auto}
+.wf-body{flex:1}
+.wf-top{display:flex; justify-content:space-between; gap:10px; font-size:13.5px}
+.wf-date{color:var(--ink-3); font-size:12px; white-space:nowrap}
+.wf-actor{font-size:12.5px; color:var(--ink-2); margin-top:2px}
+.wf-comment{font-size:12.5px; color:var(--ink-3); margin-top:4px; font-style:italic}
+
+/* Fiche famille */
+.child-row{display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center}
+.child-row input{padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13px}
+
+/* Profil de test (simulateur de droits) */
+.session-bar{padding:12px 14px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px}
+.session-bar .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); font-weight:700}
+.session-bar select{padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; width:100%}
+
 /* Responsive */
 @media (max-width:960px){ .panels{grid-template-columns:1fr} .detail-cols{grid-template-columns:1fr} }
 @media (max-width:820px){
@@ -263,6 +283,15 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
       </div>
     </div>
     <nav class="nav" id="nav"></nav>
+    <div class="session-bar">
+      <div class="lbl">Profil de test</div>
+      <select id="sessRole">
+        <option value="rh">RH (accès complet)</option>
+        <option value="responsable">Responsable</option>
+        <option value="agent">Agent</option>
+      </select>
+      <select id="sessAgent"></select>
+    </div>
     <div class="sidebar-foot">
       <button class="theme-btn" id="themeBtn" title="Changer de thème">
         <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -310,7 +339,8 @@ const I = {
   back:'<path d="M15 5l-7 7 7 7"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
-  teams:'<path d="M4 4.5h16v11H9l-5 4z"/>'
+  teams:'<path d="M4 4.5h16v11H9l-5 4z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
 };
 const svg = (p,cls='ic')=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${p}</svg>`;
 
@@ -322,6 +352,18 @@ const todayISO = ()=> new Date().toISOString().slice(0,10);
 function fmtDate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
 function fmtMoney(n){ if(n==null||n==="") return "—"; return Number(n).toLocaleString("fr-FR").replace(/\u202f/g," ")+" XPF"; }
 function daysBetween(a,b){ if(!a||!b) return 0; const d=(new Date(b)-new Date(a))/86400000; return d<0?0:Math.round(d)+1; }
+function ancienneteLabel(entree){
+  if(!entree) return "—";
+  const d0=new Date(entree), d1=new Date();
+  if(d1<d0) return "—";
+  let years=d1.getFullYear()-d0.getFullYear(), months=d1.getMonth()-d0.getMonth();
+  if(d1.getDate()<d0.getDate()) months--;
+  if(months<0){ years--; months+=12; }
+  const parts=[];
+  if(years) parts.push(`${years} an${years>1?"s":""}`);
+  if(months||!years) parts.push(`${months} mois`);
+  return parts.join(" ");
+}
 function initials(nom,prenom){ return ((prenom||" ")[0]+(nom||" ")[0]).toUpperCase(); }
 function agentName(id){ const a=DB.agents.find(x=>x.id===id); return a? `${a.prenom} ${a.nom}` : "—"; }
 function agentMat(id){ const a=DB.agents.find(x=>x.id===id); return a? a.matricule : ""; }
@@ -343,8 +385,17 @@ function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg
 let DB = null;
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ console.warn("save",e); } }
 function load(){
-  try{ const raw=localStorage.getItem(KEY); if(raw){ DB=JSON.parse(raw); return; } }catch(e){}
+  try{ const raw=localStorage.getItem(KEY); if(raw){ DB=JSON.parse(raw); migrate(); return; } }catch(e){}
   DB = seed(); save();
+}
+// Filet de compatibilité pour les données déjà enregistrées en local avant l'ajout
+// du circuit hiérarchique / workflow / carrière / documents.
+function migrate(){
+  if(!DB.carriere) DB.carriere=[];
+  if(!DB.documents) DB.documents=[];
+  DB.agents.forEach(a=>{ if(a.superieurId===undefined) a.superieurId=null; });
+  DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
+  save();
 }
 
 /* ---------- Seed data ---------- */
@@ -366,6 +417,12 @@ function seed(){
   const SUP=[null,0,1,0,0,0,0,0,3];
   agents.forEach((a,i)=>{ a.superieurId = SUP[i]!=null ? agents[SUP[i]].id : null; });
 
+  // Situation familiale détaillée (démo sur quelques agents)
+  agents[0].conjoint={nom:"TEHEIURA",prenom:"Vaihere",dateNaissance:"1986-02-10"};
+  agents[0].enfantsListe=[{nom:"TEHEIURA",prenom:"Heimana",dateNaissance:"2014-05-02"},{nom:"TEHEIURA",prenom:"Manoa",dateNaissance:"2018-11-20"}];
+  agents[4].conjoint={nom:"FAATAU",prenom:"Teata",dateNaissance:"1981-06-30"};
+  agents[4].enfantsListe=[{nom:"FAATAU",prenom:"Rii",dateNaissance:"2009-03-15"},{nom:"FAATAU",prenom:"Tehau",dateNaissance:"2012-07-22"},{nom:"FAATAU",prenom:"Vaite",dateNaissance:"2016-01-08"}];
+
   const gid = n => agents[n].id;
   const conges = [
     {agentId:gid(0),type:"Congés annuels",debut:"2026-01-05",fin:"2026-01-09",statut:"Validé",valide:"Marc",motif:""},
@@ -376,6 +433,14 @@ function seed(){
     {agentId:gid(1),type:"Récupération",debut:"2026-01-16",fin:"2026-01-16",statut:"Validé",valide:"Marc",motif:"RTT"},
     {agentId:gid(6),type:"Congé sans solde",debut:"2026-03-02",fin:"2026-03-06",statut:"Refusé",valide:"Derrick",motif:"Effectif insuffisant"}
   ].map(c=>({id:uid("c_"), jours:daysBetween(c.debut,c.fin), ...c}));
+  // Rattache chaque congé de démo au moteur de workflow générique, avec un historique cohérent.
+  conges.forEach(c=>{
+    startWorkflow("conges", c);
+    if(c.statut!=="En attente"){
+      c.workflow.history.push({step:"Validation hiérarchique", actorLabel:c.valide||"—", action:c.statut==="Validé"?"Valider":"Refuser", date:fmtDate(c.debut), commentaire:""});
+      c.workflow.step=null;
+    }
+  });
 
   const paie = [
     {agentId:gid(0),periode:"2026-01",brut:520000,primes:85000,cotis:78000,statut:"Payée"},
@@ -405,13 +470,39 @@ function seed(){
     {agentId:gid(6),date:"2025-11-20",lieu:"Bureau – Pirae",circonstances:"Choc contre un tiroir métallique ouvert",lesions:"Contusion tibia",arret:false,arretJours:0,cafat:"AT-2025-198",statut:"Clôturé"}
   ].map(a=>({id:uid("at_"), ...a}));
 
+  const carriere = [
+    {agentId:gid(0),date:"2012-09-01",type:"Recrutement",poste:"Attaché",direction:"Direction Générale",echelon:"1",commentaire:""},
+    {agentId:gid(0),date:"2020-01-01",type:"Promotion",poste:"Directeur adjoint",direction:"Direction Générale",echelon:"5",commentaire:"Nomination suite à réorganisation"},
+    {agentId:gid(1),date:"2016-01-15",type:"Recrutement",poste:"Technicien systèmes",direction:"DSI",echelon:"1",commentaire:""},
+    {agentId:gid(1),date:"2021-06-01",type:"Changement de poste",poste:"Administrateur systèmes",direction:"DSI",echelon:"3",commentaire:""},
+    {agentId:gid(2),date:"2023-03-01",type:"Recrutement",poste:"Support informatique",direction:"DSI",echelon:"2",commentaire:"Contrat CDD"},
+    {agentId:gid(3),date:"2011-05-02",type:"Recrutement",poste:"Adjoint administratif",direction:"Direction des Ressources Humaines",echelon:"1",commentaire:""},
+    {agentId:gid(3),date:"2018-09-01",type:"Changement de poste",poste:"Gestionnaire carrières",direction:"Direction des Ressources Humaines",echelon:"6",commentaire:""},
+    {agentId:gid(4),date:"2008-02-11",type:"Recrutement",poste:"Ingénieur travaux",direction:"Direction de la Maîtrise d'Ouvrage",echelon:"1",commentaire:""},
+    {agentId:gid(4),date:"2017-01-01",type:"Promotion",poste:"Chef de projet travaux",direction:"Direction de la Maîtrise d'Ouvrage",echelon:"4",commentaire:""},
+    {agentId:gid(5),date:"2025-09-01",type:"Recrutement",poste:"Chargée de clientèle",direction:"Direction de la Gestion Locative",echelon:"1",commentaire:"Stage"},
+    {agentId:gid(6),date:"2019-06-17",type:"Recrutement",poste:"Comptable fournisseurs",direction:"Direction Financière",echelon:"3",commentaire:""},
+    {agentId:gid(7),date:"2010-10-01",type:"Recrutement",poste:"Agent de maintenance",direction:"Direction du Patrimoine",echelon:"2",commentaire:""},
+    {agentId:gid(7),date:"2019-01-01",type:"Promotion",poste:"Responsable maintenance",direction:"Direction du Patrimoine",echelon:"7",commentaire:""},
+    {agentId:gid(8),date:"2024-11-04",type:"Recrutement",poste:"Assistante RH",direction:"Direction des Ressources Humaines",echelon:"1",commentaire:"Contrat CDD"}
+  ].map(c=>({id:uid("car_"), ...c}));
+
+  const documents = [
+    {agentId:gid(0),type:"CV",libelle:"CV_Teheiura_Manea.pdf",dateAjout:"2012-08-20",confidentiel:false},
+    {agentId:gid(0),type:"Contrat de travail",libelle:"Contrat_titularisation_2012.pdf",dateAjout:"2012-09-01",confidentiel:false},
+    {agentId:gid(2),type:"Diplôme",libelle:"BTS_SIO_Tama_Teiva.pdf",dateAjout:"2023-02-15",confidentiel:false},
+    {agentId:gid(2),type:"Contrat de travail",libelle:"CDD_2023-2026.pdf",dateAjout:"2023-03-01",confidentiel:false},
+    {agentId:gid(3),type:"Fiche de paie",libelle:"Paie_2026-01_Marurai.pdf",dateAjout:"2026-02-01",confidentiel:true},
+    {agentId:gid(1),type:"Justificatif administratif",libelle:"Avertissement_2025.pdf",dateAjout:"2025-11-10",confidentiel:true}
+  ].map(d=>({id:uid("doc_"), ...d}));
+
   const deplacements = [
     {agentId:gid(1),objet:"Réunion prestataire infogérance",destination:"Papeete",depart:"2026-01-22",retour:"2026-01-22",transport:"Véhicule de service",frais:0,statut:"Validé"},
     {agentId:gid(4),objet:"Visite chantier logements",destination:"Raiatea",depart:"2026-02-03",retour:"2026-02-05",transport:"Avion",frais:145000,statut:"Demandé"},
     {agentId:gid(3),objet:"Formation CNFPT",destination:"Nouméa",depart:"2026-02-24",retour:"2026-02-27",transport:"Avion",frais:320000,statut:"Demandé"}
   ].map(d=>({id:uid("d_"), ...d}));
 
-  return {agents,conges,paie,formations,visites,accidents,deplacements};
+  return {agents,conges,paie,formations,visites,accidents,deplacements,carriere,documents};
 }
 
 /* ---------- Module field configs ---------- */
@@ -444,6 +535,87 @@ function getApprover(agentId, dateISO=todayISO()){
   const rh=DB.agents.find(a=>isRHAgent(a) && a.id!==agentId && !isAbsent(a.id, dateISO));
   if(rh) return {agent:rh, level:"rh"};
   return null;
+}
+
+/* ---------- Moteur de workflow générique ---------- */
+// Chaque type d'objet (congés, allaitement, notation, maternité…) déclare ses propres étapes ;
+// le moteur se contente de suivre l'étape courante d'un enregistrement et d'historiser les décisions.
+// step.actor(rec) résout dynamiquement qui doit agir (ex: hiérarchie disponible, commission, directeur…).
+function nowStamp(){ return new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}); }
+const WORKFLOW_DEFS = {
+  conges:{
+    label:"Demande de congé",
+    start:"responsable",
+    steps:{
+      responsable:{
+        label:"Validation hiérarchique",
+        actor:rec=>{ const a=getApprover(rec.agentId, todayISO()); return a?{label:agentName(a.agent.id)+" ("+(a.level==="rh"?"RH":a.level)+")", agentId:a.agent.id}:{label:"Aucun validateur disponible"}; },
+        actions:[
+          {id:"valider", label:"Valider", to:null, setFields:(rec,actor)=>({statut:"Validé", valide:actor.label})},
+          {id:"refuser", label:"Refuser", to:null, setFields:(rec,actor)=>({statut:"Refusé", valide:actor.label})}
+        ]
+      }
+    }
+  }
+};
+function startWorkflow(defKey, rec){
+  rec.workflow={defKey, step:WORKFLOW_DEFS[defKey].start, history:[{step:null, actorLabel:"", action:"Création de la demande", date:nowStamp(), commentaire:""}]};
+}
+function currentWorkflowStep(rec){
+  if(!rec.workflow || !rec.workflow.step) return null;
+  return WORKFLOW_DEFS[rec.workflow.defKey].steps[rec.workflow.step];
+}
+function currentWorkflowActor(rec){
+  const step=currentWorkflowStep(rec);
+  return step ? step.actor(rec) : null;
+}
+function advanceWorkflow(rec, actionId, commentaire=""){
+  const step=currentWorkflowStep(rec);
+  if(!step) return;
+  const action=step.actions.find(x=>x.id===actionId);
+  if(!action) return;
+  const actor=step.actor(rec);
+  rec.workflow.history.push({step:step.label, actorLabel:actor.label, action:action.label, date:nowStamp(), commentaire});
+  if(action.setFields) Object.assign(rec, action.setFields(rec, actor));
+  rec.workflow.step=action.to;
+}
+
+/* ---------- Profil de test (droits différenciés par profil utilisateur) ---------- */
+// Il n'y a pas d'authentification dans ce prototype : ce sélecteur simule "je suis connecté
+// en tant que…" pour démontrer que les droits de consultation/modification varient selon le profil.
+const SESSION_KEY = KEY+"_session";
+let SESSION = {role:"rh", asAgentId:null};
+function loadSession(){
+  try{ const raw=localStorage.getItem(SESSION_KEY); if(raw) SESSION={...SESSION, ...JSON.parse(raw)}; }catch(e){}
+}
+function saveSession(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); }catch(e){} }
+function renderSessionBar(){
+  const roleSel=document.getElementById("sessRole"), agentSel=document.getElementById("sessAgent");
+  roleSel.value=SESSION.role;
+  agentSel.innerHTML=DB.agents.map(a=>`<option value="${a.id}">${esc(a.prenom)} ${esc(a.nom)}</option>`).join("");
+  if(!SESSION.asAgentId && DB.agents[0]) SESSION.asAgentId=DB.agents[0].id;
+  agentSel.value=SESSION.asAgentId;
+  agentSel.style.display=SESSION.role==="rh"?"none":"block";
+  roleSel.onchange=()=>{ SESSION.role=roleSel.value; agentSel.style.display=SESSION.role==="rh"?"none":"block"; saveSession(); render(); if(view.agentId) renderAgentDetail(); };
+  agentSel.onchange=()=>{ SESSION.asAgentId=agentSel.value; saveSession(); if(view.agentId) renderAgentDetail(); };
+}
+// Un document du dossier agent est-il visible pour le profil de test actuellement sélectionné ?
+function canViewDocument(doc, agentOfDossier){
+  if(SESSION.role==="rh") return true;
+  const isOwnDossier = agentOfDossier.id===SESSION.asAgentId;
+  if(SESSION.role==="responsable"){
+    const isDirectReport = agentOfDossier.superieurId===SESSION.asAgentId;
+    if(!isOwnDossier && !isDirectReport) return false;
+    return isOwnDossier || !doc.confidentiel;
+  }
+  if(SESSION.role==="agent") return isOwnDossier && !doc.confidentiel;
+  return false;
+}
+// Un document du dossier peut-il être ajouté/modifié/supprimé par le profil de test actuel ?
+function canEditDocuments(agentOfDossier){
+  if(SESSION.role==="rh") return true;
+  if(SESSION.role==="responsable") return agentOfDossier.superieurId===SESSION.asAgentId;
+  return false;
 }
 
 const FORMS = {
@@ -551,6 +723,28 @@ const FORMS = {
       {k:"statut",l:"Statut",t:"select",o:["Demandé","Validé","Réalisé","Refusé"]}
     ],
     defaults:()=>({statut:"Demandé",transport:"Avion",frais:0,depart:todayISO(),retour:todayISO()})
+  },
+  carriere:{ title:"événement de carrière",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"date",l:"Date",t:"date",req:true},
+      {k:"type",l:"Type d'événement",t:"select",o:["Recrutement","Titularisation","Changement de poste","Changement de direction","Changement d'échelon","Promotion","Mutation","Fin de contrat","Autre"],req:true},
+      {k:"poste",l:"Poste / fonction",t:"text"},
+      {k:"direction",l:"Direction / service",t:"select",o:DIRECTIONS},
+      {k:"echelon",l:"Échelon",t:"text"},
+      {k:"commentaire",l:"Commentaire",t:"textarea",full:true}
+    ],
+    defaults:()=>({date:todayISO(),type:"Changement de poste"})
+  },
+  documents:{ title:"document",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"type",l:"Type de document",t:"select",o:["CV","Diplôme","Permis","Contrat de travail","Avenant","Justificatif administratif","Fiche de paie","Autre"],req:true},
+      {k:"libelle",l:"Libellé / nom du fichier",t:"text",req:true},
+      {k:"dateAjout",l:"Date d'ajout",t:"date",req:true},
+      {k:"confidentiel",l:"Accès restreint (RH uniquement)",t:"bool"}
+    ],
+    defaults:()=>({dateAjout:todayISO(),type:"Autre",confidentiel:false})
   }
 };
 
@@ -565,6 +759,8 @@ const NAV = [
   {id:"accidents", label:"Accidents de travail", icon:I.accidents, group:"Suivi", coll:"accidents"},
   {id:"deplacements", label:"Ordres de déplacement", icon:I.deplacements, group:"Suivi", coll:"deplacements"}
 ];
+// Libellés des onglets du dossier agent (inclut des onglets propres au dossier, absents du menu principal).
+const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents"};
 
 /* ---------- App state ---------- */
 let view = {module:"dashboard", agentId:null, tab:"conges", search:"", filter:""};
@@ -730,10 +926,11 @@ const LISTS = {
         if(appr) validCell=`${esc(agentName(appr.agent.id))}<div class="cell-sub">${appr.level==="rh"?"RH · hiérarchie indisponible":"Supérieur "+appr.level}</div>`;
         else validCell=`<span class="badge bad">Aucun validateur dispo</span>`;
       } else validCell=esc(c.valide||"—");
-      const extra=c.statut==="En attente"
+      const extra=(c.statut==="En attente"
         ? `<button class="btn ghost sm" data-approve="${c.id}" data-mod="conges" title="Valider">${svg(I.check,'ic')}</button>
+           <button class="btn ghost sm" data-refuse="${c.id}" title="Refuser">${svg(I.x,'ic')}</button>
            <button class="btn ghost sm" data-teams="${c.id}" title="Notifier sur Teams">${svg(I.teams,'ic')}</button>`
-        : "";
+        : "")+`<button class="btn ghost sm" data-history="${c.id}" title="Historique de validation">${svg(I.clock,'ic')}</button>`;
       return `<tr>
       <td class="cell-name">${esc(agentName(c.agentId))}</td>
       <td>${esc(c.type)}</td>
@@ -839,7 +1036,9 @@ function bindList(){
   document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openForm(view.module, el.dataset.edit); });
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); delRecord(el.dataset.mod, el.dataset.del); });
   document.querySelectorAll("[data-approve]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); approve(el.dataset.mod, el.dataset.approve); });
+  document.querySelectorAll("[data-refuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideConge(el.dataset.refuse,"refuser"); });
   document.querySelectorAll("[data-teams]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openTeamsModal(el.dataset.teams); });
+  document.querySelectorAll("[data-history]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openWorkflowHistory(el.dataset.history); });
 }
 
 /* ---------- Agent detail ---------- */
@@ -860,7 +1059,9 @@ function renderAgentDetail(){
     {id:"formations",l:"Formations",n:rel("formations").length},
     {id:"visites",l:"Visites méd.",n:rel("visites").length},
     {id:"accidents",l:"Accidents",n:rel("accidents").length},
-    {id:"deplacements",l:"Déplacements",n:rel("deplacements").length}
+    {id:"deplacements",l:"Déplacements",n:rel("deplacements").length},
+    {id:"carriere",l:"Carrière",n:rel("carriere").length},
+    {id:"documents",l:"Documents",n:rel("documents").filter(d=>canViewDocument(d,a)).length}
   ];
 
   c.innerHTML=`
@@ -886,15 +1087,25 @@ function renderAgentDetail(){
             <div class="row"><span class="l">Supérieur hiérarchique</span><span class="v">${a.superieurId?esc(agentName(a.superieurId)):"—"}</span></div>
             <div class="row"><span class="l">Échelon</span><span class="v">${esc(a.echelon||"—")}</span></div>
             <div class="row"><span class="l">Date d'entrée</span><span class="v">${fmtDate(a.entree)}</span></div>
+            <div class="row"><span class="l">Ancienneté</span><span class="v">${ancienneteLabel(a.entree)}</span></div>
             ${a.finContrat?`<div class="row"><span class="l">Fin de contrat</span><span class="v">${fmtDate(a.finContrat)}</span></div>`:""}
             <div class="row"><span class="l">Quotité</span><span class="v">${a.quotite||100} %</span></div>
             <div class="row"><span class="l">Solde congés</span><span class="v">${a.solde??0} jours</span></div>
             <div class="row"><span class="l">Naissance</span><span class="v">${fmtDate(a.dob)}${age?` (${age} ans)`:""}</span></div>
-            <div class="row"><span class="l">Situation familiale</span><span class="v">${esc(a.famille||"—")}</span></div>
-            <div class="row"><span class="l">Enfants à charge</span><span class="v">${a.enfants??0}</span></div>
             <div class="row"><span class="l">Email</span><span class="v">${esc(a.email||"—")}</span></div>
             <div class="row"><span class="l">Téléphone</span><span class="v">${esc(a.tel||"—")}</span></div>
           </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-head"><h3>Situation familiale</h3><div class="spacer"></div><button class="btn ghost sm" id="editFamilyBtn" title="Modifier">${svg(I.edit,'ic')}</button></div>
+        <div class="panel-body" style="padding:6px 18px 14px">
+          <div class="info-list">
+            <div class="row"><span class="l">Situation</span><span class="v">${esc(a.famille||"—")}</span></div>
+            ${a.conjoint?`<div class="row"><span class="l">Conjoint</span><span class="v">${esc(a.conjoint.prenom||"")} ${esc(a.conjoint.nom||"")}${a.conjoint.dateNaissance?" · "+fmtDate(a.conjoint.dateNaissance):""}</span></div>`:""}
+            <div class="row"><span class="l">Enfants à charge</span><span class="v">${(a.enfantsListe&&a.enfantsListe.length)?a.enfantsListe.length:(a.enfants??0)}</span></div>
+          </div>
+          ${(a.enfantsListe&&a.enfantsListe.length)?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${a.enfantsListe.map(e=>`<div style="font-size:13px"><strong>${esc(e.prenom)} ${esc(e.nom)}</strong>${e.dateNaissance?` · né(e) le ${fmtDate(e.dateNaissance)}`:""}</div>`).join("")}</div>`:""}
         </div>
       </div>
       <div>
@@ -905,17 +1116,21 @@ function renderAgentDetail(){
 
   document.getElementById("backBtn").onclick=()=>go("agents");
   document.getElementById("editAgentBtn").onclick=()=>openForm("agents",a.id);
+  document.getElementById("editFamilyBtn").onclick=()=>openFamilyForm(a.id);
   document.querySelectorAll("#detailTabs [data-tab]").forEach(b=>b.onclick=()=>{ view.tab=b.dataset.tab; renderDetailPane(a); document.querySelectorAll("#detailTabs [data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===view.tab)); });
   renderDetailPane(a);
 }
 
 function renderDetailPane(a){
   const pane=document.getElementById("detailPane");
-  const rows=DB[view.tab].filter(x=>x.agentId===a.id);
-  const addBtn=`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`;
+  let rows=DB[view.tab].filter(x=>x.agentId===a.id);
+  let canAdd=true;
+  if(view.tab==="documents"){ rows=rows.filter(d=>canViewDocument(d,a)); canAdd=canEditDocuments(a); }
+  const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   const head=(title)=>`<div class="panel-head" style="border-radius:10px 10px 0 0"><h3>${title}</h3><div class="spacer"></div>${addBtn}</div>`;
+  const canEditRow = view.tab==="documents" ? canEditDocuments(a) : true;
   let inner="";
-  if(!rows.length){ inner=`<div class="empty">Aucun enregistrement pour cet agent.</div>`; }
+  if(!rows.length){ inner=`<div class="empty">${view.tab==="documents"&&!canAdd?"Aucun document accessible avec ce profil.":"Aucun enregistrement pour cet agent."}</div>`; }
   else{
     inner=`<div style="overflow-x:auto"><table><tbody>`+rows.map(r=>{
       let main="", sub="", right="";
@@ -925,15 +1140,18 @@ function renderDetailPane(a){
       else if(view.tab==="visites"){ main=r.type; sub=`${fmtDate(r.prevue)}${r.realisee?" · réalisée "+fmtDate(r.realisee):""}`; right=badge(r.avis); }
       else if(view.tab==="accidents"){ main=fmtDate(r.date); sub=`${r.lesions||""}${r.cafat?" · "+r.cafat:""}`; right=badge(r.statut); }
       else if(view.tab==="deplacements"){ main=r.objet; sub=`${r.destination} · ${fmtDate(r.depart)}`; right=badge(r.statut); }
+      else if(view.tab==="carriere"){ main=r.type; sub=`${fmtDate(r.date)}${r.poste?" · "+r.poste:""}${r.direction?" · "+r.direction:""}`; }
+      else if(view.tab==="documents"){ main=r.libelle; sub=`${r.type} · ${fmtDate(r.dateAjout)}`; right=r.confidentiel?'<span class="badge warn">RH uniquement</span>':'<span class="badge ok">Visible équipe</span>'; }
       return `<tr>
         <td><div class="cell-name">${esc(main)}</div><div class="cell-sub">${esc(sub)}</div></td>
         <td style="text-align:right">${right}</td>
-        <td style="width:1%">${rowActions(view.tab,r.id)}</td>
+        <td style="width:1%">${canEditRow?rowActions(view.tab,r.id):""}</td>
       </tr>`;
     }).join("")+`</tbody></table></div>`;
   }
-  pane.innerHTML=`<div class="panel">${head(NAV.find(n=>n.id===view.tab).label)}<div class="panel-body" style="padding:6px">${inner}</div></div>`;
-  document.getElementById("detailAdd").onclick=()=>openForm(view.tab, null, {agentId:a.id});
+  pane.innerHTML=`<div class="panel">${head(TAB_LABELS[view.tab])}<div class="panel-body" style="padding:6px">${inner}</div></div>`;
+  const detailAdd=document.getElementById("detailAdd");
+  if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id});
   pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm(view.tab, el.dataset.edit));
   pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord(el.dataset.mod, el.dataset.del));
 }
@@ -1007,6 +1225,7 @@ function openForm(module, id=null, preset={}){
       obj.id=uid(module[0]+"_");
       if(module==="agents"){ const nums=DB.agents.map(a=>parseInt((a.matricule||"AG-1000").replace(/\D/g,""))||1000); obj.matricule="AG-"+(Math.max(1000,...nums)+1); }
       if(module==="conges"){
+        startWorkflow("conges", obj);
         const appr=getApprover(obj.agentId, todayISO());
         const msg=`Nouvelle demande de congés — ${agentName(obj.agentId)}\n${obj.type} du ${fmtDate(obj.debut)} au ${fmtDate(obj.fin)} (${obj.jours} j).${obj.motif?`\nMotif : ${obj.motif}`:""}\nMerci de valider ou refuser cette demande.`;
         if(appr){
@@ -1038,18 +1257,46 @@ function delRecord(module,id){
   else render();
 }
 function approve(module,id){
+  if(module==="conges"){ decideConge(id,"valider"); return; }
   const rec=DB[module].find(x=>x.id===id);
-  if(module==="conges"){
-    rec.statut="Validé";
-    if(!rec.valide){
-      const appr=getApprover(rec.agentId, todayISO());
-      rec.valide = appr ? `${agentName(appr.agent.id)}${appr.level==="rh"?" (RH)":""}` : "Validé (RH)";
-    }
-  }
   if(module==="deplacements") rec.statut="Validé";
   rec.valide=rec.valide||"Validé (RH)";
   save(); toast("Demande validée");
   if(view.agentId) renderAgentDetail(); else render();
+}
+function decideConge(id, actionId){
+  const rec=DB.conges.find(x=>x.id===id);
+  if(!rec) return;
+  if(rec.workflow) advanceWorkflow(rec, actionId);
+  else rec.statut = actionId==="valider" ? "Validé" : "Refusé";
+  save();
+  toast(actionId==="valider" ? "Demande validée" : "Demande refusée");
+  if(view.agentId) renderAgentDetail(); else render();
+}
+
+/* ---------- Historique du workflow (audit des décisions) ---------- */
+function openWorkflowHistory(id){
+  const rec=DB.conges.find(x=>x.id===id);
+  if(!rec) return;
+  const items = rec.workflow ? rec.workflow.history : [];
+  const rowsHtml = items.length ? items.map(h=>`<div class="wf-item">
+      <div class="wf-dot"></div>
+      <div class="wf-body">
+        <div class="wf-top"><strong>${esc(h.action||"—")}</strong><span class="wf-date">${esc(h.date)}</span></div>
+        <div class="wf-actor">${esc(h.actorLabel||"—")}${h.step?" · "+esc(h.step):""}</div>
+        ${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}
+      </div>
+    </div>`).join("") : `<div class="empty">Aucun historique.</div>`;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Historique de validation</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="wf-timeline">${rowsHtml}</div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
 }
 
 /* ---------- Notification Teams (conversation simulée) ---------- */
@@ -1098,6 +1345,72 @@ function openTeamsModal(id){
   };
 }
 
+/* ---------- Situation familiale (conjoint + enfants à charge) ---------- */
+const FAMILLE_OPTS=["Célibataire","Marié(e)","Concubinage","Divorcé(e)","Veuf(ve)","Pacsé(e)"];
+function openFamilyForm(agentId){
+  const a=DB.agents.find(x=>x.id===agentId);
+  if(!a) return;
+  const draft={
+    famille:a.famille||"Célibataire",
+    conjoint:{nom:(a.conjoint&&a.conjoint.nom)||"", prenom:(a.conjoint&&a.conjoint.prenom)||"", dateNaissance:(a.conjoint&&a.conjoint.dateNaissance)||""},
+    enfants:(a.enfantsListe||[]).map(e=>({...e}))
+  };
+  const mr=document.getElementById("modalRoot");
+  const childRow=(e,i)=>`<div class="child-row" data-i="${i}">
+      <input data-cf="nom" placeholder="Nom" value="${esc(e.nom)}">
+      <input data-cf="prenom" placeholder="Prénom" value="${esc(e.prenom)}">
+      <input data-cf="dateNaissance" type="date" value="${esc(e.dateNaissance)}">
+      <button type="button" class="btn ghost sm" data-rmchild="${i}" title="Retirer">${svg(I.trash,'ic')}</button>
+    </div>`;
+  function paint(){
+    mr.innerHTML=`<div class="overlay" id="overlay">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-head"><h3>Situation familiale — ${esc(a.prenom)} ${esc(a.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field"><label>Situation familiale</label><select id="famSitu">${FAMILLE_OPTS.map(o=>`<option ${draft.famille===o?"selected":""}>${esc(o)}</option>`).join("")}</select></div>
+          </div>
+          <div class="form-section">Conjoint</div>
+          <div class="form-grid">
+            <div class="field"><label>Nom</label><input id="conjNom" value="${esc(draft.conjoint.nom)}"></div>
+            <div class="field"><label>Prénom</label><input id="conjPrenom" value="${esc(draft.conjoint.prenom)}"></div>
+            <div class="field"><label>Date de naissance</label><input type="date" id="conjDob" value="${esc(draft.conjoint.dateNaissance)}"></div>
+          </div>
+          <div class="form-section">Enfants à charge</div>
+          <div id="childrenList">${draft.enfants.length?draft.enfants.map(childRow).join(""):`<div class="empty">Aucun enfant renseigné.</div>`}</div>
+          <button type="button" class="btn ghost sm" id="addChild" style="margin-top:8px">${svg(I.plus,'ic')} Ajouter un enfant</button>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" id="cancelModal">Annuler</button>
+          <button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button>
+        </div>
+      </div></div>`;
+    const close=()=>{ mr.innerHTML=""; };
+    document.getElementById("closeModal").onclick=close;
+    document.getElementById("cancelModal").onclick=close;
+    document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+    document.getElementById("famSitu").onchange=e=>{ draft.famille=e.target.value; };
+    document.getElementById("conjNom").oninput=e=>{ draft.conjoint.nom=e.target.value; };
+    document.getElementById("conjPrenom").oninput=e=>{ draft.conjoint.prenom=e.target.value; };
+    document.getElementById("conjDob").oninput=e=>{ draft.conjoint.dateNaissance=e.target.value; };
+    mr.querySelectorAll(".child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ inp.oninput=()=>{ draft.enfants[i][inp.dataset.cf]=inp.value; }; });
+    });
+    mr.querySelectorAll("[data-rmchild]").forEach(btn=>{ btn.onclick=()=>{ draft.enfants.splice(Number(btn.dataset.rmchild),1); paint(); }; });
+    document.getElementById("addChild").onclick=()=>{ draft.enfants.push({nom:"",prenom:"",dateNaissance:""}); paint(); };
+    document.getElementById("saveModal").onclick=()=>{
+      a.famille=draft.famille;
+      a.conjoint=(draft.conjoint.nom||draft.conjoint.prenom||draft.conjoint.dateNaissance)?{...draft.conjoint}:null;
+      a.enfantsListe=draft.enfants.filter(e=>e.nom||e.prenom||e.dateNaissance);
+      a.enfants=a.enfantsListe.length;
+      save(); close(); toast("Situation familiale mise à jour");
+      renderAgentDetail();
+    };
+  }
+  paint();
+}
+
 /* ---------- Chrome ---------- */
 function closeSidebar(){ document.getElementById("sidebar").classList.remove("open"); document.querySelector(".scrim")?.remove(); }
 document.getElementById("menuToggle").onclick=()=>{
@@ -1120,6 +1433,8 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElemen
 
 /* ---------- Boot ---------- */
 load();
+loadSession();
+renderSessionBar();
 render();
 </script>
 </body>
