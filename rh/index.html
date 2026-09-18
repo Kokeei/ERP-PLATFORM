@@ -288,6 +288,7 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
       <select id="sessRole">
         <option value="rh">RH (accès complet)</option>
         <option value="responsable">Responsable</option>
+        <option value="df">Direction Financière</option>
         <option value="agent">Agent</option>
       </select>
       <select id="sessAgent"></select>
@@ -340,7 +341,8 @@ const I = {
   check:'<path d="M20 6 9 17l-5-5"/>',
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
   teams:'<path d="M4 4.5h16v11H9l-5 4z"/>',
-  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  settings:'<path d="M4 6h16M4 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 12h16M14 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 18h16M8 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"/>'
 };
 const svg = (p,cls='ic')=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${p}</svg>`;
 
@@ -370,8 +372,8 @@ function agentMat(id){ const a=DB.agents.find(x=>x.id===id); return a? a.matricu
 
 const STATUS = {
   ok:["Validé","Validée","Actif","Terminée","Payée","Apte","Clôturé","Réalisé","Réalisée"],
-  warn:["En attente","Prévue","En cours","Demandé","Demandée","En instruction","Déclaré","Brouillon","Apte avec aménagement","Inapte temporaire","Planifiée"],
-  bad:["Refusé","Refusée","Inactif","Inapte","Annulée","Clôturé sans suite"]
+  warn:["En attente","Prévue","En cours","Demandé","Demandée","En instruction","Déclaré","Brouillon","Apte avec aménagement","Inapte temporaire","Planifiée","En contrôle"],
+  bad:["Refusé","Refusée","Inactif","Inapte","Annulée","Clôturé sans suite","Rejetée"]
 };
 function badge(s){
   if(!s) return `<span class="badge mut">—</span>`;
@@ -393,6 +395,7 @@ function load(){
 function migrate(){
   if(!DB.carriere) DB.carriere=[];
   if(!DB.documents) DB.documents=[];
+  if(!DB.paieConfig) DB.paieConfig=defaultPaieConfig();
   DB.agents.forEach(a=>{ if(a.superieurId===undefined) a.superieurId=null; });
   DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
   save();
@@ -416,6 +419,10 @@ function seed(){
   // Rattachement hiérarchique (index dans le tableau agents ci-dessus, null = sommet de la hiérarchie)
   const SUP=[null,0,1,0,0,0,0,0,3];
   agents.forEach((a,i)=>{ a.superieurId = SUP[i]!=null ? agents[SUP[i]].id : null; });
+
+  // Rémunération de base (utilisée par le moteur de génération des bulletins de paie)
+  const REM=[[550000,60000],[420000,35000],[260000,10000],[380000,25000],[480000,40000],[180000,0],[300000,15000],[420000,30000],[210000,5000]];
+  agents.forEach((a,i)=>{ a.salaireBrutMensuel=REM[i][0]; a.primeEmploi=REM[i][1]; });
 
   // Situation familiale détaillée (démo sur quelques agents)
   agents[0].conjoint={nom:"TEHEIURA",prenom:"Vaihere",dateNaissance:"1986-02-10"};
@@ -502,7 +509,7 @@ function seed(){
     {agentId:gid(3),objet:"Formation CNFPT",destination:"Nouméa",depart:"2026-02-24",retour:"2026-02-27",transport:"Avion",frais:320000,statut:"Demandé"}
   ].map(d=>({id:uid("d_"), ...d}));
 
-  return {agents,conges,paie,formations,visites,accidents,deplacements,carriere,documents};
+  return {agents,conges,paie,formations,visites,accidents,deplacements,carriere,documents,paieConfig:defaultPaieConfig()};
 }
 
 /* ---------- Module field configs ---------- */
@@ -556,6 +563,29 @@ const WORKFLOW_DEFS = {
         ]
       }
     }
+  },
+  paie:{
+    label:"Bulletin de paie",
+    start:"controle_df",
+    steps:{
+      // Le rejet reboucle sur cette même étape (le bulletin corrigé repasse par le même contrôle),
+      // ce qui conserve tout l'historique dans un seul et même workflow.
+      controle_df:{
+        label:"Contrôle Direction Financière",
+        actor:()=>{ const df=DB.agents.find(a=>a.direction==="Direction Financière" && a.actif!==false); return df?{label:agentName(df.id), agentId:df.id}:{label:"Direction Financière"}; },
+        actions:[
+          {id:"valider", label:"Valider le bulletin", to:"pret_paiement", setFields:(rec,actor)=>({statut:"Validée", controlePar:actor.label})},
+          {id:"rejeter", label:"Rejeter (à corriger)", to:"controle_df", setFields:(rec,actor)=>({statut:"Rejetée", controlePar:actor.label})}
+        ]
+      },
+      pret_paiement:{
+        label:"Prêt pour paiement",
+        actor:()=>({label:"Service Paie"}),
+        actions:[
+          {id:"payer", label:"Marquer comme payé", to:null, setFields:()=>({statut:"Payée"})}
+        ]
+      }
+    }
   }
 };
 function startWorkflow(defKey, rec){
@@ -580,6 +610,53 @@ function advanceWorkflow(rec, actionId, commentaire=""){
   rec.workflow.step=action.to;
 }
 
+/* ---------- Moteur de calcul de la paie ---------- */
+// Variables de paie éditables (taux CPS/CST, plafonds) : la génération des bulletins ne code en
+// dur aucun taux, tout est lu depuis DB.paieConfig pour rester paramétrable par la RH/Finance.
+function defaultPaieConfig(){
+  return {
+    horaireMensuel:169,
+    congesAcquisParMois:2.5,
+    cotisationsBrut:[
+      {code:"21800",libelle:"CPS Assurance maladie",plafond:null,tauxSalarial:4.98,tauxPatronal:9.96},
+      {code:"22800",libelle:"CPS Retraite TA",plafond:269000,tauxSalarial:7.84,tauxPatronal:15.69},
+      {code:"23800",libelle:"CPS Retraite TB",plafond:256000,tauxSalarial:5.81,tauxPatronal:11.62},
+      {code:"23950",libelle:"CPS FSR Exceptionnel",plafond:386000,tauxSalarial:0,tauxPatronal:1.00},
+      {code:"24100",libelle:"CPS Prestations familiales",plafond:null,tauxSalarial:0,tauxPatronal:4.16},
+      {code:"24300",libelle:"CPS Accident du travail",plafond:null,tauxSalarial:0,tauxPatronal:0.77},
+      {code:"24600",libelle:"Formation professionnelle",plafond:null,tauxSalarial:0,tauxPatronal:0.50}
+    ],
+    // Contribution de solidarité territoriale : barème progressif par tranches cumulées sur le brut.
+    cstTranches:[
+      {code:"25000",libelle:"CST à 0,5 %",plafond:150000,taux:0.5},
+      {code:"25100",libelle:"CST à 3 %",plafond:250000,taux:3.0},
+      {code:"25300",libelle:"CST à 5 %",plafond:400000,taux:5.0},
+      {code:"25450",libelle:"CST à 9 %",plafond:null,taux:9.0}
+    ]
+  };
+}
+function computeCST(brut, tranches){
+  const lines=[]; let prevCap=0;
+  (tranches||[]).forEach(t=>{
+    const cap = t.plafond==null ? brut : Math.min(brut, t.plafond);
+    const base = Math.max(0, cap-prevCap);
+    lines.push({...t, base, montant:Math.round(base*t.taux/100)});
+    prevCap=cap;
+  });
+  return lines;
+}
+function computeBulletin(agent, config){
+  const brut=Math.round((agent.salaireBrutMensuel||0)+(agent.primeEmploi||0));
+  const lignesCotis=(config.cotisationsBrut||[]).map(c=>{
+    const base = c.plafond ? Math.min(brut,c.plafond) : brut;
+    return {...c, base, montantSalarial:Math.round(base*c.tauxSalarial/100), montantPatronal:Math.round(base*c.tauxPatronal/100)};
+  });
+  const cstLignes=computeCST(brut, config.cstTranches);
+  const totalCotisSalariales=lignesCotis.reduce((s,l)=>s+l.montantSalarial,0)+cstLignes.reduce((s,l)=>s+l.montant,0);
+  const totalCotisPatronales=lignesCotis.reduce((s,l)=>s+l.montantPatronal,0);
+  return {brut, lignesCotis, cstLignes, totalCotisSalariales, totalCotisPatronales, net:brut-totalCotisSalariales};
+}
+
 /* ---------- Profil de test (droits différenciés par profil utilisateur) ---------- */
 // Il n'y a pas d'authentification dans ce prototype : ce sélecteur simule "je suis connecté
 // en tant que…" pour démontrer que les droits de consultation/modification varient selon le profil.
@@ -600,31 +677,34 @@ function renderSessionBar(){
     SESSION.role=roleSel.value;
     agentSel.style.display=SESSION.role==="rh"?"none":"block";
     saveSession();
-    go(SESSION.role==="agent" ? "mon-dashboard" : "dashboard");
+    go((ROLE_MODULES[SESSION.role]||["dashboard"])[0]);
   };
   agentSel.onchange=()=>{
     SESSION.asAgentId=agentSel.value; saveSession();
-    if(SESSION.role==="agent") go("mon-dashboard");
+    if(ROLE_MODULES[SESSION.role]) go(ROLE_MODULES[SESSION.role][0]);
     else if(view.agentId) renderAgentDetail();
   };
 }
+// Niveau d'accès au dossier d'un agent pour le profil de test actuel : "rh" (accès complet),
+// "self" (l'agent consulte son propre dossier, quel que soit son rôle), "team" (un responsable
+// consulte un membre direct de son équipe) ou "none" (accès refusé).
+function dossierAccess(a){
+  if(SESSION.role==="rh") return "rh";
+  if(a.id===SESSION.asAgentId) return "self";
+  if(SESSION.role==="responsable" && a.superieurId===SESSION.asAgentId) return "team";
+  return "none";
+}
 // Un document du dossier agent est-il visible pour le profil de test actuellement sélectionné ?
 function canViewDocument(doc, agentOfDossier){
-  if(SESSION.role==="rh") return true;
-  const isOwnDossier = agentOfDossier.id===SESSION.asAgentId;
-  if(SESSION.role==="responsable"){
-    const isDirectReport = agentOfDossier.superieurId===SESSION.asAgentId;
-    if(!isOwnDossier && !isDirectReport) return false;
-    return isOwnDossier || !doc.confidentiel;
-  }
-  if(SESSION.role==="agent") return isOwnDossier && !doc.confidentiel;
-  return false;
+  const access=dossierAccess(agentOfDossier);
+  if(access==="rh") return true;
+  if(access==="none") return false;
+  return access==="self" || !doc.confidentiel;
 }
 // Un document du dossier peut-il être ajouté/modifié/supprimé par le profil de test actuel ?
 function canEditDocuments(agentOfDossier){
-  if(SESSION.role==="rh") return true;
-  if(SESSION.role==="responsable") return agentOfDossier.superieurId===SESSION.asAgentId;
-  return false;
+  const access=dossierAccess(agentOfDossier);
+  return access==="rh" || access==="team";
 }
 
 const FORMS = {
@@ -648,12 +728,15 @@ const FORMS = {
       {k:"finContrat",l:"Fin de contrat (CDD)",t:"date"},
       {k:"quotite",l:"Quotité de travail (%)",t:"number"},
       {k:"solde",l:"Solde congés (jours)",t:"number"},
+      {s:"Rémunération"},
+      {k:"salaireBrutMensuel",l:"Traitement de base mensuel (XPF)",t:"number",hint:"Utilisé pour générer le bulletin de paie"},
+      {k:"primeEmploi",l:"Prime à l'emploi (XPF/mois)",t:"number"},
       {s:"Contact"},
       {k:"email",l:"Email professionnel",t:"email"},
       {k:"tel",l:"Téléphone",t:"tel"},
       {k:"actif",l:"Agent actif",t:"bool"}
     ],
-    defaults:()=>({civ:"M.",statut:"Titulaire",actif:true,quotite:100,enfants:0,solde:0,entree:todayISO()})
+    defaults:()=>({civ:"M.",statut:"Titulaire",actif:true,quotite:100,enfants:0,solde:0,entree:todayISO(),salaireBrutMensuel:0,primeEmploi:0})
   },
   conges:{ title:"congé",
     fields:[
@@ -770,26 +853,50 @@ const NAV = [
 ];
 // Libellés des onglets du dossier agent (inclut des onglets propres au dossier, absents du menu principal).
 const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents"};
-// Menu restreint affiché quand le profil de test est "Agent" : accès uniquement à son propre espace.
+// Menus restreints affichés selon le profil de test (chacun n'a accès qu'à son propre périmètre).
 const AGENT_NAV = [
   {id:"mon-dashboard", label:"Mon espace", icon:I.dash},
   {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
   {id:"mes-conges", label:"Mes congés & absences", icon:I.conges}
 ];
-const SELF_SERVICE_MODULES=["mon-dashboard","mon-dossier","mes-conges"];
+const RESP_NAV = [
+  {id:"resp-dashboard", label:"Tableau de bord équipe", icon:I.dash},
+  {id:"resp-equipe", label:"Mon équipe", icon:I.agents},
+  {id:"resp-validations", label:"Validations congés", icon:I.conges},
+  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
+  {id:"mes-conges", label:"Mes congés", icon:I.conges}
+];
+const DF_NAV = [
+  {id:"df-controle", label:"Contrôle des bulletins", icon:I.paie},
+  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
+  {id:"mes-conges", label:"Mes congés", icon:I.conges}
+];
+const ROLE_NAV = {agent:AGENT_NAV, responsable:RESP_NAV, df:DF_NAV};
+const ROLE_MODULES = {
+  agent: AGENT_NAV.map(n=>n.id),
+  responsable: RESP_NAV.map(n=>n.id),
+  df: DF_NAV.map(n=>n.id)
+};
+const ALL_RESTRICTED_MODULES = [...new Set([].concat(...Object.values(ROLE_MODULES)))];
 
 /* ---------- App state ---------- */
 let view = {module:"dashboard", agentId:null, tab:"conges", search:"", filter:""};
 
 /* ---------- Render: nav ---------- */
+function navBadgeCount(id){
+  if(id==="mes-conges") return DB.conges.filter(x=>x.agentId===SESSION.asAgentId && x.statut==="En attente").length;
+  if(id==="resp-validations") return pendingApprovalsFor(SESSION.asAgentId).length;
+  if(id==="df-controle") return DB.paie.filter(p=>p.statut==="En contrôle").length;
+  return 0;
+}
 function renderNav(){
-  if(SESSION.role==="agent"){
+  const roleNav=ROLE_NAV[SESSION.role];
+  if(roleNav){
     let html="";
-    AGENT_NAV.forEach(n=>{
+    roleNav.forEach(n=>{
       const active=view.module===n.id?"active":"";
-      let cnt="";
-      if(n.id==="mes-conges"){ const c=DB.conges.filter(x=>x.agentId===SESSION.asAgentId && x.statut==="En attente").length; if(c) cnt=`<span class="count">${c}</span>`; }
-      html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${n.label}</span>${cnt}</a>`;
+      const cnt=navBadgeCount(n.id);
+      html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${n.label}</span>${cnt?`<span class="count">${cnt}</span>`:""}</a>`;
     });
     document.getElementById("nav").innerHTML=html;
     document.querySelectorAll("[data-nav]").forEach(a=>a.onclick=()=>{ go(a.dataset.nav); closeSidebar(); });
@@ -812,12 +919,14 @@ function renderNav(){
 function go(module, opts={}){ view={...view, module, agentId:opts.agentId||null, search:"", filter:""}; if(opts.tab) view.tab=opts.tab; render(); }
 
 function render(){
-  // Un profil "Agent" n'a accès qu'à son espace personnel ; un profil RH/Responsable n'a pas
-  // vocation à rester sur les pages self-service (elles n'ont de sens que rattachées à SESSION.asAgentId).
-  if(SESSION.role==="agent"){
-    if(!SELF_SERVICE_MODULES.includes(view.module)){ view.module="mon-dashboard"; view.agentId=null; }
-  } else if(SELF_SERVICE_MODULES.includes(view.module)){
-    view.module="dashboard"; view.agentId=null;
+  // Chaque profil restreint (Agent, Responsable, Direction Financière) n'a accès qu'à son propre
+  // périmètre ; le RH n'a pas vocation à rester sur ces pages self-service (elles n'ont de sens
+  // que rattachées à SESSION.asAgentId). On ne redirige pas si un dossier d'agent est ouvert
+  // (view.agentId) : c'est à renderAgentDetail() / dossierAccess() de statuer sur ce cas-là.
+  const allowed=ROLE_MODULES[SESSION.role];
+  if(!view.agentId){
+    if(allowed && !allowed.includes(view.module)) view.module=allowed[0];
+    else if(!allowed && ALL_RESTRICTED_MODULES.includes(view.module)) view.module="dashboard";
   }
   renderNav();
   const c=document.getElementById("content");
@@ -832,6 +941,10 @@ function render(){
     document.getElementById("addBtn").onclick=()=>openForm("conges", null, {agentId:SESSION.asAgentId}, {selfService:true});
     return;
   }
+  if(view.module==="resp-dashboard"){ t.textContent="Tableau de bord équipe"; s.textContent="Vue d'ensemble de mon équipe"; c.innerHTML=renderRespDashboard(); bindRespDashboard(); return; }
+  if(view.module==="resp-equipe"){ const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId); t.textContent="Mon équipe"; s.textContent=`${team.length} agent${team.length>1?"s":""} rattaché${team.length>1?"s":""}`; c.innerHTML=renderMonEquipe(); bindMonEquipe(); return; }
+  if(view.module==="resp-validations"){ t.textContent="Validations congés"; s.textContent="Demandes de mon équipe en attente de ma validation"; c.innerHTML=renderValidations(); bindValidations(); return; }
+  if(view.module==="df-controle"){ t.textContent="Contrôle des bulletins"; s.textContent="Bulletins de paie soumis au contrôle de la Direction Financière"; c.innerHTML=renderDFControle(); bindDFControle(); return; }
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble des effectifs et des demandes en cours"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
   if(view.agentId){ renderAgentDetail(); return; }
   const nav=NAV.find(n=>n.id===view.module);
@@ -840,8 +953,15 @@ function render(){
   s.textContent=`${coll.length} enregistrement${coll.length>1?"s":""}`;
   act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau</button>`;
   document.getElementById("addBtn").onclick=()=>openForm(view.module);
+  if(view.module==="paie"){
+    act.innerHTML+=` <button class="btn" id="genBulletinsBtn">${svg(I.plus,'ic')} Générer une période</button> <button class="btn" id="paieConfigBtn">${svg(I.settings,'ic')} Variables de paie</button>`;
+  }
   c.innerHTML = LISTS[view.module]();
   bindList();
+  if(view.module==="paie"){
+    document.getElementById("genBulletinsBtn").onclick=()=>openGenerateBulletins();
+    document.getElementById("paieConfigBtn").onclick=()=>openPaieConfigForm();
+  }
 }
 
 /* ---------- Espace self-service (profil Agent) ---------- */
@@ -904,6 +1024,87 @@ function bindMesConges(){
   const fs=document.getElementById("filterSel");
   if(fs) fs.onchange=()=>{ view.filter=fs.value; const c=document.getElementById("content"); c.innerHTML=renderMesConges(); bindMesConges(); };
   document.querySelectorAll("[data-history]").forEach(el=>el.onclick=()=>openWorkflowHistory(el.dataset.history));
+}
+
+/* ---------- Espace self-service (profil Responsable) ---------- */
+function pendingApprovalsFor(agentId){
+  return DB.conges.filter(c=>c.statut==="En attente" && getApprover(c.agentId, todayISO())?.agent?.id===agentId);
+}
+function renderRespDashboard(){
+  const me=DB.agents.find(x=>x.id===SESSION.asAgentId);
+  const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId);
+  const pend=pendingApprovalsFor(SESSION.asAgentId);
+  return `
+    <div class="kpi-grid">
+      <div class="kpi" tabindex="0" data-goto="resp-equipe"><div class="k-lbl">Effectif de mon équipe</div><div class="k-val">${team.length}</div></div>
+      <div class="kpi" tabindex="0" data-goto="resp-validations"><div class="k-lbl">Congés à valider</div><div class="k-val">${pend.length}</div><div class="k-meta ${pend.length?'warn':'ok'}">${pend.length?"Action requise":"À jour"}</div></div>
+      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Mon solde congés</div><div class="k-val">${me?.solde??0}</div><div class="k-meta mut">jours disponibles</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Mon équipe</h3></div>
+      <div class="panel-body">
+        ${team.length?team.map(a=>`<div class="mini-row" data-open="${a.id}"><div class="av">${initials(a.nom,a.prenom)}</div><div><div class="who">${esc(a.prenom)} ${esc(a.nom)}</div><div class="det">${esc(a.fonction||"—")}</div></div><div class="spacer"></div>${a.actif!==false?'<span class="badge ok">Actif</span>':'<span class="badge bad">Inactif</span>'}</div>`).join(""):`<div class="empty">Aucun agent rattaché.</div>`}
+      </div>
+    </div>`;
+}
+function bindRespDashboard(){
+  document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto));
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go("agents",{agentId:el.dataset.open}));
+}
+function renderMonEquipe(){
+  const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId);
+  const cols=[{h:"Agent"},{h:"Matricule"},{h:"Fonction"},{h:"Solde CA",num:true},{h:"État"}];
+  const body=team.map(a=>`<tr data-open="${a.id}" style="cursor:pointer">
+      <td><div class="name-cell"><div class="av">${initials(a.nom,a.prenom)}</div><div><div class="cell-name">${esc(a.prenom)} ${esc(a.nom)}</div><div class="cell-sub">${esc(a.grade||"")}</div></div></div></td>
+      <td><span class="tag">${esc(a.matricule)}</span></td>
+      <td>${esc(a.fonction||"—")}</td>
+      <td class="num">${a.solde??0} j</td>
+      <td>${a.actif!==false?'<span class="badge ok">Actif</span>':'<span class="badge bad">Inactif</span>'}</td>
+    </tr>`).join("");
+  return tableShell(cols,body);
+}
+function bindMonEquipe(){
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go("agents",{agentId:el.dataset.open}));
+}
+function renderValidations(){
+  const rows=DB.conges.filter(c=>c.statut==="En attente" && getApprover(c.agentId, todayISO())?.agent?.id===SESSION.asAgentId)
+    .sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
+  const cols=[{h:"Agent"},{h:"Type"},{h:"Période"},{h:"Jours",num:true},{h:"Motif"},{h:""}];
+  const body=rows.map(c=>`<tr>
+      <td class="cell-name">${esc(agentName(c.agentId))}</td>
+      <td>${esc(c.type)}</td>
+      <td>${fmtDate(c.debut)} → ${fmtDate(c.fin)}</td>
+      <td class="num">${c.jours}</td>
+      <td>${esc(c.motif||"—")}</td>
+      <td><div class="row-actions">
+        <button class="btn ghost sm" data-approve="${c.id}" data-mod="conges" title="Valider">${svg(I.check,'ic')}</button>
+        <button class="btn ghost sm" data-refuse="${c.id}" title="Refuser">${svg(I.x,'ic')}</button>
+        <button class="btn ghost sm" data-history="${c.id}" title="Historique">${svg(I.clock,'ic')}</button>
+      </div></td>
+    </tr>`).join("");
+  return tableShell(cols,body);
+}
+function bindValidations(){
+  document.querySelectorAll("[data-approve]").forEach(el=>el.onclick=()=>approve(el.dataset.mod, el.dataset.approve));
+  document.querySelectorAll("[data-refuse]").forEach(el=>el.onclick=()=>decideConge(el.dataset.refuse,"refuser"));
+  document.querySelectorAll("[data-history]").forEach(el=>el.onclick=()=>openWorkflowHistory(el.dataset.history));
+}
+
+/* ---------- Espace self-service (profil Direction Financière) ---------- */
+function renderDFControle(){
+  const rows=DB.paie.filter(p=>p.statut==="En contrôle").sort((a,b)=>(a.periode||"").localeCompare(b.periode||""));
+  const cols=[{h:"Agent"},{h:"Période"},{h:"Brut",num:true},{h:"Net à payer",num:true},{h:""}];
+  const body=rows.map(p=>`<tr>
+      <td class="cell-name">${esc(agentName(p.agentId))}</td>
+      <td>${esc(p.periode)}</td>
+      <td class="num">${fmtMoney(p.brut)}</td>
+      <td class="num" style="font-weight:700">${fmtMoney(p.net)}</td>
+      <td><button class="btn ghost sm" data-view="${p.id}" title="Examiner">${svg(I.eye,'ic')}</button></td>
+    </tr>`).join("");
+  return tableShell(cols,body);
+}
+function bindDFControle(){
+  document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
 /* ---------- Dashboard ---------- */
@@ -1060,10 +1261,10 @@ const LISTS = {
       <td class="num">${fmtMoney(p.cotis)}</td>
       <td class="num" style="font-weight:700">${fmtMoney(p.net)}</td>
       <td>${badge(p.statut)}</td>
-      <td>${rowActions("paie",p.id)}</td>
+      <td>${rowActions("paie",p.id,`<button class="btn ghost sm" data-view="${p.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`)}</td>
     </tr>`).join("");
     const totalNet=rows.reduce((s,p)=>s+(p.net||0),0);
-    return toolbar("statut",["Brouillon","Validée","Payée"])+tableShell(cols,body)+
+    return toolbar("statut",["Brouillon","En contrôle","Rejetée","Validée","Payée"])+tableShell(cols,body)+
       `<div style="margin-top:12px;text-align:right;color:var(--ink-2);font-size:13.5px">Masse salariale nette affichée : <strong style="color:var(--ink)">${fmtMoney(totalNet)}</strong></div>`;
   },
   formations(){
@@ -1144,18 +1345,24 @@ function bindList(){
   document.querySelectorAll("[data-refuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideConge(el.dataset.refuse,"refuser"); });
   document.querySelectorAll("[data-teams]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openTeamsModal(el.dataset.teams); });
   document.querySelectorAll("[data-history]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openWorkflowHistory(el.dataset.history); });
+  document.querySelectorAll("[data-view]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openBulletinDetail(el.dataset.view); });
 }
 
 /* ---------- Agent detail ---------- */
+// Page d'accueil vers laquelle renvoyer selon le profil de test, quand l'accès à un dossier est refusé.
+function roleHome(){ return (ROLE_MODULES[SESSION.role]||["dashboard"])[0]; }
 function renderAgentDetail(){
   const a=DB.agents.find(x=>x.id===view.agentId);
-  const isSelf=SESSION.role==="agent";
-  if(!a){ go(isSelf?"mon-dashboard":"agents"); return; }
+  if(!a){ go(roleHome()); return; }
+  const access=dossierAccess(a);
+  if(access==="none"){ go(roleHome()); return; }
   document.getElementById("pageTitle").textContent=`${a.prenom} ${a.nom}`;
   document.getElementById("pageSub").textContent=`${a.matricule} · ${a.direction}`;
-  document.getElementById("pageActions").innerHTML = isSelf
-    ? `<button class="btn" id="backBtn">${svg(I.back)} Mon espace</button>`
-    : `<button class="btn" id="backBtn">${svg(I.back)} Retour</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`;
+  const backLabel = access==="rh" ? "Retour" : access==="team" ? "Mon équipe" : "Mon espace";
+  const backTarget = access==="rh" ? "agents" : access==="team" ? "resp-equipe" : roleHome();
+  document.getElementById("pageActions").innerHTML = access==="rh"
+    ? `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`
+    : `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button>`;
 
   const rel = coll => DB[coll].filter(x=>x.agentId===a.id);
   const c=document.getElementById("content");
@@ -1206,7 +1413,7 @@ function renderAgentDetail(){
         </div>
       </div>
       <div class="panel" style="margin-top:16px">
-        <div class="panel-head"><h3>Situation familiale</h3><div class="spacer"></div><button class="btn ghost sm" id="editFamilyBtn" title="Modifier">${svg(I.edit,'ic')}</button></div>
+        <div class="panel-head"><h3>Situation familiale</h3><div class="spacer"></div>${(access==="rh"||access==="self")?`<button class="btn ghost sm" id="editFamilyBtn" title="Modifier">${svg(I.edit,'ic')}</button>`:""}</div>
         <div class="panel-body" style="padding:6px 18px 14px">
           <div class="info-list">
             <div class="row"><span class="l">Situation</span><span class="v">${esc(a.famille||"—")}</span></div>
@@ -1222,22 +1429,24 @@ function renderAgentDetail(){
       </div>
     </div>`;
 
-  document.getElementById("backBtn").onclick=()=>go(isSelf?"mon-dashboard":"agents");
+  document.getElementById("backBtn").onclick=()=>go(backTarget);
   const editAgentBtn=document.getElementById("editAgentBtn");
   if(editAgentBtn) editAgentBtn.onclick=()=>openForm("agents",a.id);
-  document.getElementById("editFamilyBtn").onclick=()=>openFamilyForm(a.id);
+  const editFamilyBtn=document.getElementById("editFamilyBtn");
+  if(editFamilyBtn) editFamilyBtn.onclick=()=>openFamilyForm(a.id);
   document.querySelectorAll("#detailTabs [data-tab]").forEach(b=>b.onclick=()=>{ view.tab=b.dataset.tab; renderDetailPane(a); document.querySelectorAll("#detailTabs [data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===view.tab)); });
   renderDetailPane(a);
 }
 
 function renderDetailPane(a){
   const pane=document.getElementById("detailPane");
-  const isSelf=SESSION.role==="agent";
+  const access=dossierAccess(a);
   let rows=DB[view.tab].filter(x=>x.agentId===a.id);
-  // Profil Agent : ne peut déposer que des demandes de congés, et ne peut ni modifier ni
-  // supprimer un enregistrement déjà existant (données administratives gérées par la RH).
-  let canAdd = view.tab==="conges" ? true : !isSelf;
-  let canEditRow = view.tab==="conges" ? !isSelf : canAdd;
+  // Seule la RH gère librement tous les onglets ; le profil "self" (l'agent, quel que soit son
+  // rôle) peut uniquement déposer une demande de congés ; un responsable ("team") ne fait que
+  // consulter, sauf pour les documents où ses droits sont gérés séparément (canEditDocuments).
+  let canAdd = access==="rh" ? true : (view.tab==="conges" && access==="self");
+  let canEditRow = access==="rh";
   if(view.tab==="documents"){ rows=rows.filter(d=>canViewDocument(d,a)); canAdd=canEditDocuments(a); canEditRow=canAdd; }
   const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   const head=(title)=>`<div class="panel-head" style="border-radius:10px 10px 0 0"><h3>${title}</h3><div class="spacer"></div>${addBtn}</div>`;
@@ -1245,9 +1454,9 @@ function renderDetailPane(a){
   if(!rows.length){ inner=`<div class="empty">${view.tab==="documents"&&!canAdd?"Aucun document accessible avec ce profil.":"Aucun enregistrement pour cet agent."}</div>`; }
   else{
     inner=`<div style="overflow-x:auto"><table><tbody>`+rows.map(r=>{
-      let main="", sub="", right="";
+      let main="", sub="", right="", viewBtn="";
       if(view.tab==="conges"){ main=r.type; sub=`${fmtDate(r.debut)} → ${fmtDate(r.fin)} · ${r.jours} j`; right=badge(r.statut); }
-      else if(view.tab==="paie"){ main=r.periode; sub=`Net ${fmtMoney(r.net)}`; right=badge(r.statut); }
+      else if(view.tab==="paie"){ main=r.periode; sub=`Net ${fmtMoney(r.net)}`; right=badge(r.statut); viewBtn=`<button class="btn ghost sm" data-view="${r.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`; }
       else if(view.tab==="formations"){ main=r.intitule; sub=`${r.organisme||""} · ${r.debut?fmtDate(r.debut):""}`; right=badge(r.statut); }
       else if(view.tab==="visites"){ main=r.type; sub=`${fmtDate(r.prevue)}${r.realisee?" · réalisée "+fmtDate(r.realisee):""}`; right=badge(r.avis); }
       else if(view.tab==="accidents"){ main=fmtDate(r.date); sub=`${r.lesions||""}${r.cafat?" · "+r.cafat:""}`; right=badge(r.statut); }
@@ -1257,15 +1466,16 @@ function renderDetailPane(a){
       return `<tr>
         <td><div class="cell-name">${esc(main)}</div><div class="cell-sub">${esc(sub)}</div></td>
         <td style="text-align:right">${right}</td>
-        <td style="width:1%">${canEditRow?rowActions(view.tab,r.id):""}</td>
+        <td style="width:1%">${viewBtn}${canEditRow?rowActions(view.tab,r.id):""}</td>
       </tr>`;
     }).join("")+`</tbody></table></div>`;
   }
   pane.innerHTML=`<div class="panel">${head(TAB_LABELS[view.tab])}<div class="panel-body" style="padding:6px">${inner}</div></div>`;
   const detailAdd=document.getElementById("detailAdd");
-  if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id}, isSelf?{selfService:true}:{});
+  if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id}, access!=="rh"?{selfService:true}:{});
   pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm(view.tab, el.dataset.edit));
   pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord(el.dataset.mod, el.dataset.del));
+  pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
 /* ---------- Form modal ---------- */
@@ -1524,6 +1734,161 @@ function openFamilyForm(agentId){
     };
   }
   paint();
+}
+
+/* ---------- Génération et contrôle des bulletins de paie ---------- */
+function openGenerateBulletins(){
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Générer les bulletins de paie</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Période (mois)</label><input type="month" id="genPeriode" value="${todayISO().slice(0,7)}"></div>
+      </div>
+      <p class="hint" style="margin-top:10px;display:block">Un bulletin est généré pour chaque agent actif n'en ayant pas déjà un sur cette période, à partir de son traitement de base, de sa prime à l'emploi et des variables de paie configurées (cotisations CPS/CST).</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="genBtn">${svg(I.check)} Générer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("genBtn").onclick=()=>{
+    const periode=document.getElementById("genPeriode").value;
+    if(!periode){ toast("Choisir une période"); return; }
+    let created=0;
+    DB.agents.filter(a=>a.actif!==false).forEach(a=>{
+      if(DB.paie.some(p=>p.agentId===a.id && p.periode===periode)) return;
+      const calc=computeBulletin(a, DB.paieConfig);
+      DB.paie.push({
+        id:uid("p_"), agentId:a.id, periode,
+        brut:calc.brut, primes:a.primeEmploi||0,
+        lignesCotis:calc.lignesCotis, cstLignes:calc.cstLignes,
+        cotis:calc.totalCotisSalariales, cotisPatronales:calc.totalCotisPatronales,
+        net:calc.net, statut:"Brouillon"
+      });
+      created++;
+    });
+    save(); close();
+    toast(created?`${created} bulletin(s) généré(s) pour ${periode}`:"Tous les agents actifs ont déjà un bulletin pour cette période");
+    render();
+  };
+}
+function openPaieConfigForm(){
+  const cfg=DB.paieConfig;
+  const mr=document.getElementById("modalRoot");
+  const cotisRows=cfg.cotisationsBrut.map((l,i)=>`<div class="child-row" data-i="${i}" style="grid-template-columns:2fr 1fr 1fr 1fr">
+      <div style="font-size:12.5px;align-self:center">${esc(l.libelle)}</div>
+      <input data-cf="plafond" type="number" placeholder="Plafond (vide=brut)" value="${l.plafond??""}">
+      <input data-cf="tauxSalarial" type="number" step="0.01" placeholder="Taux sal. %" value="${l.tauxSalarial}">
+      <input data-cf="tauxPatronal" type="number" step="0.01" placeholder="Taux pat. %" value="${l.tauxPatronal}">
+    </div>`).join("");
+  const cstRows=cfg.cstTranches.map((l,i)=>`<div class="child-row" data-i="${i}" style="grid-template-columns:2fr 1fr 1fr">
+      <div style="font-size:12.5px;align-self:center">${esc(l.libelle)}</div>
+      <input data-cf="plafond" type="number" placeholder="Plafond cumulé (vide=illimité)" value="${l.plafond??""}">
+      <input data-cf="taux" type="number" step="0.01" placeholder="Taux %" value="${l.taux}">
+    </div>`).join("");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:720px">
+    <div class="modal-head"><h3>Variables de paie</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-section">Cotisations CPS (assises sur le brut, plafonné si indiqué)</div>
+      <div id="cotisList">${cotisRows}</div>
+      <div class="form-section" style="margin-top:14px">CST — barème progressif (tranches cumulées sur le brut)</div>
+      <div id="cstList">${cstRows}</div>
+      <div class="form-section" style="margin-top:14px">Autres paramètres</div>
+      <div class="form-grid">
+        <div class="field"><label>Congés acquis / mois (jours)</label><input type="number" step="0.1" id="cfgConges" value="${cfg.congesAcquisParMois}"></div>
+        <div class="field"><label>Horaire mensuel de référence</label><input type="number" id="cfgHoraire" value="${cfg.horaireMensuel}"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    document.querySelectorAll("#cotisList .child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.cotisationsBrut[i][inp.dataset.cf]=inp.value===""?null:Number(inp.value); });
+    });
+    document.querySelectorAll("#cstList .child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.cstTranches[i][inp.dataset.cf]=inp.value===""?null:Number(inp.value); });
+    });
+    cfg.congesAcquisParMois=Number(document.getElementById("cfgConges").value)||0;
+    cfg.horaireMensuel=Number(document.getElementById("cfgHoraire").value)||0;
+    save(); close(); toast("Variables de paie mises à jour");
+  };
+}
+function paieActionsHTML(p){
+  const canControl = SESSION.role==="df" || SESSION.role==="rh";
+  let html="";
+  if(p.statut==="Brouillon" && SESSION.role==="rh") html+=`<button class="btn primary sm" id="submitControle">${svg(I.check,'ic')} Soumettre au contrôle</button>`;
+  if(p.statut==="Rejetée" && SESSION.role==="rh") html+=`<button class="btn primary sm" id="resubmitControle">${svg(I.check,'ic')} Resoumettre au contrôle</button>`;
+  if(p.statut==="En contrôle" && canControl) html+=`<button class="btn primary sm" id="validerBulletin">${svg(I.check,'ic')} Valider</button> <button class="btn sm" id="rejeterBulletin">${svg(I.x,'ic')} Rejeter</button>`;
+  if(p.statut==="Validée" && canControl) html+=`<button class="btn primary sm" id="marquerPaye">${svg(I.check,'ic')} Marquer payé</button>`;
+  return html;
+}
+function wireBulletinActions(p){
+  const rerender=(msg)=>{ save(); document.getElementById("modalRoot").innerHTML=""; toast(msg); render(); };
+  const sub=document.getElementById("submitControle");
+  if(sub) sub.onclick=()=>{ startWorkflow("paie", p); p.statut="En contrôle"; rerender("Bulletin soumis au contrôle de la Direction Financière"); };
+  const resub=document.getElementById("resubmitControle");
+  if(resub) resub.onclick=()=>{
+    if(!p.workflow) startWorkflow("paie", p);
+    p.workflow.history.push({step:"Contrôle Direction Financière", actorLabel:"", action:"Resoumission au contrôle", date:nowStamp(), commentaire:""});
+    p.statut="En contrôle"; rerender("Bulletin resoumis au contrôle");
+  };
+  const val=document.getElementById("validerBulletin");
+  if(val) val.onclick=()=>{ advanceWorkflow(p,"valider"); rerender("Bulletin validé"); };
+  const rej=document.getElementById("rejeterBulletin");
+  if(rej) rej.onclick=()=>{ advanceWorkflow(p,"rejeter"); rerender("Bulletin rejeté, à corriger"); };
+  const pay=document.getElementById("marquerPaye");
+  if(pay) pay.onclick=()=>{ advanceWorkflow(p,"payer"); rerender("Bulletin marqué comme payé"); };
+}
+function openBulletinDetail(id){
+  const p=DB.paie.find(x=>x.id===id);
+  if(!p) return;
+  const a=DB.agents.find(x=>x.id===p.agentId);
+  const cotisRows=(p.lignesCotis||[]).map(l=>`<tr>
+      <td>${esc(l.code)} ${esc(l.libelle)}</td><td class="num">${fmtMoney(l.base)}</td>
+      <td class="num">${l.tauxSalarial||0}%</td><td class="num">${l.montantSalarial?fmtMoney(l.montantSalarial):"—"}</td>
+      <td class="num">${l.tauxPatronal||0}%</td><td class="num">${l.montantPatronal?fmtMoney(l.montantPatronal):"—"}</td>
+    </tr>`).join("");
+  const cstRows=(p.cstLignes||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td class="num">${fmtMoney(l.base)}</td><td class="num">${l.taux}%</td><td class="num">${fmtMoney(l.montant)}</td><td class="num">—</td><td class="num">—</td></tr>`).join("");
+  const actions=paieActionsHTML(p);
+  const historyHtml=(p.workflow&&p.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${p.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div></div></div>`).join("")}</div>`:"";
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:820px">
+    <div class="modal-head"><h3>Bulletin de paie — ${esc(agentName(p.agentId))} · ${esc(p.periode)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:14px">
+        <div><div class="cell-sub">Matricule</div><div class="cell-name">${esc(a?.matricule||"—")}</div></div>
+        <div><div class="cell-sub">Direction / Service</div><div class="cell-name">${esc(a?.direction||"—")}</div></div>
+        <div><div class="cell-sub">Statut</div>${badge(p.statut)}</div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:14px"><table>
+        <thead><tr><th>Désignation</th><th style="text-align:right">Base</th><th style="text-align:right">Taux sal.</th><th style="text-align:right">Retenue sal.</th><th style="text-align:right">Taux pat.</th><th style="text-align:right">Charge pat.</th></tr></thead>
+        <tbody>
+          <tr><td>Traitement de base</td><td class="num">${fmtMoney(a?.salaireBrutMensuel)}</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Prime à l'emploi</td><td class="num">${fmtMoney(a?.primeEmploi)}</td><td></td><td></td><td></td><td></td></tr>
+          <tr style="font-weight:700"><td>Total Brut</td><td class="num">${fmtMoney(p.brut)}</td><td></td><td></td><td></td><td></td></tr>
+          ${cotisRows}${cstRows}
+          <tr style="font-weight:700"><td>Total cotisations</td><td></td><td></td><td class="num">${fmtMoney(p.cotis)}</td><td></td><td class="num">${fmtMoney(p.cotisPatronales)}</td></tr>
+        </tbody>
+      </table></div>
+      <div style="text-align:right;font-size:16px;font-weight:800">Net à payer : ${fmtMoney(p.net)}</div>
+      ${historyHtml}
+      <p class="hint" style="margin-top:14px;display:block">Modèle de calcul simplifié à des fins de démonstration (traitement de base + prime, sans gestion des tranches horaires) — les taux/plafonds CPS et CST sont paramétrables via « Variables de paie ».</p>
+    </div>
+    <div class="modal-foot">${actions}<button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  wireBulletinActions(p);
 }
 
 /* ---------- Chrome ---------- */
