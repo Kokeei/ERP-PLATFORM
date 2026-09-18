@@ -248,6 +248,10 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 .wf-actor{font-size:12.5px; color:var(--ink-2); margin-top:2px}
 .wf-comment{font-size:12.5px; color:var(--ink-3); margin-top:4px; font-style:italic}
 
+/* Check-list maternité */
+.tache-list{display:flex; flex-direction:column; gap:10px}
+.tache-row{display:flex; gap:14px; padding:12px; border:1px solid var(--border); border-radius:10px; align-items:flex-start}
+
 /* Anomalie de bulletin de paie */
 .anomalie-box{background:var(--bad-bg); color:var(--bad); border:1px solid var(--bad); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:13px}
 .anomalie-box strong{display:block; margin-bottom:3px}
@@ -362,7 +366,10 @@ const I = {
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
   settings:'<path d="M4 6h16M4 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 12h16M14 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 18h16M8 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"/>',
   print:'<path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><path d="M6 14h12v7H6z"/>',
-  chevron:'<path d="M9 6l6 6-6 6"/>'
+  chevron:'<path d="M9 6l6 6-6 6"/>',
+  drop:'<path d="M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z"/>',
+  star:'<path d="M12 3l2.6 5.8 6.2.6-4.7 4.2 1.4 6.2L12 16.9 6.5 19.8l1.4-6.2-4.7-4.2 6.2-.6z"/>',
+  checklist:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>'
 };
 const svg = (p,cls='ic')=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${p}</svg>`;
 
@@ -374,6 +381,22 @@ const todayISO = ()=> new Date().toISOString().slice(0,10);
 function fmtDate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
 function fmtMoney(n){ if(n==null||n==="") return "—"; return Number(n).toLocaleString("fr-FR").replace(/\u202f/g," ")+" XPF"; }
 function daysBetween(a,b){ if(!a||!b) return 0; const d=(new Date(b)-new Date(a))/86400000; return d<0?0:Math.round(d)+1; }
+// Règles de décompte des congés (grille ANFA), paramétrables plutôt que codées en dur.
+// Exemple donné par la RH : un congé se terminant un vendredi entraîne le décompte du samedi en plus.
+function defaultReglesConges(){
+  return {inclureSamediSiVendredi:true, inclureDimancheSiSamediInclus:false};
+}
+function joursDecomptesConge(debut, fin, regles){
+  let jours=daysBetween(debut, fin);
+  if(!debut||!fin||!regles) return jours;
+  const finDate=new Date(fin);
+  const finVendredi = finDate.getDay()===5; // 0=dimanche … 5=vendredi
+  if(regles.inclureSamediSiVendredi && finVendredi){
+    jours+=1;
+    if(regles.inclureDimancheSiSamediInclus) jours+=1;
+  }
+  return jours;
+}
 function ancienneteLabel(entree){
   if(!entree) return "—";
   const d0=new Date(entree), d1=new Date();
@@ -387,6 +410,30 @@ function ancienneteLabel(entree){
   return parts.join(" ");
 }
 function initials(nom,prenom){ return ((prenom||" ")[0]+(nom||" ")[0]).toUpperCase(); }
+
+/* ---------- Horaires individuels ---------- */
+// Horaire standard de l'établissement ; personnalisable par agent (réorganisation du temps de travail),
+// et réutilisé par les congés (décompte) et l'allaitement (calcul des tranches).
+function defaultHoraire(){
+  return {lunJeuDebut:"07:30", lunJeuFin:"15:30", vendrediDebut:"07:30", vendrediFin:"14:30", pauseDejeunerMin:30, reorganise:false, commentaireReorganisation:""};
+}
+function horaireLabel(h){
+  if(!h) h=defaultHoraire();
+  return `Lun-Jeu ${h.lunJeuDebut}-${h.lunJeuFin} · Ven ${h.vendrediDebut}-${h.vendrediFin} · pause ${h.pauseDejeunerMin} min`;
+}
+function addMinutes(hhmm, min){
+  const [h,m]=hhmm.split(":").map(Number);
+  const d=new Date(2000,0,1,h,m+min);
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+// Calcule les deux tranches de 30 minutes d'allaitement à partir de l'horaire individuel de l'agent.
+function calculerHoraireAllaitement(agent){
+  const h=agent.horaire||defaultHoraire();
+  return {
+    matin:{debut:h.lunJeuDebut, fin:addMinutes(h.lunJeuDebut,30)},
+    apresMidi:{debut:addMinutes(h.lunJeuFin,-30), fin:h.lunJeuFin}
+  };
+}
 function agentName(id){ const a=DB.agents.find(x=>x.id===id); return a? `${a.prenom} ${a.nom}` : "—"; }
 function agentMat(id){ const a=DB.agents.find(x=>x.id===id); return a? a.matricule : ""; }
 
@@ -415,13 +462,21 @@ function load(){
 function migrate(){
   if(!DB.carriere) DB.carriere=[];
   if(!DB.documents) DB.documents=[];
+  if(!DB.allaitement) DB.allaitement=[];
+  if(!DB.notations) DB.notations=[];
+  if(!DB.maternite) DB.maternite=[];
   if(!DB.paieConfig) DB.paieConfig=defaultPaieConfig();
   if(!DB.paieConfig.congesTypes) DB.paieConfig.congesTypes=defaultPaieConfig().congesTypes;
+  if(!DB.formationConfig) DB.formationConfig=defaultFormationConfig();
+  if(!DB.reglesConges) DB.reglesConges=defaultReglesConges();
+  if(!DB.rappelsConfig) DB.rappelsConfig=defaultRappelsConfig();
   DB.agents.forEach(a=>{
     if(a.superieurId===undefined) a.superieurId=null;
     if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+    if(!a.horaire) a.horaire=defaultHoraire();
   });
   DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
+  DB.formations.forEach(f=>{ if(!f.workflow && f.statut==="Demandée") startWorkflow("formations", f); });
   // Ancien circuit de contrôle des bulletins (soumission explicite étape par étape) remplacé par
   // un contrôle global de la DF sur tous les bulletins non validés : on relit les anciens statuts.
   DB.paie.forEach(p=>{ if(p.statut==="En contrôle") p.statut="Brouillon"; if(p.statut==="Rejetée") p.statut="Anomalie"; });
@@ -457,6 +512,10 @@ function seed(){
   agents[4].conjoint={nom:"FAATAU",prenom:"Teata",dateNaissance:"1981-06-30"};
   agents[4].enfantsListe=[{nom:"FAATAU",prenom:"Rii",dateNaissance:"2009-03-15"},{nom:"FAATAU",prenom:"Tehau",dateNaissance:"2012-07-22"},{nom:"FAATAU",prenom:"Vaite",dateNaissance:"2016-01-08"}];
 
+  // Horaire individuel (horaire standard par défaut, réorganisé pour un agent en démonstration)
+  agents.forEach(a=>{ a.horaire=defaultHoraire(); });
+  agents[5].horaire={...defaultHoraire(), reorganise:true, lunJeuDebut:"08:00", lunJeuFin:"16:00", vendrediDebut:"08:00", vendrediFin:"12:00", commentaireReorganisation:"Temps partiel thérapeutique validé le 01/08/2025"};
+
   const gid = n => agents[n].id;
   const conges = [
     {agentId:gid(0),type:"Congés annuels",debut:"2026-01-05",fin:"2026-01-09",statut:"Validé",valide:"Marc",motif:""},
@@ -485,11 +544,14 @@ function seed(){
   ].map(p=>({id:uid("p_"), net:(p.brut+p.primes-p.cotis), ...p}));
 
   const formations = [
-    {intitule:"Cybersécurité – sensibilisation des agents",organisme:"MailInBlack",agentId:gid(1),type:"Obligatoire",debut:"2026-01-13",fin:"2026-01-13",duree:7,cout:0,statut:"Terminée"},
-    {intitule:"Marchés publics – rédaction CCTP/BPU",organisme:"CNFPT",agentId:gid(3),type:"Professionnelle",debut:"2026-02-24",fin:"2026-02-26",duree:21,cout:180000,statut:"Prévue"},
+    {intitule:"Cybersécurité – sensibilisation des agents",organisme:"MailInBlack",agentId:gid(1),type:"Obligatoire",debut:"2026-01-13",fin:"2026-01-13",duree:7,cout:0,statut:"Réalisée",justificatif:"Attestation_cybersecurite_2026.pdf",
+      evalChaud:{envoyeLe:"2026-01-13", reponses:"Formation claire, bon rythme, exemples concrets appréciés.", complete:true},
+      evalFroid:null},
+    {intitule:"Marchés publics – rédaction CCTP/BPU",organisme:"CNFPT",agentId:gid(3),type:"Professionnelle",motivation:"Sécuriser la rédaction des pièces de marché de la DRH",objectifs:"Maîtriser CCTP/BPU",lienPoste:"Gestion des marchés RH",debutSouhaite:"2026-02-24",finSouhaite:"2026-02-26",debut:"2026-02-24",fin:"2026-02-26",duree:21,cout:180000,statut:"Validée"},
     {intitule:"Habilitation électrique B0/H0",organisme:"APAVE Pacifique",agentId:gid(7),type:"Sécurité",debut:"2026-01-19",fin:"2026-01-20",duree:14,cout:95000,statut:"En cours"},
-    {intitule:"Préparation concours rédacteur",organisme:"CGF",agentId:gid(5),type:"Préparation concours",debut:"2026-03-10",fin:"2026-06-30",duree:120,cout:250000,statut:"Prévue"}
+    {intitule:"Préparation concours rédacteur",organisme:"CGF",agentId:gid(5),type:"Préparation concours",motivation:"Évolution de carrière",objectifs:"Réussir le concours interne",lienPoste:"Chargée de clientèle → Rédactrice",debutSouhaite:"2026-03-10",finSouhaite:"2026-06-30",duree:120,cout:250000,statut:"Demandée"}
   ].map(f=>({id:uid("f_"), ...f}));
+  formations.forEach(f=>{ if(f.statut==="Demandée") startWorkflow("formations", f); });
 
   const visites = [
     {agentId:gid(5),type:"Embauche",prevue:"2025-09-05",realisee:"2025-09-05",medecin:"Dr Tehina · SISAT",avis:"Apte",prochaine:"2027-09-05"},
@@ -539,7 +601,24 @@ function seed(){
     {agentId:gid(3),objet:"Formation CNFPT",destination:"Nouméa",depart:"2026-02-24",retour:"2026-02-27",transport:"Avion",frais:320000,statut:"Demandé"}
   ].map(d=>({id:uid("d_"), ...d}));
 
-  return {agents,conges,paie,formations,visites,accidents,deplacements,carriere,documents,paieConfig:defaultPaieConfig()};
+  const allaitement = [
+    {agentId:gid(5), dateDebut:"2026-10-01", dateFin:"2027-01-01", motif:"Naissance du 20/09/2026"}
+  ].map(x=>({id:uid("all_"), ...x}));
+  allaitement.forEach(x=>{ x.horaireApplique=calculerHoraireAllaitement(agents.find(a=>a.id===x.agentId)); startWorkflow("allaitement", x); });
+
+  const notations = [
+    {agentId:gid(2), campagne:"2025", statut:"Brouillon", note:null, commentaireResponsable:"", commentaireAgent:"", commentaireDirecteur:""},
+    {agentId:gid(6), campagne:"2025", statut:"Brouillon", note:null, commentaireResponsable:"", commentaireAgent:"", commentaireDirecteur:""}
+  ].map(n=>({id:uid("not_"), ...n}));
+  notations.forEach(n=>startWorkflow("notations", n));
+
+  const maternite = [
+    {agentId:gid(5), dateDeclaration:"2026-08-01", statut:"En cours"}
+  ].map(m=>({id:uid("mat_"), ...m}));
+  maternite.forEach(m=>{ m.taches=defaultMaterniteTaches(); });
+
+  return {agents,conges,paie,formations,visites,accidents,deplacements,carriere,documents,allaitement,notations,maternite,
+    paieConfig:defaultPaieConfig(), formationConfig:defaultFormationConfig(), reglesConges:defaultReglesConges(), rappelsConfig:defaultRappelsConfig()};
 }
 
 /* ---------- Module field configs ---------- */
@@ -622,6 +701,78 @@ const WORKFLOW_DEFS = {
         ]
       }
     }
+  },
+  formations:{
+    label:"Demande de formation",
+    start:"responsable",
+    steps:{
+      responsable:{
+        label:"Validation hiérarchique",
+        actor:rec=>{ const a=getApprover(rec.agentId, todayISO()); return a?{label:agentName(a.agent.id)+" ("+(a.level==="rh"?"RH":a.level)+")", agentId:a.agent.id}:{label:"Aucun validateur disponible"}; },
+        actions:[
+          {id:"valider", label:"Valider", to:null, setFields:(rec,actor)=>({statut:"Validée", valide:actor.label})},
+          {id:"refuser", label:"Refuser", to:null, setFields:(rec,actor)=>({statut:"Annulée", valide:actor.label})}
+        ]
+      }
+    }
+  },
+  allaitement:{
+    label:"Autorisation d'allaitement",
+    start:"responsable",
+    steps:{
+      responsable:{
+        label:"Validation responsable",
+        actor:rec=>{ const a=getApprover(rec.agentId, todayISO()); return a?{label:agentName(a.agent.id)+" ("+(a.level==="rh"?"RH":a.level)+")", agentId:a.agent.id}:{label:"Aucun validateur disponible"}; },
+        actions:[
+          {id:"valider", label:"Valider", to:"commission", setFields:(rec,actor)=>({statut:"En commission", valideResponsablePar:actor.label})},
+          {id:"refuser", label:"Refuser", to:null, setFields:(rec,actor)=>({statut:"Refusé", valideResponsablePar:actor.label})}
+        ]
+      },
+      commission:{
+        label:"Commission",
+        actor:()=>({label:"Commission RH"}),
+        actions:[
+          {id:"appliquer", label:"Appliquer", to:null, setFields:()=>({statut:"Appliqué"})},
+          {id:"refuser", label:"Refuser", to:null, setFields:()=>({statut:"Refusé"})}
+        ]
+      }
+    }
+  },
+  notations:{
+    label:"Notation de l'agent",
+    start:"brouillon",
+    steps:{
+      // Statuts distincts demandés : Brouillon → Évaluation responsable → Validation agent →
+      // Validation directeur → Clôturée.
+      brouillon:{
+        label:"Brouillon",
+        actor:rec=>{ const a=DB.agents.find(x=>x.id===rec.agentId); return (a&&a.superieurId)?{label:agentName(a.superieurId), agentId:a.superieurId}:{label:"Aucun responsable"}; },
+        actions:[
+          {id:"commencer", label:"Démarrer l'évaluation", to:"responsable", setFields:()=>({statut:"Évaluation responsable"})}
+        ]
+      },
+      responsable:{
+        label:"Évaluation responsable",
+        actor:rec=>{ const a=DB.agents.find(x=>x.id===rec.agentId); return (a&&a.superieurId)?{label:agentName(a.superieurId), agentId:a.superieurId}:{label:"Aucun responsable"}; },
+        actions:[
+          {id:"soumettre", label:"Soumettre à l'agent", to:"agent", setFields:()=>({statut:"Validation agent"})}
+        ]
+      },
+      agent:{
+        label:"Validation agent",
+        actor:rec=>({label:agentName(rec.agentId), agentId:rec.agentId}),
+        actions:[
+          {id:"valider", label:"Prendre connaissance et valider", to:"directeur", setFields:()=>({statut:"Validation directeur"})}
+        ]
+      },
+      directeur:{
+        label:"Validation directeur",
+        actor:()=>{ const dg=DB.agents.find(a=>!a.superieurId && a.actif!==false); return dg?{label:agentName(dg.id), agentId:dg.id}:{label:"Directeur général"}; },
+        actions:[
+          {id:"cloturer", label:"Valider définitivement", to:null, setFields:()=>({statut:"Clôturée"})}
+        ]
+      }
+    }
   }
   // Le contrôle des bulletins de paie par la Direction Financière ne suit pas ce moteur générique
   // à étapes : la DF contrôle globalement TOUS les bulletins non validés en une seule vue (jamais
@@ -653,6 +804,29 @@ function advanceWorkflow(rec, actionId, commentaire=""){
 /* ---------- Moteur de calcul de la paie ---------- */
 // Variables de paie éditables (taux CPS/CST, plafonds) : la génération des bulletins ne code en
 // dur aucun taux, tout est lu depuis DB.paieConfig pour rester paramétrable par la RH/Finance.
+// Questionnaires d'évaluation des formations (à chaud / à froid) et délai avant envoi à froid,
+// modifiables par la RH plutôt que codés en dur.
+function defaultFormationConfig(){
+  return {
+    questionsChaud:"Contenu de la formation, qualité de l'animation, moyens pédagogiques, satisfaction globale.",
+    questionsFroid:"Utilisation des connaissances acquises, application concrète dans le poste, changements constatés depuis la formation.",
+    delaiFroidSemaines:8
+  };
+}
+/* ---------- Maternité (checklist de suivi) ---------- */
+function addDaysISO(iso, days){ const d=new Date(iso); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+// Check-list générée automatiquement à l'ouverture d'un dossier maternité.
+function defaultMaterniteTaches(){
+  const today=todayISO();
+  return [
+    {id:uid("t_"), intitule:"Déclaration de grossesse (certificat médical)", description:"Transmettre le certificat médical de grossesse à la RH", echeance:addDaysISO(today,7), responsable:"Agent", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:true},
+    {id:uid("t_"), intitule:"Demande de congé maternité", description:"Constituer et transmettre la demande de congé maternité", echeance:addDaysISO(today,30), responsable:"Agent", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:true},
+    {id:uid("t_"), intitule:"Attestation de droits CPS", description:"Fournir l'attestation de droits CPS à jour", echeance:addDaysISO(today,30), responsable:"Agent", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:true},
+    {id:uid("t_"), intitule:"Organisation du remplacement", description:"Identifier et organiser le remplacement pendant le congé", echeance:addDaysISO(today,45), responsable:"RH", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:false},
+    {id:uid("t_"), intitule:"Entretien de reprise d'activité", description:"Planifier l'entretien de reprise avec l'agent", echeance:addDaysISO(today,150), responsable:"RH", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:false}
+  ];
+}
+function defaultRappelsConfig(){ return {avantEcheanceJours:7, jourEcheance:true, apresEcheanceJours:3}; }
 function defaultPaieConfig(){
   return {
     horaireMensuel:169,
@@ -825,12 +999,13 @@ const FORMS = {
       {k:"type",l:"Type d'absence",t:"select",o:["Congés annuels","Récupération","Maladie","Longue maladie","Maternité/Paternité","Formation","Congé sans solde","Autorisation d'absence"],req:true},
       {k:"debut",l:"Date de début",t:"date",req:true},
       {k:"fin",l:"Date de fin",t:"date",req:true},
+      {k:"demiJournee",l:"Durée",t:"select",o:["Journée entière","Matin","Après-midi"],hint:"Demi-journée possible uniquement si début = fin"},
       {k:"statut",l:"Statut",t:"select",o:["En attente","Validé","Refusé"],hideSelf:true},
       {k:"valide",l:"Validé par",t:"text",hideSelf:true},
       {k:"motif",l:"Motif / Commentaire",t:"textarea",full:true}
     ],
-    defaults:()=>({statut:"En attente",debut:todayISO(),fin:todayISO()}),
-    compute:o=>({jours:daysBetween(o.debut,o.fin)})
+    defaults:()=>({statut:"En attente",debut:todayISO(),fin:todayISO(),demiJournee:"Journée entière"}),
+    compute:o=>({jours:(o.demiJournee&&o.demiJournee!=="Journée entière"&&o.debut===o.fin)?0.5:joursDecomptesConge(o.debut,o.fin,DB.reglesConges)})
   },
   paie:{ title:"bulletin",
     fields:[
@@ -850,13 +1025,21 @@ const FORMS = {
       {k:"agentId",l:"Agent",t:"ref",req:true},
       {k:"organisme",l:"Organisme",t:"text"},
       {k:"type",l:"Type",t:"select",o:["Obligatoire","Professionnelle","Préparation concours","Sécurité","Bureautique"]},
-      {k:"statut",l:"Statut",t:"select",o:["Prévue","En cours","Terminée","Annulée"]},
-      {k:"debut",l:"Date de début",t:"date"},
-      {k:"fin",l:"Date de fin",t:"date"},
+      {s:"Demande (motivation, objectifs)"},
+      {k:"motivation",l:"Motivation",t:"textarea"},
+      {k:"objectifs",l:"Objectifs",t:"textarea"},
+      {k:"lienPoste",l:"Lien avec le poste",t:"text",full:true},
+      {k:"debutSouhaite",l:"Date de début souhaitée",t:"date"},
+      {k:"finSouhaite",l:"Date de fin souhaitée",t:"date"},
+      {s:"Réalisation"},
+      {k:"debut",l:"Date de début réalisée",t:"date"},
+      {k:"fin",l:"Date de fin réalisée",t:"date"},
       {k:"duree",l:"Durée (heures)",t:"number"},
-      {k:"cout",l:"Coût (XPF)",t:"number"}
+      {k:"cout",l:"Coût (XPF)",t:"number"},
+      {k:"justificatif",l:"Justificatif (nom du fichier)",t:"text"},
+      {k:"statut",l:"Statut",t:"select",o:["Demandée","Validée","En cours","Réalisée","Annulée"],hideSelf:true}
     ],
-    defaults:()=>({statut:"Prévue",type:"Professionnelle",cout:0,duree:0})
+    defaults:()=>({statut:"Demandée",type:"Professionnelle",cout:0,duree:0,debutSouhaite:todayISO()})
   },
   visites:{ title:"visite médicale",
     fields:[
@@ -918,6 +1101,29 @@ const FORMS = {
       {k:"confidentiel",l:"Accès restreint (RH uniquement)",t:"bool"}
     ],
     defaults:()=>({dateAjout:todayISO(),type:"Documents administratifs",confidentiel:false})
+  },
+  allaitement:{ title:"autorisation d'allaitement",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"dateDebut",l:"Date de début",t:"date",req:true},
+      {k:"dateFin",l:"Date de fin",t:"date",req:true},
+      {k:"motif",l:"Commentaire",t:"textarea",full:true}
+    ],
+    defaults:()=>({dateDebut:todayISO(), dateFin:todayISO(), statut:"En attente responsable"})
+  },
+  notations:{ title:"campagne de notation",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"campagne",l:"Campagne (année)",t:"text",req:true}
+    ],
+    defaults:()=>({campagne:String(new Date().getFullYear()), statut:"Brouillon", note:null, commentaireResponsable:"", commentaireAgent:"", commentaireDirecteur:""})
+  },
+  maternite:{ title:"dossier maternité",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"dateDeclaration",l:"Date de déclaration",t:"date",req:true}
+    ],
+    defaults:()=>({dateDeclaration:todayISO(), statut:"En cours"})
   }
 };
 
@@ -930,10 +1136,13 @@ const NAV = [
   {id:"formations", label:"Formations", icon:I.formations, group:"Suivi", coll:"formations"},
   {id:"visites", label:"Visites médicales", icon:I.visites, group:"Suivi", coll:"visites"},
   {id:"accidents", label:"Accidents de travail", icon:I.accidents, group:"Suivi", coll:"accidents"},
-  {id:"deplacements", label:"Ordres de déplacement", icon:I.deplacements, group:"Suivi", coll:"deplacements"}
+  {id:"deplacements", label:"Ordres de déplacement", icon:I.deplacements, group:"Suivi", coll:"deplacements"},
+  {id:"allaitement", label:"Allaitement", icon:I.drop, group:"Temps de travail", coll:"allaitement"},
+  {id:"notations", label:"Notations", icon:I.star, group:"Évaluation", coll:"notations"},
+  {id:"maternite", label:"Maternité", icon:I.checklist, group:"Évaluation", coll:"maternite"}
 ];
 // Libellés des onglets du dossier agent (inclut des onglets propres au dossier, absents du menu principal).
-const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents"};
+const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents", allaitement:"Allaitement", notations:"Notations", maternite:"Maternité"};
 // Menus restreints affichés selon le profil de test (chacun n'a accès qu'à son propre périmètre).
 const AGENT_NAV = [
   {id:"mon-dashboard", label:"Mon espace", icon:I.dash},
@@ -1032,17 +1241,22 @@ function render(){
   t.textContent=nav.label;
   const coll=DB[nav.coll];
   s.textContent=`${coll.length} enregistrement${coll.length>1?"s":""}`;
-  act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau</button>`;
+  let actHtml=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau</button>`;
+  if(view.module==="paie") actHtml+=` <button class="btn" id="genBulletinsBtn">${svg(I.plus,'ic')} Générer une période</button> <button class="btn" id="paieConfigBtn">${svg(I.settings,'ic')} Variables de paie</button>`;
+  if(view.module==="conges") actHtml+=` <button class="btn" id="reglesCongesBtn">${svg(I.settings,'ic')} Règles de décompte</button>`;
+  if(view.module==="formations") actHtml+=` <button class="btn" id="formationConfigBtn">${svg(I.settings,'ic')} Évaluations (variables)</button>`;
+  if(view.module==="maternite") actHtml+=` <button class="btn" id="rappelsConfigBtn">${svg(I.settings,'ic')} Rappels</button>`;
+  act.innerHTML=actHtml;
   document.getElementById("addBtn").onclick=()=>openForm(view.module);
-  if(view.module==="paie"){
-    act.innerHTML+=` <button class="btn" id="genBulletinsBtn">${svg(I.plus,'ic')} Générer une période</button> <button class="btn" id="paieConfigBtn">${svg(I.settings,'ic')} Variables de paie</button>`;
-  }
   c.innerHTML = LISTS[view.module]();
   bindList();
   if(view.module==="paie"){
     document.getElementById("genBulletinsBtn").onclick=()=>openGenerateBulletins();
     document.getElementById("paieConfigBtn").onclick=()=>openPaieConfigForm();
   }
+  if(view.module==="conges") document.getElementById("reglesCongesBtn").onclick=()=>openReglesCongesForm();
+  if(view.module==="formations") document.getElementById("formationConfigBtn").onclick=()=>openFormationConfigForm();
+  if(view.module==="maternite") document.getElementById("rappelsConfigBtn").onclick=()=>openRappelsConfigForm();
 }
 
 /* ---------- Espace self-service (profil Agent) ---------- */
@@ -1366,19 +1580,26 @@ const LISTS = {
   },
   formations(){
     let rows=DB.formations.map(f=>({...f,_search:`${f.intitule} ${agentName(f.agentId)} ${f.organisme} ${f.statut}`,_filterVal:f.statut}));
-    rows=filterRows(rows).sort((a,b)=>(b.debut||"").localeCompare(a.debut||""));
+    rows=filterRows(rows).sort((a,b)=>(b.debutSouhaite||b.debut||"").localeCompare(a.debutSouhaite||a.debut||""));
     const cols=[{h:"Intitulé"},{h:"Agent"},{h:"Organisme"},{h:"Dates"},{h:"Durée",num:true},{h:"Coût",num:true},{h:"Statut"},{h:""}];
-    const body=rows.map(f=>`<tr>
+    const body=rows.map(f=>{
+      const extra=(f.statut==="Demandée"
+        ? `<button class="btn ghost sm" data-fvalide="${f.id}" title="Valider">${svg(I.check,'ic')}</button>
+           <button class="btn ghost sm" data-frefuse="${f.id}" title="Refuser">${svg(I.x,'ic')}</button>`
+        : f.statut==="Validée" ? `<button class="btn ghost sm" data-frealise="${f.id}" title="Marquer réalisée">${svg(I.check,'ic')}</button>` : "")
+        + (f.statut==="Réalisée" ? `<button class="btn ghost sm" data-feval="${f.id}-chaud" title="Évaluation à chaud">${svg(I.teams,'ic')}</button>${f.evalChaud?`<button class="btn ghost sm" data-feval="${f.id}-froid" title="Évaluation à froid">${svg(I.clock,'ic')}</button>`:""}` : "");
+      return `<tr>
       <td class="cell-name">${esc(f.intitule)}<div class="cell-sub">${esc(f.type||"")}</div></td>
       <td>${esc(agentName(f.agentId))}</td>
       <td>${esc(f.organisme||"—")}</td>
-      <td>${f.debut?fmtDate(f.debut):"—"}${f.fin&&f.fin!==f.debut?" → "+fmtDate(f.fin):""}</td>
+      <td>${f.debut?fmtDate(f.debut):(f.debutSouhaite?fmtDate(f.debutSouhaite)+" (souhaité)":"—")}${f.fin&&f.fin!==f.debut?" → "+fmtDate(f.fin):""}</td>
       <td class="num">${f.duree||0} h</td>
       <td class="num">${fmtMoney(f.cout)}</td>
       <td>${badge(f.statut)}</td>
-      <td>${rowActions("formations",f.id)}</td>
-    </tr>`).join("");
-    return toolbar("statut",["Prévue","En cours","Terminée","Annulée"])+tableShell(cols,body);
+      <td>${rowActions("formations",f.id,extra)}</td>
+    </tr>`;
+    }).join("");
+    return toolbar("statut",["Demandée","Validée","En cours","Réalisée","Annulée"])+tableShell(cols,body);
   },
   visites(){
     const today=todayISO();
@@ -1427,6 +1648,54 @@ const LISTS = {
       <td>${rowActions("deplacements",d.id, d.statut==="Demandé"?`<button class="btn ghost sm" data-approve="${d.id}" data-mod="deplacements" title="Valider">${svg(I.check,'ic')}</button>`:"")}</td>
     </tr>`).join("");
     return toolbar("statut",["Demandé","Validé","Réalisé","Refusé"])+tableShell(cols,body);
+  },
+  allaitement(){
+    let rows=DB.allaitement.map(x=>({...x,_search:`${agentName(x.agentId)} ${x.statut}`,_filterVal:x.statut}));
+    rows=filterRows(rows).sort((a,b)=>(b.dateDebut||"").localeCompare(a.dateDebut||""));
+    const cols=[{h:"Agent"},{h:"Période"},{h:"Horaire appliqué"},{h:"Statut"},{h:""}];
+    const body=rows.map(x=>{
+      const step=currentWorkflowStep(x);
+      const extra = step && step.actions.length
+        ? step.actions.map(a=>`<button class="btn ghost sm" data-${a.id==="valider"?"avalide":a.id==="appliquer"?"aapplique":"arefuse"}="${x.id}" title="${esc(a.label)}">${svg(a.id==="refuser"?I.x:I.check,'ic')}</button>`).join("")
+        : "";
+      return `<tr>
+      <td class="cell-name">${esc(agentName(x.agentId))}</td>
+      <td>${fmtDate(x.dateDebut)} → ${fmtDate(x.dateFin)}</td>
+      <td class="cell-sub">${x.horaireApplique?`${x.horaireApplique.matin.debut}-${x.horaireApplique.matin.fin} · ${x.horaireApplique.apresMidi.debut}-${x.horaireApplique.apresMidi.fin}`:"—"}</td>
+      <td>${badge(x.statut)}</td>
+      <td>${rowActions("allaitement",x.id,extra)}</td>
+    </tr>`;
+    }).join("");
+    return toolbar("statut",["En attente responsable","En commission","Appliqué","Refusé"])+tableShell(cols,body);
+  },
+  notations(){
+    let rows=DB.notations.map(n=>({...n,_search:`${agentName(n.agentId)} ${n.campagne} ${n.statut}`,_filterVal:n.statut}));
+    rows=filterRows(rows).sort((a,b)=>(b.campagne||"").localeCompare(a.campagne||""));
+    const cols=[{h:"Agent"},{h:"Campagne"},{h:"Note",num:true},{h:"Statut"},{h:""}];
+    const body=rows.map(n=>`<tr>
+      <td class="cell-name">${esc(agentName(n.agentId))}</td>
+      <td>${esc(n.campagne)}</td>
+      <td class="num">${n.note??"—"}</td>
+      <td>${badge(n.statut)}</td>
+      <td>${rowActions("notations",n.id,`<button class="btn ghost sm" data-notestep="${n.id}" title="Étape en cours">${svg(I.star,'ic')}</button>`)}</td>
+    </tr>`).join("");
+    return toolbar("statut",["Brouillon","Évaluation responsable","Validation agent","Validation directeur","Clôturée"])+tableShell(cols,body);
+  },
+  maternite(){
+    let rows=DB.maternite.map(m=>({...m,_search:`${agentName(m.agentId)} ${m.statut}`,_filterVal:m.statut}));
+    rows=filterRows(rows).sort((a,b)=>(b.dateDeclaration||"").localeCompare(a.dateDeclaration||""));
+    const cols=[{h:"Agent"},{h:"Déclaration"},{h:"Avancement"},{h:"Statut"},{h:""}];
+    const body=rows.map(m=>{
+      const total=(m.taches||[]).length, faites=(m.taches||[]).filter(t=>t.statut==="Fait").length;
+      return `<tr>
+      <td class="cell-name">${esc(agentName(m.agentId))}</td>
+      <td>${fmtDate(m.dateDeclaration)}</td>
+      <td class="cell-sub">${faites}/${total} tâches réalisées</td>
+      <td>${badge(m.statut)}</td>
+      <td>${rowActions("maternite",m.id,`<button class="btn ghost sm" data-checklist="${m.id}" title="Voir la check-list">${svg(I.checklist,'ic')}</button>`)}</td>
+    </tr>`;
+    }).join("");
+    return toolbar("statut",["En cours","Clôturé"])+tableShell(cols,body);
   }
 };
 
@@ -1443,6 +1712,15 @@ function bindList(){
   document.querySelectorAll("[data-teams]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openTeamsModal(el.dataset.teams); });
   document.querySelectorAll("[data-history]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openWorkflowHistory(el.dataset.history); });
   document.querySelectorAll("[data-view]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openBulletinDetail(el.dataset.view); });
+  document.querySelectorAll("[data-fvalide]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("formations", el.dataset.fvalide, "valider", "Demande de formation validée"); });
+  document.querySelectorAll("[data-frefuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("formations", el.dataset.frefuse, "refuser", "Demande de formation refusée"); });
+  document.querySelectorAll("[data-frealise]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); const f=DB.formations.find(x=>x.id===el.dataset.frealise); if(f){ f.statut="Réalisée"; if(!f.debut) f.debut=todayISO(); save(); toast("Formation marquée réalisée"); render(); } });
+  document.querySelectorAll("[data-feval]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); const [fid,type]=el.dataset.feval.split("-"); openFormationEvalModal(fid,type); });
+  document.querySelectorAll("[data-avalide]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("allaitement", el.dataset.avalide, "valider", "Autorisation validée, transmise en commission"); });
+  document.querySelectorAll("[data-arefuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("allaitement", el.dataset.arefuse, "refuser", "Demande refusée"); });
+  document.querySelectorAll("[data-aapplique]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("allaitement", el.dataset.aapplique, "appliquer", "Autorisation appliquée"); });
+  document.querySelectorAll("[data-notestep]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openNotationStepModal(el.dataset.notestep); });
+  document.querySelectorAll("[data-checklist]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openMaterniteChecklist(el.dataset.checklist); });
 }
 
 /* ---------- Agent detail ---------- */
@@ -1473,6 +1751,9 @@ function renderAgentDetail(){
     {id:"accidents",l:"Accidents",n:rel("accidents").length},
     {id:"deplacements",l:"Déplacements",n:rel("deplacements").length},
     {id:"carriere",l:"Carrière",n:rel("carriere").length},
+    {id:"allaitement",l:"Allaitement",n:rel("allaitement").length},
+    {id:"notations",l:"Notations",n:rel("notations").length},
+    {id:"maternite",l:"Maternité",n:rel("maternite").length},
     {id:"documents",l:"Documents",n:rel("documents").filter(d=>canViewDocument(d,a)).length+((dossierAccess(a)==="rh"||dossierAccess(a)==="self")?rel("paie").length:0)}
   ];
 
@@ -1520,6 +1801,18 @@ function renderAgentDetail(){
           ${(a.enfantsListe&&a.enfantsListe.length)?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${a.enfantsListe.map(e=>`<div style="font-size:13px"><strong>${esc(e.prenom)} ${esc(e.nom)}</strong>${e.dateNaissance?` · né(e) le ${fmtDate(e.dateNaissance)}`:""}</div>`).join("")}</div>`:""}
         </div>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-head"><h3>Horaire individuel</h3><div class="spacer"></div>${access==="rh"?`<button class="btn ghost sm" id="editHoraireBtn" title="Modifier">${svg(I.edit,'ic')}</button>`:""}</div>
+        <div class="panel-body" style="padding:6px 18px 14px">
+          <div class="info-list">
+            <div class="row"><span class="l">Lundi → Jeudi</span><span class="v">${esc((a.horaire||defaultHoraire()).lunJeuDebut)} - ${esc((a.horaire||defaultHoraire()).lunJeuFin)}</span></div>
+            <div class="row"><span class="l">Vendredi</span><span class="v">${esc((a.horaire||defaultHoraire()).vendrediDebut)} - ${esc((a.horaire||defaultHoraire()).vendrediFin)}</span></div>
+            <div class="row"><span class="l">Pause déjeuner</span><span class="v">${(a.horaire||defaultHoraire()).pauseDejeunerMin} min</span></div>
+            <div class="row"><span class="l">Statut</span><span class="v">${(a.horaire&&a.horaire.reorganise)?'<span class="badge warn">Horaire réorganisé</span>':'<span class="badge ok">Horaire standard</span>'}</span></div>
+          </div>
+          ${(a.horaire&&a.horaire.reorganise&&a.horaire.commentaireReorganisation)?`<p class="hint" style="margin-top:8px;display:block">${esc(a.horaire.commentaireReorganisation)}</p>`:""}
+        </div>
+      </div>
       <div>
         <div class="tabs" id="detailTabs">${tabs.map(t=>`<button data-tab="${t.id}" class="${view.tab===t.id?'active':''}">${t.l}${t.n?` (${t.n})`:""}</button>`).join("")}</div>
         <div id="detailPane"></div>
@@ -1527,6 +1820,8 @@ function renderAgentDetail(){
     </div>`;
 
   document.getElementById("backBtn").onclick=()=>go(backTarget);
+  const editHoraireBtn=document.getElementById("editHoraireBtn");
+  if(editHoraireBtn) editHoraireBtn.onclick=()=>openHoraireForm(a.id);
   const editAgentBtn=document.getElementById("editAgentBtn");
   if(editAgentBtn) editAgentBtn.onclick=()=>openForm("agents",a.id);
   const editFamilyBtn=document.getElementById("editFamilyBtn");
@@ -1541,8 +1836,10 @@ function renderDetailPane(a){
   if(view.tab==="documents"){ renderDocumentsPane(pane, a, access); return; }
   let rows=DB[view.tab].filter(x=>x.agentId===a.id);
   // Seule la RH gère librement tous les onglets ; le profil "self" (l'agent, quel que soit son
-  // rôle) peut uniquement déposer une demande de congés ; un responsable ("team") ne fait que consulter.
-  const canAdd = access==="rh" ? true : (view.tab==="conges" && access==="self");
+  // rôle) peut déposer une demande de congé, de formation ou d'allaitement ; un responsable
+  // ("team") ne fait que consulter le dossier de ses subordonnés.
+  const SELF_CREATABLE=["conges","formations","allaitement"];
+  const canAdd = access==="rh" ? true : (SELF_CREATABLE.includes(view.tab) && access==="self");
   const canEditRow = access==="rh";
   const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   const head=(title)=>`<div class="panel-head" style="border-radius:10px 10px 0 0"><h3>${title}</h3><div class="spacer"></div>${addBtn}</div>`;
@@ -1550,18 +1847,26 @@ function renderDetailPane(a){
   if(!rows.length){ inner=`<div class="empty">Aucun enregistrement pour cet agent.</div>`; }
   else{
     inner=`<div style="overflow-x:auto"><table><tbody>`+rows.map(r=>{
-      let main="", sub="", right="", viewBtn="";
+      let main="", sub="", right="", extraBtn="";
       if(view.tab==="conges"){ main=r.type; sub=`${fmtDate(r.debut)} → ${fmtDate(r.fin)} · ${r.jours} j`; right=badge(r.statut); }
-      else if(view.tab==="paie"){ main=r.periode; sub=`Net ${fmtMoney(r.net)}`; right=badge(r.statut); viewBtn=`<button class="btn ghost sm" data-view="${r.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`; }
-      else if(view.tab==="formations"){ main=r.intitule; sub=`${r.organisme||""} · ${r.debut?fmtDate(r.debut):""}`; right=badge(r.statut); }
+      else if(view.tab==="paie"){ main=r.periode; sub=`Net ${fmtMoney(r.net)}`; right=badge(r.statut); extraBtn=`<button class="btn ghost sm" data-view="${r.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`; }
+      else if(view.tab==="formations"){ main=r.intitule; sub=`${r.organisme||""} · ${r.debut?fmtDate(r.debut):(r.debutSouhaite?fmtDate(r.debutSouhaite)+" (souhaité)":"")}`; right=badge(r.statut); }
       else if(view.tab==="visites"){ main=r.type; sub=`${fmtDate(r.prevue)}${r.realisee?" · réalisée "+fmtDate(r.realisee):""}`; right=badge(r.avis); }
       else if(view.tab==="accidents"){ main=fmtDate(r.date); sub=`${r.lesions||""}${r.cafat?" · "+r.cafat:""}`; right=badge(r.statut); }
       else if(view.tab==="deplacements"){ main=r.objet; sub=`${r.destination} · ${fmtDate(r.depart)}`; right=badge(r.statut); }
       else if(view.tab==="carriere"){ main=r.type; sub=`${fmtDate(r.date)}${r.poste?" · "+r.poste:""}${r.direction?" · "+r.direction:""}`; }
+      else if(view.tab==="allaitement"){ main=`${fmtDate(r.dateDebut)} → ${fmtDate(r.dateFin)}`; sub=r.horaireApplique?`${r.horaireApplique.matin.debut}-${r.horaireApplique.matin.fin} · ${r.horaireApplique.apresMidi.debut}-${r.horaireApplique.apresMidi.fin}`:""; right=badge(r.statut); }
+      else if(view.tab==="notations"){
+        main=`Campagne ${r.campagne}`; sub=r.note!=null?`Note : ${r.note}/100`:"Non notée"; right=badge(r.statut);
+        const step=currentWorkflowStep(r);
+        const peutAgir = step && (access==="rh" || (access==="self" && r.workflow.step==="agent") || (access==="team" && (r.workflow.step==="responsable"||r.workflow.step==="brouillon")));
+        if(peutAgir) extraBtn=`<button class="btn ghost sm" data-notestep="${r.id}" title="${esc(step.label)}">${svg(I.star,'ic')}</button>`;
+      }
+      else if(view.tab==="maternite"){ main=`Dossier maternité`; sub=`Déclaré le ${fmtDate(r.dateDeclaration)} · ${(r.taches||[]).filter(t=>t.statut==="Fait").length}/${(r.taches||[]).length} tâches`; right=badge(r.statut); extraBtn=`<button class="btn ghost sm" data-checklist="${r.id}" title="Check-list">${svg(I.checklist,'ic')}</button>`; }
       return `<tr>
         <td><div class="cell-name">${esc(main)}</div><div class="cell-sub">${esc(sub)}</div></td>
         <td style="text-align:right">${right}</td>
-        <td style="width:1%">${viewBtn}${canEditRow?rowActions(view.tab,r.id):""}</td>
+        <td style="width:1%">${extraBtn}${canEditRow?rowActions(view.tab,r.id):""}</td>
       </tr>`;
     }).join("")+`</tbody></table></div>`;
   }
@@ -1571,6 +1876,8 @@ function renderDetailPane(a){
   pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm(view.tab, el.dataset.edit));
   pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord(el.dataset.mod, el.dataset.del));
   pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
+  pane.querySelectorAll("[data-notestep]").forEach(el=>el.onclick=()=>openNotationStepModal(el.dataset.notestep));
+  pane.querySelectorAll("[data-checklist]").forEach(el=>el.onclick=()=>openMaterniteChecklist(el.dataset.checklist));
 }
 // Onglet Documents : arborescence par catégories (façon coffre-fort numérique), avec les
 // bulletins de paie générés regroupés par année plutôt que dupliqués en documents génériques.
@@ -1713,6 +2020,14 @@ function openForm(module, id=null, preset={}, opts={}){
           teamsToast="Demande créée — aucun validateur disponible, la RH doit intervenir manuellement";
         }
       }
+      if(module==="formations" && obj.statut==="Demandée") startWorkflow("formations", obj);
+      if(module==="allaitement"){
+        const agentPourHoraire=DB.agents.find(x=>x.id===obj.agentId);
+        obj.horaireApplique=calculerHoraireAllaitement(agentPourHoraire);
+        startWorkflow("allaitement", obj);
+      }
+      if(module==="notations") startWorkflow("notations", obj);
+      if(module==="maternite") obj.taches=defaultMaterniteTaches();
       coll.push(obj);
     }
     save(); close(); toast(teamsToast || (isEdit?"Modifications enregistrées":"Enregistrement créé"));
@@ -1749,6 +2064,16 @@ function decideConge(id, actionId){
   toast(actionId==="valider" ? "Demande validée" : "Demande refusée");
   if(view.agentId) renderAgentDetail(); else render();
 }
+// Version générique de decideConge, réutilisable pour toute collection pilotée par le moteur de
+// workflow (formations, allaitement…) : fait avancer l'étape courante et rafraîchit l'écran.
+function decideWorkflowRecord(coll, id, actionId, msg){
+  const rec=DB[coll].find(x=>x.id===id);
+  if(!rec || !rec.workflow) return;
+  advanceWorkflow(rec, actionId);
+  save();
+  toast(msg||"Mis à jour");
+  if(view.agentId) renderAgentDetail(); else render();
+}
 
 /* ---------- Historique du workflow (audit des décisions) ---------- */
 function openWorkflowHistory(id){
@@ -1773,6 +2098,128 @@ function openWorkflowHistory(id){
   document.getElementById("closeModal").onclick=close;
   document.getElementById("cancelModal").onclick=close;
   document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+}
+
+/* ---------- Campagnes de notation (Responsable → Agent → Directeur) ---------- */
+function openNotationStepModal(id){
+  const n=DB.notations.find(x=>x.id===id);
+  if(!n) return;
+  const step=currentWorkflowStep(n);
+  const actor=step?step.actor(n):null;
+  const a=DB.agents.find(x=>x.id===n.agentId);
+  let body="";
+  if(!step){
+    body=`<p>Campagne clôturée.</p>`;
+  } else if(n.workflow.step==="responsable"){
+    body=`<div class="form-grid">
+      <div class="field"><label>Note (/100)</label><input type="number" id="noteVal" min="0" max="100" value="${n.note??""}"></div>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Commentaire du responsable</label><textarea id="commResp">${esc(n.commentaireResponsable||"")}</textarea></div>`;
+  } else if(n.workflow.step==="agent"){
+    body=`<div class="info-list" style="margin-bottom:10px">
+      <div class="row"><span class="l">Note attribuée</span><span class="v">${n.note??"—"}/100</span></div>
+      <div class="row"><span class="l">Commentaire du responsable</span><span class="v">${esc(n.commentaireResponsable||"—")}</span></div>
+    </div>
+    <div class="field"><label>Commentaire de l'agent (facultatif)</label><textarea id="commAgent">${esc(n.commentaireAgent||"")}</textarea></div>`;
+  } else if(n.workflow.step==="directeur"){
+    body=`<div class="info-list" style="margin-bottom:10px">
+      <div class="row"><span class="l">Note attribuée</span><span class="v">${n.note??"—"}/100</span></div>
+      <div class="row"><span class="l">Commentaire de l'agent</span><span class="v">${esc(n.commentaireAgent||"—")}</span></div>
+    </div>
+    <div class="field"><label>Commentaire du directeur</label><textarea id="commDir">${esc(n.commentaireDirecteur||"")}</textarea></div>`;
+  }
+  const historyHtml=(n.workflow&&n.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${n.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("")}</div>`:"";
+  const actions=step?step.actions.map(ac=>`<button class="btn primary sm" data-step-action="${ac.id}">${svg(I.check,'ic')} ${esc(ac.label)}</button>`).join(" "):"";
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Notation ${esc(n.campagne)} — ${esc(agentName(n.agentId))}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="info-list" style="margin-bottom:10px">
+        <div class="row"><span class="l">Statut</span><span class="v">${badge(n.statut)}</span></div>
+        <div class="row"><span class="l">Étape actuelle</span><span class="v">${step?esc(step.label):"—"}</span></div>
+        ${actor?`<div class="row"><span class="l">Acteur attendu</span><span class="v">${esc(actor.label)}</span></div>`:""}
+      </div>
+      ${body}
+      ${historyHtml}
+    </div>
+    <div class="modal-foot">${actions}<button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  mr.querySelectorAll("[data-step-action]").forEach(btn=>btn.onclick=()=>{
+    if(n.workflow.step==="responsable"){ n.note=Number(document.getElementById("noteVal").value)||null; n.commentaireResponsable=document.getElementById("commResp").value.trim(); }
+    if(n.workflow.step==="agent"){ n.commentaireAgent=document.getElementById("commAgent").value.trim(); }
+    if(n.workflow.step==="directeur"){ n.commentaireDirecteur=document.getElementById("commDir").value.trim(); }
+    advanceWorkflow(n, btn.dataset.stepAction);
+    save(); close(); toast("Notation mise à jour"); render();
+  });
+}
+
+/* ---------- Dossier maternité (check-list de suivi) ---------- */
+function rappelBadge(tache, config){
+  if(tache.statut==="Fait") return "";
+  const today=todayISO();
+  const diff=Math.round((new Date(tache.echeance)-new Date(today))/86400000);
+  if(diff<0) return `<span class="badge bad">En retard de ${-diff} j</span>`;
+  if(diff===0 && config.jourEcheance) return `<span class="badge bad">Échéance aujourd'hui</span>`;
+  if(diff<=config.avantEcheanceJours) return `<span class="badge warn">Échéance dans ${diff} j</span>`;
+  return "";
+}
+function canCloturerMaternite(m){
+  return !(m.taches||[]).some(t=>t.pjObligatoire && t.statut!=="Fait");
+}
+function openMaterniteChecklist(id){
+  const m=DB.maternite.find(x=>x.id===id);
+  if(!m) return;
+  const cfg=DB.rappelsConfig;
+  const rows=(m.taches||[]).map(t=>`<div class="tache-row">
+      <div style="flex:1">
+        <div class="cell-name">${esc(t.intitule)} ${t.pjObligatoire?'<span class="tag">PJ obligatoire</span>':''}</div>
+        <div class="cell-sub">${esc(t.description||"")}</div>
+        <div class="cell-sub">Échéance ${fmtDate(t.echeance)} · Responsable : ${esc(t.responsable)}${t.piecesJointes&&t.piecesJointes.length?` · ${t.piecesJointes.length} pièce(s) jointe(s)`:""}</div>
+        ${t.commentaire?`<div class="cell-sub" style="font-style:italic">${esc(t.commentaire)}</div>`:""}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        ${badge(t.statut)}
+        ${rappelBadge(t,cfg)}
+        ${t.statut!=="Fait"?`<button class="btn ghost sm" data-marquer-fait="${t.id}">${svg(I.check,'ic')} Marquer fait</button>`:`<span class="cell-sub">Fait le ${fmtDate(t.dateRealisation)}</span>`}
+      </div>
+    </div>`).join("");
+  const peutCloturer=canCloturerMaternite(m);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:760px">
+    <div class="modal-head"><h3>Dossier maternité — ${esc(agentName(m.agentId))}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="info-list" style="margin-bottom:10px">
+        <div class="row"><span class="l">Date de déclaration</span><span class="v">${fmtDate(m.dateDeclaration)}</span></div>
+        <div class="row"><span class="l">Statut</span><span class="v">${badge(m.statut)}</span></div>
+      </div>
+      <div class="tache-list">${rows}</div>
+      ${!peutCloturer&&m.statut!=="Clôturé"?`<p class="hint" style="margin-top:10px;display:block">La clôture est bloquée tant qu'une pièce jointe obligatoire n'a pas été fournie.</p>`:""}
+    </div>
+    <div class="modal-foot">
+      ${m.statut!=="Clôturé"?`<button class="btn primary" id="cloturerDossier" ${peutCloturer?"":"disabled"}>${svg(I.check,'ic')} Clôturer le dossier</button>`:""}
+      <button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button>
+    </div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  mr.querySelectorAll("[data-marquer-fait]").forEach(btn=>btn.onclick=()=>{
+    const t=m.taches.find(x=>x.id===btn.dataset.marquerFait);
+    if(t.pjObligatoire && !(t.piecesJointes&&t.piecesJointes.length)){
+      const nom=prompt("Nom du justificatif joint (pièce obligatoire) :");
+      if(!nom) return;
+      t.piecesJointes=[{nom}];
+    }
+    t.statut="Fait"; t.dateRealisation=todayISO();
+    save(); openMaterniteChecklist(id);
+  });
+  const clotBtn=document.getElementById("cloturerDossier");
+  if(clotBtn) clotBtn.onclick=()=>{ m.statut="Clôturé"; save(); close(); toast("Dossier maternité clôturé"); render(); };
 }
 
 /* ---------- Notification Teams (conversation simulée) ---------- */
@@ -1818,6 +2265,57 @@ function openTeamsModal(id){
     save();
     toast(`Message envoyé sur Teams à ${agentName(appr.agent.id)}`);
     openTeamsModal(id);
+  };
+}
+
+/* ---------- Évaluations de formation (à chaud / à froid, envoyées via Teams) ---------- */
+function openFormationEvalModal(formationId, type){
+  const f=DB.formations.find(x=>x.id===formationId);
+  if(!f) return;
+  const cfg=DB.formationConfig;
+  const isFroid = type==="froid";
+  if(isFroid && !f.evalChaud){ toast("L'évaluation à chaud doit être envoyée en premier"); return; }
+  const evalKey = isFroid ? "evalFroid" : "evalChaud";
+  if(!f[evalKey]) f[evalKey]={envoyeLe:null, reponses:"", complete:false};
+  const evalObj=f[evalKey];
+  const questions = isFroid ? cfg.questionsFroid : cfg.questionsChaud;
+  const dateEnvoiPrevue = (!isFroid || !f.debut) ? null : (()=>{ const d=new Date(f.debut||f.debutSouhaite); d.setDate(d.getDate()+cfg.delaiFroidSemaines*7); return d.toISOString().slice(0,10); })();
+  const a=DB.agents.find(x=>x.id===f.agentId);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div class="av" style="background:#464775;color:#fff">${a?initials(a.nom,a.prenom):"?"}</div>
+        <div><h3 style="margin:0">${a?esc(a.prenom)+" "+esc(a.nom):"Agent"}</h3><div class="sub" style="font-size:12px;color:var(--ink-3)">Teams · Évaluation ${isFroid?"à froid":"à chaud"} — ${esc(f.intitule)}</div></div>
+        <div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="teams-thread">
+          <div class="teams-msg out"><div class="teams-bubble"><div class="teams-from">Système RH</div><div class="teams-text">Merci de compléter votre évaluation ${isFroid?"à froid":"à chaud"} de la formation « ${esc(f.intitule)} ».<br>Critères : ${esc(questions)}</div><div class="teams-time">${esc(evalObj.envoyeLe?fmtDate(evalObj.envoyeLe):"Pas encore envoyée")}</div></div></div>
+          ${evalObj.complete?`<div class="teams-msg"><div class="teams-bubble"><div class="teams-from">${esc(a?a.prenom:"Agent")}</div><div class="teams-text">${esc(evalObj.reponses)}</div></div></div>`:""}
+        </div>
+        ${isFroid&&dateEnvoiPrevue?`<p class="hint" style="margin-top:10px;display:block">Envoi prévu ${cfg.delaiFroidSemaines} semaines après la formation, soit le ${fmtDate(dateEnvoiPrevue)}.</p>`:""}
+      </div>
+      <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:8px">
+        <textarea id="evalReponse" placeholder="Réponse de l'agent (simulation)…">${esc(evalObj.reponses||"")}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn" id="cancelModal">Fermer</button>
+          ${!evalObj.envoyeLe?`<button class="btn" id="sendEval">${svg(I.teams,'ic')} Envoyer sur Teams</button>`:""}
+          <button class="btn primary" id="saveEval">${svg(I.check)} Enregistrer la réponse</button>
+        </div>
+      </div>
+    </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  const sendBtn=document.getElementById("sendEval");
+  if(sendBtn) sendBtn.onclick=()=>{ evalObj.envoyeLe=todayISO(); save(); toast("Évaluation envoyée sur Teams"); openFormationEvalModal(formationId,type); };
+  document.getElementById("saveEval").onclick=()=>{
+    evalObj.reponses=document.getElementById("evalReponse").value.trim();
+    evalObj.complete=!!evalObj.reponses;
+    if(!evalObj.envoyeLe) evalObj.envoyeLe=todayISO();
+    save(); close(); toast("Réponse enregistrée"); render();
   };
 }
 
@@ -1885,6 +2383,56 @@ function openFamilyForm(agentId){
     };
   }
   paint();
+}
+
+/* ---------- Horaire individuel (utilisé par les congés et l'allaitement) ---------- */
+function openHoraireForm(agentId){
+  const a=DB.agents.find(x=>x.id===agentId);
+  if(!a) return;
+  const h={...defaultHoraire(), ...(a.horaire||{})};
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Horaire individuel — ${esc(a.prenom)} ${esc(a.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-section">Lundi → Jeudi</div>
+      <div class="form-grid">
+        <div class="field"><label>Début</label><input type="time" id="hLunJeuDebut" value="${esc(h.lunJeuDebut)}"></div>
+        <div class="field"><label>Fin</label><input type="time" id="hLunJeuFin" value="${esc(h.lunJeuFin)}"></div>
+      </div>
+      <div class="form-section">Vendredi</div>
+      <div class="form-grid">
+        <div class="field"><label>Début</label><input type="time" id="hVenDebut" value="${esc(h.vendrediDebut)}"></div>
+        <div class="field"><label>Fin</label><input type="time" id="hVenFin" value="${esc(h.vendrediFin)}"></div>
+      </div>
+      <div class="form-section">Réorganisation</div>
+      <div class="form-grid">
+        <div class="field"><label>Pause déjeuner (min)</label><input type="number" id="hPause" value="${h.pauseDejeunerMin}"></div>
+        <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:22px">
+          <input type="checkbox" id="hReorganise" ${h.reorganise?"checked":""} style="width:auto">
+          <label style="margin:0">Réorganisation individuelle validée</label>
+        </div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Commentaire (motif de la réorganisation)</label><textarea id="hCommentaire">${esc(h.commentaireReorganisation||"")}</textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    a.horaire={
+      lunJeuDebut:document.getElementById("hLunJeuDebut").value||h.lunJeuDebut,
+      lunJeuFin:document.getElementById("hLunJeuFin").value||h.lunJeuFin,
+      vendrediDebut:document.getElementById("hVenDebut").value||h.vendrediDebut,
+      vendrediFin:document.getElementById("hVenFin").value||h.vendrediFin,
+      pauseDejeunerMin:Number(document.getElementById("hPause").value)||0,
+      reorganise:document.getElementById("hReorganise").checked,
+      commentaireReorganisation:document.getElementById("hCommentaire").value.trim()
+    };
+    save(); close(); toast("Horaire individuel mis à jour");
+    renderAgentDetail();
+  };
 }
 
 /* ---------- Génération et contrôle des bulletins de paie ---------- */
@@ -1985,6 +2533,85 @@ function openPaieConfigForm(){
     });
     cfg.horaireMensuel=Number(document.getElementById("cfgHoraire").value)||0;
     save(); close(); toast("Variables de paie mises à jour");
+  };
+}
+// Règles de décompte des congés (grille ANFA) — paramétrables plutôt que codées en dur.
+function openReglesCongesForm(){
+  const cfg=DB.reglesConges;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Règles de décompte des congés</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px">
+        <input type="checkbox" id="rgSamedi" ${cfg.inclureSamediSiVendredi?"checked":""} style="width:auto">
+        <label style="margin:0">Un congé se terminant un vendredi entraîne le décompte du samedi en plus</label>
+      </div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:10px">
+        <input type="checkbox" id="rgDimanche" ${cfg.inclureDimancheSiSamediInclus?"checked":""} style="width:auto">
+        <label style="margin:0">Dans ce cas, décompter également le dimanche</label>
+      </div>
+      <p class="hint" style="margin-top:12px;display:block">Grille ANFA : ces règles s'appliquent au calcul automatique du nombre de jours décomptés lors du dépôt d'une demande de congés annuels.</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    cfg.inclureSamediSiVendredi=document.getElementById("rgSamedi").checked;
+    cfg.inclureDimancheSiSamediInclus=document.getElementById("rgDimanche").checked;
+    save(); close(); toast("Règles de décompte mises à jour");
+  };
+}
+// Variables des évaluations de formation (questionnaires à chaud/à froid, délai avant l'envoi à froid).
+function openFormationConfigForm(){
+  const cfg=DB.formationConfig;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Variables des évaluations de formation</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Critères de l'évaluation à chaud</label><textarea id="cfgChaud">${esc(cfg.questionsChaud)}</textarea></div>
+      <div class="field" style="margin-top:10px"><label>Critères de l'évaluation à froid</label><textarea id="cfgFroid">${esc(cfg.questionsFroid)}</textarea></div>
+      <div class="field" style="margin-top:10px"><label>Délai avant l'évaluation à froid (semaines)</label><input type="number" id="cfgDelai" value="${cfg.delaiFroidSemaines}"></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    cfg.questionsChaud=document.getElementById("cfgChaud").value.trim();
+    cfg.questionsFroid=document.getElementById("cfgFroid").value.trim();
+    cfg.delaiFroidSemaines=Number(document.getElementById("cfgDelai").value)||0;
+    save(); close(); toast("Variables des évaluations mises à jour");
+  };
+}
+// Paramètres des rappels d'échéance (dossiers maternité et, demain, autres check-lists).
+function openRappelsConfigForm(){
+  const cfg=DB.rappelsConfig;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Configuration des rappels</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Alerter dès (jours avant l'échéance)</label><input type="number" id="cfgAvant" value="${cfg.avantEcheanceJours}"></div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:10px">
+        <input type="checkbox" id="cfgJour" ${cfg.jourEcheance?"checked":""} style="width:auto">
+        <label style="margin:0">Alerter le jour de l'échéance</label>
+      </div>
+      <p class="hint" style="margin-top:12px;display:block">Ce prototype affiche les rappels à l'écran (badges) ; il n'envoie pas de notification automatique réelle.</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    cfg.avantEcheanceJours=Number(document.getElementById("cfgAvant").value)||0;
+    cfg.jourEcheance=document.getElementById("cfgJour").checked;
+    save(); close(); toast("Configuration des rappels mise à jour");
   };
 }
 // Cycle de contrôle : Brouillon/Anomalie (contrôlé globalement par la DF, tous comptes confondus)
