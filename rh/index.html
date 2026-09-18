@@ -248,6 +248,10 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 .wf-actor{font-size:12.5px; color:var(--ink-2); margin-top:2px}
 .wf-comment{font-size:12.5px; color:var(--ink-3); margin-top:4px; font-style:italic}
 
+/* Anomalie de bulletin de paie */
+.anomalie-box{background:var(--bad-bg); color:var(--bad); border:1px solid var(--bad); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:13px}
+.anomalie-box strong{display:block; margin-bottom:3px}
+
 /* Fiche famille */
 .child-row{display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center}
 .child-row input{padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13px}
@@ -388,8 +392,8 @@ function agentMat(id){ const a=DB.agents.find(x=>x.id===id); return a? a.matricu
 
 const STATUS = {
   ok:["Validé","Validée","Actif","Terminée","Payée","Apte","Clôturé","Réalisé","Réalisée"],
-  warn:["En attente","Prévue","En cours","Demandé","Demandée","En instruction","Déclaré","Brouillon","Apte avec aménagement","Inapte temporaire","Planifiée","En contrôle"],
-  bad:["Refusé","Refusée","Inactif","Inapte","Annulée","Clôturé sans suite","Rejetée"]
+  warn:["En attente","Prévue","En cours","Demandé","Demandée","En instruction","Déclaré","Brouillon","Apte avec aménagement","Inapte temporaire","Planifiée"],
+  bad:["Refusé","Refusée","Inactif","Inapte","Annulée","Clôturé sans suite","Anomalie"]
 };
 function badge(s){
   if(!s) return `<span class="badge mut">—</span>`;
@@ -418,6 +422,9 @@ function migrate(){
     if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
   });
   DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
+  // Ancien circuit de contrôle des bulletins (soumission explicite étape par étape) remplacé par
+  // un contrôle global de la DF sur tous les bulletins non validés : on relit les anciens statuts.
+  DB.paie.forEach(p=>{ if(p.statut==="En contrôle") p.statut="Brouillon"; if(p.statut==="Rejetée") p.statut="Anomalie"; });
   save();
 }
 
@@ -615,30 +622,11 @@ const WORKFLOW_DEFS = {
         ]
       }
     }
-  },
-  paie:{
-    label:"Bulletin de paie",
-    start:"controle_df",
-    steps:{
-      // Le rejet reboucle sur cette même étape (le bulletin corrigé repasse par le même contrôle),
-      // ce qui conserve tout l'historique dans un seul et même workflow.
-      controle_df:{
-        label:"Contrôle Direction Financière",
-        actor:()=>{ const df=DB.agents.find(a=>a.direction==="Direction Financière" && a.actif!==false); return df?{label:agentName(df.id), agentId:df.id}:{label:"Direction Financière"}; },
-        actions:[
-          {id:"valider", label:"Valider le bulletin", to:"pret_paiement", setFields:(rec,actor)=>({statut:"Validée", controlePar:actor.label})},
-          {id:"rejeter", label:"Rejeter (à corriger)", to:"controle_df", setFields:(rec,actor)=>({statut:"Rejetée", controlePar:actor.label})}
-        ]
-      },
-      pret_paiement:{
-        label:"Prêt pour paiement",
-        actor:()=>({label:"Service Paie"}),
-        actions:[
-          {id:"payer", label:"Marquer comme payé", to:null, setFields:()=>({statut:"Payée"})}
-        ]
-      }
-    }
   }
+  // Le contrôle des bulletins de paie par la Direction Financière ne suit pas ce moteur générique
+  // à étapes : la DF contrôle globalement TOUS les bulletins non validés en une seule vue (jamais
+  // compte par compte), ce qui se prête mieux à une simple machine à états (voir plus bas,
+  // section "Génération et contrôle des bulletins de paie").
 };
 function startWorkflow(defKey, rec){
   rec.workflow={defKey, step:WORKFLOW_DEFS[defKey].start, history:[{step:null, actorLabel:"", action:"Création de la demande", date:nowStamp(), commentaire:""}]};
@@ -731,7 +719,9 @@ function computeCST(brut, tranches){
   });
   return lines;
 }
-function computeBulletin(agent, periode, config){
+// Partie « salaire » seule (sans les congés), réutilisable pour recalculer un bulletin après
+// correction sans ré-accumuler les compteurs de congés une seconde fois.
+function computeRemuneration(agent, config){
   const brut=Math.round((agent.salaireBrutMensuel||0)+(agent.primeEmploi||0));
   const lignesCotis=(config.cotisationsBrut||[]).map(c=>{
     const base = c.plafond ? Math.min(brut,c.plafond) : brut;
@@ -740,8 +730,12 @@ function computeBulletin(agent, periode, config){
   const cstLignes=computeCST(brut, config.cstTranches);
   const totalCotisSalariales=lignesCotis.reduce((s,l)=>s+l.montantSalarial,0)+cstLignes.reduce((s,l)=>s+l.montant,0);
   const totalCotisPatronales=lignesCotis.reduce((s,l)=>s+l.montantPatronal,0);
+  return {brut, lignesCotis, cstLignes, totalCotisSalariales, totalCotisPatronales, net:brut-totalCotisSalariales};
+}
+function computeBulletin(agent, periode, config){
+  const rem=computeRemuneration(agent, config);
   const congesRecap=computeCongesRecap(agent, periode, config);
-  return {brut, lignesCotis, cstLignes, totalCotisSalariales, totalCotisPatronales, congesRecap, net:brut-totalCotisSalariales};
+  return {...rem, congesRecap};
 }
 
 /* ---------- Profil de test (droits différenciés par profil utilisateur) ---------- */
@@ -973,7 +967,7 @@ let view = {module:"dashboard", agentId:null, tab:"conges", search:"", filter:""
 function navBadgeCount(id){
   if(id==="mes-conges") return DB.conges.filter(x=>x.agentId===SESSION.asAgentId && x.statut==="En attente").length;
   if(id==="resp-validations") return pendingApprovalsFor(SESSION.asAgentId).length;
-  if(id==="df-controle") return DB.paie.filter(p=>p.statut==="En contrôle").length;
+  if(id==="df-controle") return DB.paie.filter(p=>p.statut==="Brouillon"||p.statut==="Anomalie").length;
   return 0;
 }
 function renderNav(){
@@ -1031,7 +1025,7 @@ function render(){
   if(view.module==="resp-dashboard"){ t.textContent="Tableau de bord équipe"; s.textContent="Vue d'ensemble de mon équipe"; c.innerHTML=renderRespDashboard(); bindRespDashboard(); return; }
   if(view.module==="resp-equipe"){ const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId); t.textContent="Mon équipe"; s.textContent=`${team.length} agent${team.length>1?"s":""} rattaché${team.length>1?"s":""}`; c.innerHTML=renderMonEquipe(); bindMonEquipe(); return; }
   if(view.module==="resp-validations"){ t.textContent="Validations congés"; s.textContent="Demandes de mon équipe en attente de ma validation"; c.innerHTML=renderValidations(); bindValidations(); return; }
-  if(view.module==="df-controle"){ t.textContent="Contrôle des bulletins"; s.textContent="Bulletins de paie soumis au contrôle de la Direction Financière"; c.innerHTML=renderDFControle(); bindDFControle(); return; }
+  if(view.module==="df-controle"){ t.textContent="Contrôle des bulletins"; s.textContent="Tous comptes confondus : tout bulletin non validé reste ici jusqu'à correction"; c.innerHTML=renderDFControle(); bindDFControle(); return; }
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble des effectifs et des demandes en cours"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
   if(view.agentId){ renderAgentDetail(); return; }
   const nav=NAV.find(n=>n.id===view.module);
@@ -1178,19 +1172,35 @@ function bindValidations(){
 }
 
 /* ---------- Espace self-service (profil Direction Financière) ---------- */
+// Contrôle global : la DF voit en une seule vue TOUS les bulletins non validés, tous comptes
+// confondus (jamais compte par compte). Un bulletin validé disparaît immédiatement de cette liste.
 function renderDFControle(){
-  const rows=DB.paie.filter(p=>p.statut==="En contrôle").sort((a,b)=>(a.periode||"").localeCompare(b.periode||""));
-  const cols=[{h:"Agent"},{h:"Période"},{h:"Brut",num:true},{h:"Net à payer",num:true},{h:""}];
+  const pending=DB.paie.filter(p=>p.statut==="Brouillon"||p.statut==="Anomalie");
+  const periodes=[...new Set(pending.map(p=>p.periode))].sort().reverse();
+  let rows=pending.map(p=>({...p,_search:`${agentName(p.agentId)} ${p.periode} ${p.statut}`,_filterVal:p.periode}));
+  rows=filterRows(rows).sort((x,y)=>(x.periode||"").localeCompare(y.periode||"")||agentName(x.agentId).localeCompare(agentName(y.agentId)));
+  const cols=[{h:"Agent"},{h:"Période"},{h:"Brut",num:true},{h:"Net à payer",num:true},{h:"Statut"},{h:""}];
   const body=rows.map(p=>`<tr>
       <td class="cell-name">${esc(agentName(p.agentId))}</td>
       <td>${esc(p.periode)}</td>
       <td class="num">${fmtMoney(p.brut)}</td>
       <td class="num" style="font-weight:700">${fmtMoney(p.net)}</td>
-      <td><button class="btn ghost sm" data-view="${p.id}" title="Examiner">${svg(I.eye,'ic')}</button></td>
+      <td>${badge(p.statut)}${p.statut==="Anomalie"&&p.derniereAnnotation?`<div class="cell-sub" style="white-space:normal;max-width:240px;margin-top:2px">${esc(p.derniereAnnotation)}</div>`:""}</td>
+      <td><div class="row-actions">
+        <button class="btn ghost sm" data-valider-p="${p.id}" title="Valider">${svg(I.check,'ic')}</button>
+        <button class="btn ghost sm" data-anomalie-p="${p.id}" title="Signaler une anomalie">${svg(I.x,'ic')}</button>
+        <button class="btn ghost sm" data-view="${p.id}" title="Voir le détail">${svg(I.eye,'ic')}</button>
+      </div></td>
     </tr>`).join("");
-  return tableShell(cols,body);
+  return toolbar("periode", periodes)+tableShell(cols,body);
 }
 function bindDFControle(){
+  const si=document.getElementById("searchInp");
+  if(si) si.oninput=()=>{ view.search=si.value; const c=document.getElementById("content"); c.innerHTML=renderDFControle(); bindDFControle(); };
+  const fs=document.getElementById("filterSel");
+  if(fs) fs.onchange=()=>{ view.filter=fs.value; const c=document.getElementById("content"); c.innerHTML=renderDFControle(); bindDFControle(); };
+  document.querySelectorAll("[data-valider-p]").forEach(el=>el.onclick=()=>{ validerBulletin(DB.paie.find(x=>x.id===el.dataset.validerP)); toast("Bulletin validé"); render(); });
+  document.querySelectorAll("[data-anomalie-p]").forEach(el=>el.onclick=()=>flagAnomalie(DB.paie.find(x=>x.id===el.dataset.anomalieP)));
   document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
@@ -1351,7 +1361,7 @@ const LISTS = {
       <td>${rowActions("paie",p.id,`<button class="btn ghost sm" data-view="${p.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`)}</td>
     </tr>`).join("");
     const totalNet=rows.reduce((s,p)=>s+(p.net||0),0);
-    return toolbar("statut",["Brouillon","En contrôle","Rejetée","Validée","Payée"])+tableShell(cols,body)+
+    return toolbar("statut",["Brouillon","Anomalie","Validée","Payée"])+tableShell(cols,body)+
       `<div style="margin-top:12px;text-align:right;color:var(--ink-2);font-size:13.5px">Masse salariale nette affichée : <strong style="color:var(--ink)">${fmtMoney(totalNet)}</strong></div>`;
   },
   formations(){
@@ -1907,7 +1917,8 @@ function openGenerateBulletins(){
         lignesCotis:calc.lignesCotis, cstLignes:calc.cstLignes,
         cotis:calc.totalCotisSalariales, cotisPatronales:calc.totalCotisPatronales,
         congesRecap:calc.congesRecap,
-        net:calc.net, statut:"Brouillon"
+        net:calc.net, statut:"Brouillon",
+        workflow:{history:[{action:"Génération du bulletin", actorLabel:agentName(SESSION.asAgentId)||"RH", date:nowStamp(), commentaire:""}]}
       });
       // Fait progresser les compteurs de congés de l'agent (solde M-1 + acquis - pris = nouveau solde).
       if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
@@ -1976,31 +1987,69 @@ function openPaieConfigForm(){
     save(); close(); toast("Variables de paie mises à jour");
   };
 }
+// Cycle de contrôle : Brouillon/Anomalie (contrôlé globalement par la DF, tous comptes confondus)
+// → Validée (disparaît du contrôle) → Payée. Une anomalie signalée reste visible au contrôle
+// jusqu'à correction RH puis revalidation — autant de fois que nécessaire.
+function paieHistoryPush(p, action, actorLabel, commentaire){
+  if(!p.workflow) p.workflow={history:[]};
+  p.workflow.history.push({action, actorLabel, date:nowStamp(), commentaire:commentaire||""});
+}
+function validerBulletin(p){
+  p.statut="Validée"; p.derniereAnnotation=null;
+  paieHistoryPush(p,"Bulletin validé", agentName(SESSION.asAgentId)+" (Direction Financière)");
+  save();
+}
+function signalerAnomalie(p, commentaire){
+  p.statut="Anomalie"; p.derniereAnnotation=commentaire;
+  paieHistoryPush(p,"Anomalie signalée", agentName(SESSION.asAgentId)+" (Direction Financière)", commentaire);
+  save();
+}
+function regenererBulletin(p){
+  const a=DB.agents.find(x=>x.id===p.agentId);
+  const rem=computeRemuneration(a, DB.paieConfig);
+  Object.assign(p, rem, {primes:a.primeEmploi||0});
+  p.statut="Brouillon";
+  paieHistoryPush(p,"Bulletin corrigé et renvoyé au contrôle", agentName(SESSION.asAgentId)+" (RH)");
+  save();
+}
+function marquerBulletinPaye(p){
+  p.statut="Payée";
+  paieHistoryPush(p,"Marqué comme payé", agentName(SESSION.asAgentId));
+  save();
+}
+function flagAnomalie(p){
+  const commentaire=prompt("Décrire l'anomalie constatée sur ce bulletin :", p.derniereAnnotation||"");
+  if(commentaire===null) return;
+  if(!commentaire.trim()){ toast("Merci de préciser l'anomalie constatée"); return; }
+  signalerAnomalie(p, commentaire.trim());
+  document.getElementById("modalRoot").innerHTML="";
+  toast("Anomalie signalée à la RH");
+  render();
+}
 function paieActionsHTML(p){
-  const canControl = SESSION.role==="df" || SESSION.role==="rh";
+  const isDF = SESSION.role==="df" || SESSION.role==="rh";
   let html="";
-  if(p.statut==="Brouillon" && SESSION.role==="rh") html+=`<button class="btn primary sm" id="submitControle">${svg(I.check,'ic')} Soumettre au contrôle</button>`;
-  if(p.statut==="Rejetée" && SESSION.role==="rh") html+=`<button class="btn primary sm" id="resubmitControle">${svg(I.check,'ic')} Resoumettre au contrôle</button>`;
-  if(p.statut==="En contrôle" && canControl) html+=`<button class="btn primary sm" id="validerBulletin">${svg(I.check,'ic')} Valider</button> <button class="btn sm" id="rejeterBulletin">${svg(I.x,'ic')} Rejeter</button>`;
-  if(p.statut==="Validée" && canControl) html+=`<button class="btn primary sm" id="marquerPaye">${svg(I.check,'ic')} Marquer payé</button>`;
+  if((p.statut==="Brouillon"||p.statut==="Anomalie") && isDF){
+    html+=`<button class="btn primary sm" id="validerBulletinBtn">${svg(I.check,'ic')} Valider</button> <button class="btn sm" id="anomalieBulletinBtn">${svg(I.x,'ic')} Signaler une anomalie</button>`;
+  }
+  if(p.statut==="Anomalie" && SESSION.role==="rh"){
+    html+=`<button class="btn sm" id="regenererBulletinBtn">${svg(I.check,'ic')} Corriger et renvoyer au contrôle</button>`;
+  }
+  if(p.statut==="Validée" && isDF){
+    html+=`<button class="btn primary sm" id="marquerPayeBtn">${svg(I.check,'ic')} Marquer payé</button>`;
+  }
   return html;
 }
 function wireBulletinActions(p){
-  const rerender=(msg)=>{ save(); document.getElementById("modalRoot").innerHTML=""; toast(msg); render(); };
-  const sub=document.getElementById("submitControle");
-  if(sub) sub.onclick=()=>{ startWorkflow("paie", p); p.statut="En contrôle"; rerender("Bulletin soumis au contrôle de la Direction Financière"); };
-  const resub=document.getElementById("resubmitControle");
-  if(resub) resub.onclick=()=>{
-    if(!p.workflow) startWorkflow("paie", p);
-    p.workflow.history.push({step:"Contrôle Direction Financière", actorLabel:"", action:"Resoumission au contrôle", date:nowStamp(), commentaire:""});
-    p.statut="En contrôle"; rerender("Bulletin resoumis au contrôle");
-  };
-  const val=document.getElementById("validerBulletin");
-  if(val) val.onclick=()=>{ advanceWorkflow(p,"valider"); rerender("Bulletin validé"); };
-  const rej=document.getElementById("rejeterBulletin");
-  if(rej) rej.onclick=()=>{ advanceWorkflow(p,"rejeter"); rerender("Bulletin rejeté, à corriger"); };
-  const pay=document.getElementById("marquerPaye");
-  if(pay) pay.onclick=()=>{ advanceWorkflow(p,"payer"); rerender("Bulletin marqué comme payé"); };
+  const rerender=(msg)=>{ document.getElementById("modalRoot").innerHTML=""; toast(msg); render(); };
+  const val=document.getElementById("validerBulletinBtn");
+  if(val) val.onclick=()=>{ validerBulletin(p); rerender("Bulletin validé"); };
+  const ano=document.getElementById("anomalieBulletinBtn");
+  if(ano) ano.onclick=()=>flagAnomalie(p);
+  const rege=document.getElementById("regenererBulletinBtn");
+  if(rege) rege.onclick=()=>{ regenererBulletin(p); rerender("Bulletin corrigé et renvoyé au contrôle"); };
+  const pay=document.getElementById("marquerPayeBtn");
+  if(pay) pay.onclick=()=>{ marquerBulletinPaye(p); rerender("Bulletin marqué comme payé"); };
 }
 function openBulletinDetail(id){
   const p=DB.paie.find(x=>x.id===id);
@@ -2018,7 +2067,8 @@ function openBulletinDetail(id){
         <tbody>${congesRows}</tbody>
       </table></div>`:"";
   const actions=paieActionsHTML(p);
-  const historyHtml=(p.workflow&&p.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${p.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div></div></div>`).join("")}</div>`:"";
+  const historyHtml=(p.workflow&&p.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${p.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("")}</div>`:"";
+  const anomalieBox = (p.statut==="Anomalie" && p.derniereAnnotation) ? `<div class="anomalie-box"><strong>Anomalie signalée par la Direction Financière</strong><div>${esc(p.derniereAnnotation)}</div></div>` : "";
   const mr=document.getElementById("modalRoot");
   mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:820px">
     <div class="modal-head"><h3>Bulletin de paie — ${esc(agentName(p.agentId))} · ${esc(p.periode)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
@@ -2028,6 +2078,7 @@ function openBulletinDetail(id){
         <div><div class="cell-sub">Direction / Service</div><div class="cell-name">${esc(a?.direction||"—")}</div></div>
         <div><div class="cell-sub">Statut</div>${badge(p.statut)}</div>
       </div>
+      ${anomalieBox}
       <div class="table-wrap" style="margin-bottom:14px"><table>
         <thead><tr><th>Désignation</th><th style="text-align:right">Base</th><th style="text-align:right">Taux sal.</th><th style="text-align:right">Retenue sal.</th><th style="text-align:right">Taux pat.</th><th style="text-align:right">Charge pat.</th></tr></thead>
         <tbody>
