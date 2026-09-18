@@ -227,6 +227,58 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:9px; font-size:13.5px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.3); z-index:80; opacity:0; transition:opacity .2s, transform .2s}
 .toast.show{opacity:1}
 
+/* Teams (conversation simulée) */
+.teams-thread{display:flex; flex-direction:column; gap:10px; min-height:60px}
+.teams-msg{display:flex}
+.teams-msg.out{justify-content:flex-end}
+.teams-bubble{max-width:80%; background:var(--primary-soft); color:var(--ink); border-radius:12px 12px 2px 12px; padding:10px 13px}
+.teams-from{font-size:11px; font-weight:700; color:var(--primary-dark); margin-bottom:2px}
+.teams-text{font-size:13.5px; white-space:pre-line}
+.teams-time{font-size:10.5px; color:var(--ink-3); margin-top:5px; text-align:right}
+#teamsMsg{width:100%; min-height:70px; padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:13.5px; resize:vertical}
+
+/* Historique de workflow */
+.wf-timeline{display:flex; flex-direction:column; gap:16px; position:relative; padding-left:4px}
+.wf-item{display:flex; gap:12px; position:relative}
+.wf-item:not(:last-child)::before{content:""; position:absolute; left:4px; top:16px; bottom:-16px; width:1px; background:var(--border)}
+.wf-dot{width:9px;height:9px;border-radius:50%; background:var(--primary); margin-top:5px; flex:0 0 auto}
+.wf-body{flex:1}
+.wf-top{display:flex; justify-content:space-between; gap:10px; font-size:13.5px}
+.wf-date{color:var(--ink-3); font-size:12px; white-space:nowrap}
+.wf-actor{font-size:12.5px; color:var(--ink-2); margin-top:2px}
+.wf-comment{font-size:12.5px; color:var(--ink-3); margin-top:4px; font-style:italic}
+
+/* Check-list maternité */
+.tache-list{display:flex; flex-direction:column; gap:10px}
+.tache-row{display:flex; gap:14px; padding:12px; border:1px solid var(--border); border-radius:10px; align-items:flex-start}
+
+/* Anomalie de bulletin de paie */
+.anomalie-box{background:var(--bad-bg); color:var(--bad); border:1px solid var(--bad); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:13px}
+.anomalie-box strong{display:block; margin-bottom:3px}
+
+/* Fiche famille */
+.child-row{display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center}
+.child-row input{padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13px}
+
+/* Profil de test (simulateur de droits) */
+.session-bar{padding:12px 14px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px}
+.session-bar .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); font-weight:700}
+.session-bar select{padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; width:100%}
+
+/* Arborescence de documents */
+.doc-tree{display:flex; flex-direction:column; gap:8px}
+.doc-cat{border:1px solid var(--border); border-radius:10px; overflow:hidden}
+.doc-cat-head{display:flex; align-items:center; gap:10px; width:100%; padding:11px 14px; background:var(--surface-2); border:none; cursor:pointer; font-weight:600; font-size:13.5px; color:var(--ink); text-align:left}
+.doc-cat-head:hover{background:var(--bg)}
+.doc-cat-head .chev{width:14px; height:14px; stroke:var(--ink-3); transition:transform .15s; flex:0 0 auto}
+.doc-cat-head.open .chev{transform:rotate(90deg)}
+.doc-cat-head .tag{margin-left:auto}
+.doc-cat-body{padding:4px 14px}
+.doc-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border)}
+.doc-row:last-child{border-bottom:none}
+.doc-year{padding:6px 0}
+.doc-year-lbl{font-size:12px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.03em; padding:8px 0 4px; display:flex; align-items:center; gap:8px}
+
 /* Responsive */
 @media (max-width:960px){ .panels{grid-template-columns:1fr} .detail-cols{grid-template-columns:1fr} }
 @media (max-width:820px){
@@ -253,6 +305,16 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
       </div>
     </div>
     <nav class="nav" id="nav"></nav>
+    <div class="session-bar">
+      <div class="lbl">Profil de test</div>
+      <select id="sessRole">
+        <option value="rh">RH (accès complet)</option>
+        <option value="responsable">Responsable</option>
+        <option value="df">Direction Financière</option>
+        <option value="agent">Agent</option>
+      </select>
+      <select id="sessAgent"></select>
+    </div>
     <div class="sidebar-foot">
       <button class="theme-btn" id="themeBtn" title="Changer de thème">
         <svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -299,7 +361,15 @@ const I = {
   search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   back:'<path d="M15 5l-7 7 7 7"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
-  x:'<path d="M18 6 6 18M6 6l12 12"/>'
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  teams:'<path d="M4 4.5h16v11H9l-5 4z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  settings:'<path d="M4 6h16M4 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 12h16M14 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 18h16M8 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"/>',
+  print:'<path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><path d="M6 14h12v7H6z"/>',
+  chevron:'<path d="M9 6l6 6-6 6"/>',
+  drop:'<path d="M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z"/>',
+  star:'<path d="M12 3l2.6 5.8 6.2.6-4.7 4.2 1.4 6.2L12 16.9 6.5 19.8l1.4-6.2-4.7-4.2 6.2-.6z"/>',
+  checklist:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>'
 };
 const svg = (p,cls='ic')=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${p}</svg>`;
 
@@ -311,14 +381,66 @@ const todayISO = ()=> new Date().toISOString().slice(0,10);
 function fmtDate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
 function fmtMoney(n){ if(n==null||n==="") return "—"; return Number(n).toLocaleString("fr-FR").replace(/\u202f/g," ")+" XPF"; }
 function daysBetween(a,b){ if(!a||!b) return 0; const d=(new Date(b)-new Date(a))/86400000; return d<0?0:Math.round(d)+1; }
+// Règles de décompte des congés (grille ANFA), paramétrables plutôt que codées en dur.
+// Exemple donné par la RH : un congé se terminant un vendredi entraîne le décompte du samedi en plus.
+function defaultReglesConges(){
+  return {inclureSamediSiVendredi:true, inclureDimancheSiSamediInclus:false};
+}
+function joursDecomptesConge(debut, fin, regles){
+  let jours=daysBetween(debut, fin);
+  if(!debut||!fin||!regles) return jours;
+  const finDate=new Date(fin);
+  const finVendredi = finDate.getDay()===5; // 0=dimanche … 5=vendredi
+  if(regles.inclureSamediSiVendredi && finVendredi){
+    jours+=1;
+    if(regles.inclureDimancheSiSamediInclus) jours+=1;
+  }
+  return jours;
+}
+function ancienneteLabel(entree){
+  if(!entree) return "—";
+  const d0=new Date(entree), d1=new Date();
+  if(d1<d0) return "—";
+  let years=d1.getFullYear()-d0.getFullYear(), months=d1.getMonth()-d0.getMonth();
+  if(d1.getDate()<d0.getDate()) months--;
+  if(months<0){ years--; months+=12; }
+  const parts=[];
+  if(years) parts.push(`${years} an${years>1?"s":""}`);
+  if(months||!years) parts.push(`${months} mois`);
+  return parts.join(" ");
+}
 function initials(nom,prenom){ return ((prenom||" ")[0]+(nom||" ")[0]).toUpperCase(); }
+
+/* ---------- Horaires individuels ---------- */
+// Horaire standard de l'établissement ; personnalisable par agent (réorganisation du temps de travail),
+// et réutilisé par les congés (décompte) et l'allaitement (calcul des tranches).
+function defaultHoraire(){
+  return {lunJeuDebut:"07:30", lunJeuFin:"15:30", vendrediDebut:"07:30", vendrediFin:"14:30", pauseDejeunerMin:30, reorganise:false, commentaireReorganisation:""};
+}
+function horaireLabel(h){
+  if(!h) h=defaultHoraire();
+  return `Lun-Jeu ${h.lunJeuDebut}-${h.lunJeuFin} · Ven ${h.vendrediDebut}-${h.vendrediFin} · pause ${h.pauseDejeunerMin} min`;
+}
+function addMinutes(hhmm, min){
+  const [h,m]=hhmm.split(":").map(Number);
+  const d=new Date(2000,0,1,h,m+min);
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+// Calcule les deux tranches de 30 minutes d'allaitement à partir de l'horaire individuel de l'agent.
+function calculerHoraireAllaitement(agent){
+  const h=agent.horaire||defaultHoraire();
+  return {
+    matin:{debut:h.lunJeuDebut, fin:addMinutes(h.lunJeuDebut,30)},
+    apresMidi:{debut:addMinutes(h.lunJeuFin,-30), fin:h.lunJeuFin}
+  };
+}
 function agentName(id){ const a=DB.agents.find(x=>x.id===id); return a? `${a.prenom} ${a.nom}` : "—"; }
 function agentMat(id){ const a=DB.agents.find(x=>x.id===id); return a? a.matricule : ""; }
 
 const STATUS = {
   ok:["Validé","Validée","Actif","Terminée","Payée","Apte","Clôturé","Réalisé","Réalisée"],
   warn:["En attente","Prévue","En cours","Demandé","Demandée","En instruction","Déclaré","Brouillon","Apte avec aménagement","Inapte temporaire","Planifiée"],
-  bad:["Refusé","Refusée","Inactif","Inapte","Annulée","Clôturé sans suite"]
+  bad:["Refusé","Refusée","Inactif","Inapte","Annulée","Clôturé sans suite","Anomalie"]
 };
 function badge(s){
   if(!s) return `<span class="badge mut">—</span>`;
@@ -332,8 +454,33 @@ function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg
 let DB = null;
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ console.warn("save",e); } }
 function load(){
-  try{ const raw=localStorage.getItem(KEY); if(raw){ DB=JSON.parse(raw); return; } }catch(e){}
+  try{ const raw=localStorage.getItem(KEY); if(raw){ DB=JSON.parse(raw); migrate(); return; } }catch(e){}
   DB = seed(); save();
+}
+// Filet de compatibilité pour les données déjà enregistrées en local avant l'ajout
+// du circuit hiérarchique / workflow / carrière / documents.
+function migrate(){
+  if(!DB.carriere) DB.carriere=[];
+  if(!DB.documents) DB.documents=[];
+  if(!DB.allaitement) DB.allaitement=[];
+  if(!DB.notations) DB.notations=[];
+  if(!DB.maternite) DB.maternite=[];
+  if(!DB.paieConfig) DB.paieConfig=defaultPaieConfig();
+  if(!DB.paieConfig.congesTypes) DB.paieConfig.congesTypes=defaultPaieConfig().congesTypes;
+  if(!DB.formationConfig) DB.formationConfig=defaultFormationConfig();
+  if(!DB.reglesConges) DB.reglesConges=defaultReglesConges();
+  if(!DB.rappelsConfig) DB.rappelsConfig=defaultRappelsConfig();
+  DB.agents.forEach(a=>{
+    if(a.superieurId===undefined) a.superieurId=null;
+    if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+    if(!a.horaire) a.horaire=defaultHoraire();
+  });
+  DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
+  DB.formations.forEach(f=>{ if(!f.workflow && f.statut==="Demandée") startWorkflow("formations", f); });
+  // Ancien circuit de contrôle des bulletins (soumission explicite étape par étape) remplacé par
+  // un contrôle global de la DF sur tous les bulletins non validés : on relit les anciens statuts.
+  DB.paie.forEach(p=>{ if(p.statut==="En contrôle") p.statut="Brouillon"; if(p.statut==="Rejetée") p.statut="Anomalie"; });
+  save();
 }
 
 /* ---------- Seed data ---------- */
@@ -351,15 +498,42 @@ function seed(){
     {nom:"AH SCHA",prenom:"Léa",civ:"Mme",dob:"1997-08-08",statut:"Contractuel (CDD)",grade:"Adjoint administratif",echelon:"1",direction:"Direction des Ressources Humaines",fonction:"Assistante RH",entree:"2024-11-04",finContrat:"2025-11-03",quotite:100,email:"l.ahscha@oph.pf",tel:"87 99 11 33",famille:"Célibataire",enfants:0,solde:3,actif:false}
   ].map((a,i)=>({id:uid("a_"), matricule:"AG-"+String(1001+i), ...a}));
 
+  // Rattachement hiérarchique (index dans le tableau agents ci-dessus, null = sommet de la hiérarchie)
+  const SUP=[null,0,1,0,0,0,0,0,3];
+  agents.forEach((a,i)=>{ a.superieurId = SUP[i]!=null ? agents[SUP[i]].id : null; });
+
+  // Rémunération de base (utilisée par le moteur de génération des bulletins de paie)
+  const REM=[[550000,60000],[420000,35000],[260000,10000],[380000,25000],[480000,40000],[180000,0],[300000,15000],[420000,30000],[210000,5000]];
+  agents.forEach((a,i)=>{ a.salaireBrutMensuel=REM[i][0]; a.primeEmploi=REM[i][1]; a.soldes={CP:a.solde??0, CPA:0, CPMF:0}; });
+
+  // Situation familiale détaillée (démo sur quelques agents)
+  agents[0].conjoint={nom:"TEHEIURA",prenom:"Vaihere",dateNaissance:"1986-02-10"};
+  agents[0].enfantsListe=[{nom:"TEHEIURA",prenom:"Heimana",dateNaissance:"2014-05-02"},{nom:"TEHEIURA",prenom:"Manoa",dateNaissance:"2018-11-20"}];
+  agents[4].conjoint={nom:"FAATAU",prenom:"Teata",dateNaissance:"1981-06-30"};
+  agents[4].enfantsListe=[{nom:"FAATAU",prenom:"Rii",dateNaissance:"2009-03-15"},{nom:"FAATAU",prenom:"Tehau",dateNaissance:"2012-07-22"},{nom:"FAATAU",prenom:"Vaite",dateNaissance:"2016-01-08"}];
+
+  // Horaire individuel (horaire standard par défaut, réorganisé pour un agent en démonstration)
+  agents.forEach(a=>{ a.horaire=defaultHoraire(); });
+  agents[5].horaire={...defaultHoraire(), reorganise:true, lunJeuDebut:"08:00", lunJeuFin:"16:00", vendrediDebut:"08:00", vendrediFin:"12:00", commentaireReorganisation:"Temps partiel thérapeutique validé le 01/08/2025"};
+
   const gid = n => agents[n].id;
   const conges = [
     {agentId:gid(0),type:"Congés annuels",debut:"2026-01-05",fin:"2026-01-09",statut:"Validé",valide:"Marc",motif:""},
+    {agentId:gid(1),type:"Congés annuels",debut:"2026-09-15",fin:"2026-09-22",statut:"Validé",valide:"RH",motif:""},
     {agentId:gid(2),type:"Congés annuels",debut:"2026-02-10",fin:"2026-02-14",statut:"En attente",valide:"",motif:"Congés familiaux"},
     {agentId:gid(3),type:"Maladie",debut:"2026-01-12",fin:"2026-01-15",statut:"Validé",valide:"Derrick",motif:"Arrêt maladie ordinaire"},
     {agentId:gid(5),type:"Formation",debut:"2026-01-20",fin:"2026-01-22",statut:"En attente",valide:"",motif:"Formation gestion locative"},
     {agentId:gid(1),type:"Récupération",debut:"2026-01-16",fin:"2026-01-16",statut:"Validé",valide:"Marc",motif:"RTT"},
     {agentId:gid(6),type:"Congé sans solde",debut:"2026-03-02",fin:"2026-03-06",statut:"Refusé",valide:"Derrick",motif:"Effectif insuffisant"}
   ].map(c=>({id:uid("c_"), jours:daysBetween(c.debut,c.fin), ...c}));
+  // Rattache chaque congé de démo au moteur de workflow générique, avec un historique cohérent.
+  conges.forEach(c=>{
+    startWorkflow("conges", c);
+    if(c.statut!=="En attente"){
+      c.workflow.history.push({step:"Validation hiérarchique", actorLabel:c.valide||"—", action:c.statut==="Validé"?"Valider":"Refuser", date:fmtDate(c.debut), commentaire:""});
+      c.workflow.step=null;
+    }
+  });
 
   const paie = [
     {agentId:gid(0),periode:"2026-01",brut:520000,primes:85000,cotis:78000,statut:"Payée"},
@@ -370,11 +544,14 @@ function seed(){
   ].map(p=>({id:uid("p_"), net:(p.brut+p.primes-p.cotis), ...p}));
 
   const formations = [
-    {intitule:"Cybersécurité – sensibilisation des agents",organisme:"MailInBlack",agentId:gid(1),type:"Obligatoire",debut:"2026-01-13",fin:"2026-01-13",duree:7,cout:0,statut:"Terminée"},
-    {intitule:"Marchés publics – rédaction CCTP/BPU",organisme:"CNFPT",agentId:gid(3),type:"Professionnelle",debut:"2026-02-24",fin:"2026-02-26",duree:21,cout:180000,statut:"Prévue"},
+    {intitule:"Cybersécurité – sensibilisation des agents",organisme:"MailInBlack",agentId:gid(1),type:"Obligatoire",debut:"2026-01-13",fin:"2026-01-13",duree:7,cout:0,statut:"Réalisée",justificatif:"Attestation_cybersecurite_2026.pdf",
+      evalChaud:{envoyeLe:"2026-01-13", reponses:"Formation claire, bon rythme, exemples concrets appréciés.", complete:true},
+      evalFroid:null},
+    {intitule:"Marchés publics – rédaction CCTP/BPU",organisme:"CNFPT",agentId:gid(3),type:"Professionnelle",motivation:"Sécuriser la rédaction des pièces de marché de la DRH",objectifs:"Maîtriser CCTP/BPU",lienPoste:"Gestion des marchés RH",debutSouhaite:"2026-02-24",finSouhaite:"2026-02-26",debut:"2026-02-24",fin:"2026-02-26",duree:21,cout:180000,statut:"Validée"},
     {intitule:"Habilitation électrique B0/H0",organisme:"APAVE Pacifique",agentId:gid(7),type:"Sécurité",debut:"2026-01-19",fin:"2026-01-20",duree:14,cout:95000,statut:"En cours"},
-    {intitule:"Préparation concours rédacteur",organisme:"CGF",agentId:gid(5),type:"Préparation concours",debut:"2026-03-10",fin:"2026-06-30",duree:120,cout:250000,statut:"Prévue"}
+    {intitule:"Préparation concours rédacteur",organisme:"CGF",agentId:gid(5),type:"Préparation concours",motivation:"Évolution de carrière",objectifs:"Réussir le concours interne",lienPoste:"Chargée de clientèle → Rédactrice",debutSouhaite:"2026-03-10",finSouhaite:"2026-06-30",duree:120,cout:250000,statut:"Demandée"}
   ].map(f=>({id:uid("f_"), ...f}));
+  formations.forEach(f=>{ if(f.statut==="Demandée") startWorkflow("formations", f); });
 
   const visites = [
     {agentId:gid(5),type:"Embauche",prevue:"2025-09-05",realisee:"2025-09-05",medecin:"Dr Tehina · SISAT",avis:"Apte",prochaine:"2027-09-05"},
@@ -389,18 +566,401 @@ function seed(){
     {agentId:gid(6),date:"2025-11-20",lieu:"Bureau – Pirae",circonstances:"Choc contre un tiroir métallique ouvert",lesions:"Contusion tibia",arret:false,arretJours:0,cafat:"AT-2025-198",statut:"Clôturé"}
   ].map(a=>({id:uid("at_"), ...a}));
 
+  const carriere = [
+    {agentId:gid(0),date:"2012-09-01",type:"Recrutement",poste:"Attaché",direction:"Direction Générale",echelon:"1",commentaire:""},
+    {agentId:gid(0),date:"2020-01-01",type:"Promotion",poste:"Directeur adjoint",direction:"Direction Générale",echelon:"5",commentaire:"Nomination suite à réorganisation"},
+    {agentId:gid(1),date:"2016-01-15",type:"Recrutement",poste:"Technicien systèmes",direction:"DSI",echelon:"1",commentaire:""},
+    {agentId:gid(1),date:"2021-06-01",type:"Changement de poste",poste:"Administrateur systèmes",direction:"DSI",echelon:"3",commentaire:""},
+    {agentId:gid(2),date:"2023-03-01",type:"Recrutement",poste:"Support informatique",direction:"DSI",echelon:"2",commentaire:"Contrat CDD"},
+    {agentId:gid(3),date:"2011-05-02",type:"Recrutement",poste:"Adjoint administratif",direction:"Direction des Ressources Humaines",echelon:"1",commentaire:""},
+    {agentId:gid(3),date:"2018-09-01",type:"Changement de poste",poste:"Gestionnaire carrières",direction:"Direction des Ressources Humaines",echelon:"6",commentaire:""},
+    {agentId:gid(4),date:"2008-02-11",type:"Recrutement",poste:"Ingénieur travaux",direction:"Direction de la Maîtrise d'Ouvrage",echelon:"1",commentaire:""},
+    {agentId:gid(4),date:"2017-01-01",type:"Promotion",poste:"Chef de projet travaux",direction:"Direction de la Maîtrise d'Ouvrage",echelon:"4",commentaire:""},
+    {agentId:gid(5),date:"2025-09-01",type:"Recrutement",poste:"Chargée de clientèle",direction:"Direction de la Gestion Locative",echelon:"1",commentaire:"Stage"},
+    {agentId:gid(6),date:"2019-06-17",type:"Recrutement",poste:"Comptable fournisseurs",direction:"Direction Financière",echelon:"3",commentaire:""},
+    {agentId:gid(7),date:"2010-10-01",type:"Recrutement",poste:"Agent de maintenance",direction:"Direction du Patrimoine",echelon:"2",commentaire:""},
+    {agentId:gid(7),date:"2019-01-01",type:"Promotion",poste:"Responsable maintenance",direction:"Direction du Patrimoine",echelon:"7",commentaire:""},
+    {agentId:gid(8),date:"2024-11-04",type:"Recrutement",poste:"Assistante RH",direction:"Direction des Ressources Humaines",echelon:"1",commentaire:"Contrat CDD"}
+  ].map(c=>({id:uid("car_"), ...c}));
+
+  const documents = [
+    {agentId:gid(0),type:"CV",libelle:"CV_Teheiura_Manea.pdf",dateAjout:"2012-08-20",confidentiel:false},
+    {agentId:gid(0),type:"Décision",libelle:"Decision_titularisation_2012.pdf",dateAjout:"2012-09-01",confidentiel:false},
+    {agentId:gid(2),type:"Diplômes",libelle:"BTS_SIO_Tama_Teiva.pdf",dateAjout:"2023-02-15",confidentiel:false},
+    {agentId:gid(2),type:"CDD - Contrat de travail",libelle:"CDD_2023-2026.pdf",dateAjout:"2023-03-01",confidentiel:false},
+    {agentId:gid(3),type:"Notations",libelle:"Evaluation_2025_Marurai.pdf",dateAjout:"2026-02-01",confidentiel:true},
+    {agentId:gid(1),type:"Discipline",libelle:"Avertissement_2025.pdf",dateAjout:"2025-11-10",confidentiel:true},
+    {agentId:gid(7),type:"Aptitude médical",libelle:"Avis_aptitude_2026-01_Tetuanui.pdf",dateAjout:"2026-01-28",confidentiel:true},
+    {agentId:gid(1),type:"Attestations de formation",libelle:"Attestation_cybersecurite_2026.pdf",dateAjout:"2026-01-13",confidentiel:false},
+    {agentId:gid(8),type:"Recrutement",libelle:"Dossier_candidature_AhScha.pdf",dateAjout:"2024-10-20",confidentiel:false}
+  ].map(d=>({id:uid("doc_"), ...d}));
+
   const deplacements = [
     {agentId:gid(1),objet:"Réunion prestataire infogérance",destination:"Papeete",depart:"2026-01-22",retour:"2026-01-22",transport:"Véhicule de service",frais:0,statut:"Validé"},
     {agentId:gid(4),objet:"Visite chantier logements",destination:"Raiatea",depart:"2026-02-03",retour:"2026-02-05",transport:"Avion",frais:145000,statut:"Demandé"},
     {agentId:gid(3),objet:"Formation CNFPT",destination:"Nouméa",depart:"2026-02-24",retour:"2026-02-27",transport:"Avion",frais:320000,statut:"Demandé"}
   ].map(d=>({id:uid("d_"), ...d}));
 
-  return {agents,conges,paie,formations,visites,accidents,deplacements};
+  const allaitement = [
+    {agentId:gid(5), dateDebut:"2026-10-01", dateFin:"2027-01-01", motif:"Naissance du 20/09/2026"}
+  ].map(x=>({id:uid("all_"), ...x}));
+  allaitement.forEach(x=>{ x.horaireApplique=calculerHoraireAllaitement(agents.find(a=>a.id===x.agentId)); startWorkflow("allaitement", x); });
+
+  const notations = [
+    {agentId:gid(2), campagne:"2025", statut:"Brouillon", note:null, commentaireResponsable:"", commentaireAgent:"", commentaireDirecteur:""},
+    {agentId:gid(6), campagne:"2025", statut:"Brouillon", note:null, commentaireResponsable:"", commentaireAgent:"", commentaireDirecteur:""}
+  ].map(n=>({id:uid("not_"), ...n}));
+  notations.forEach(n=>startWorkflow("notations", n));
+
+  const maternite = [
+    {agentId:gid(5), dateDeclaration:"2026-08-01", statut:"En cours"}
+  ].map(m=>({id:uid("mat_"), ...m}));
+  maternite.forEach(m=>{ m.taches=defaultMaterniteTaches(); });
+
+  return {agents,conges,paie,formations,visites,accidents,deplacements,carriere,documents,allaitement,notations,maternite,
+    paieConfig:defaultPaieConfig(), formationConfig:defaultFormationConfig(), reglesConges:defaultReglesConges(), rappelsConfig:defaultRappelsConfig()};
 }
 
 /* ---------- Module field configs ---------- */
 const DIRECTIONS = ["Direction Générale","DSI","Direction des Ressources Humaines","Direction de la Maîtrise d'Ouvrage","Direction de la Gestion Locative","Direction Financière","Direction du Patrimoine"];
 const agentOptions = ()=> DB.agents.filter(a=>a.actif!==false||true).map(a=>({v:a.id,l:`${a.prenom} ${a.nom} · ${a.matricule}`}));
+
+/* ---------- Classement des documents du dossier (arborescence façon coffre-fort numérique) ---------- */
+const DOC_TYPES = [
+  {cat:"Carrière", type:"Aménagement horaire"},
+  {cat:"Carrière", type:"Attestation diverse"},
+  {cat:"Carrière", type:"CDD - Avenant"},
+  {cat:"Carrière", type:"CDD - Contrat de travail"},
+  {cat:"Carrière", type:"CDI - Avenant"},
+  {cat:"Carrière", type:"CDI - Contrat de travail"},
+  {cat:"Carrière", type:"Correspondances"},
+  {cat:"Carrière", type:"Décès"},
+  {cat:"Carrière", type:"Décision"},
+  {cat:"Carrière", type:"Discipline"},
+  {cat:"Carrière", type:"Fiche de poste"},
+  {cat:"Carrière", type:"Fin de contrat"},
+  {cat:"Carrière", type:"Maternité"},
+  {cat:"Carrière", type:"Notations"},
+  {cat:"Carrière", type:"Réorganisation horaire"},
+  {cat:"Médical", type:"Aptitude médical"},
+  {cat:"Formation", type:"Attestations de formation"},
+  {cat:"Information personnelle", type:"Cartes CPS"},
+  {cat:"Information personnelle", type:"CV"},
+  {cat:"Information personnelle", type:"Diplômes"},
+  {cat:"Information personnelle", type:"Documents administratifs"},
+  {cat:"Information personnelle", type:"Permis de conduire"},
+  {cat:"Information personnelle", type:"Recrutement"}
+];
+const DOC_CATEGORY_ORDER = ["Carrière","Médical","Formation","Information personnelle","Bulletins de paie"];
+function docCategoryOf(type){ const m=DOC_TYPES.find(d=>d.type===type); return m?m.cat:"Information personnelle"; }
+
+/* ---------- Circuit de validation des congés (N+1 → N+2 → RH) ---------- */
+const RH_DIRECTION = "Direction des Ressources Humaines";
+function isAbsent(agentId, dateISO){
+  return DB.conges.some(c=>c.agentId===agentId && c.statut==="Validé" && c.debut<=dateISO && c.fin>=dateISO);
+}
+function hierarchyChain(agentId){
+  const chain=[]; const seen=new Set([agentId]);
+  let cur=DB.agents.find(x=>x.id===agentId);
+  while(cur && cur.superieurId && !seen.has(cur.superieurId)){
+    const sup=DB.agents.find(x=>x.id===cur.superieurId);
+    if(!sup) break;
+    chain.push(sup); seen.add(sup.id); cur=sup;
+  }
+  return chain;
+}
+function isRHAgent(agent){ return agent.direction===RH_DIRECTION && agent.actif!==false; }
+// Renvoie le validateur en poste pour cet agent à une date donnée : le supérieur direct (N+1),
+// à défaut le supérieur du dessus (N+2, N+3…), et si toute la hiérarchie est absente, un agent RH.
+function getApprover(agentId, dateISO=todayISO()){
+  const chain=hierarchyChain(agentId);
+  for(let i=0;i<chain.length;i++){
+    if(!isAbsent(chain[i].id, dateISO)) return {agent:chain[i], level:"n+"+(i+1)};
+  }
+  const rh=DB.agents.find(a=>isRHAgent(a) && a.id!==agentId && !isAbsent(a.id, dateISO));
+  if(rh) return {agent:rh, level:"rh"};
+  return null;
+}
+
+/* ---------- Moteur de workflow générique ---------- */
+// Chaque type d'objet (congés, allaitement, notation, maternité…) déclare ses propres étapes ;
+// le moteur se contente de suivre l'étape courante d'un enregistrement et d'historiser les décisions.
+// step.actor(rec) résout dynamiquement qui doit agir (ex: hiérarchie disponible, commission, directeur…).
+function nowStamp(){ return new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}); }
+const WORKFLOW_DEFS = {
+  conges:{
+    label:"Demande de congé",
+    start:"responsable",
+    steps:{
+      responsable:{
+        label:"Validation hiérarchique",
+        actor:rec=>{ const a=getApprover(rec.agentId, todayISO()); return a?{label:agentName(a.agent.id)+" ("+(a.level==="rh"?"RH":a.level)+")", agentId:a.agent.id}:{label:"Aucun validateur disponible"}; },
+        actions:[
+          {id:"valider", label:"Valider", to:null, setFields:(rec,actor)=>({statut:"Validé", valide:actor.label})},
+          {id:"refuser", label:"Refuser", to:null, setFields:(rec,actor)=>({statut:"Refusé", valide:actor.label})}
+        ]
+      }
+    }
+  },
+  formations:{
+    label:"Demande de formation",
+    start:"responsable",
+    steps:{
+      responsable:{
+        label:"Validation hiérarchique",
+        actor:rec=>{ const a=getApprover(rec.agentId, todayISO()); return a?{label:agentName(a.agent.id)+" ("+(a.level==="rh"?"RH":a.level)+")", agentId:a.agent.id}:{label:"Aucun validateur disponible"}; },
+        actions:[
+          {id:"valider", label:"Valider", to:null, setFields:(rec,actor)=>({statut:"Validée", valide:actor.label})},
+          {id:"refuser", label:"Refuser", to:null, setFields:(rec,actor)=>({statut:"Annulée", valide:actor.label})}
+        ]
+      }
+    }
+  },
+  allaitement:{
+    label:"Autorisation d'allaitement",
+    start:"responsable",
+    steps:{
+      responsable:{
+        label:"Validation responsable",
+        actor:rec=>{ const a=getApprover(rec.agentId, todayISO()); return a?{label:agentName(a.agent.id)+" ("+(a.level==="rh"?"RH":a.level)+")", agentId:a.agent.id}:{label:"Aucun validateur disponible"}; },
+        actions:[
+          {id:"valider", label:"Valider", to:"commission", setFields:(rec,actor)=>({statut:"En commission", valideResponsablePar:actor.label})},
+          {id:"refuser", label:"Refuser", to:null, setFields:(rec,actor)=>({statut:"Refusé", valideResponsablePar:actor.label})}
+        ]
+      },
+      commission:{
+        label:"Commission",
+        actor:()=>({label:"Commission RH"}),
+        actions:[
+          {id:"appliquer", label:"Appliquer", to:null, setFields:()=>({statut:"Appliqué"})},
+          {id:"refuser", label:"Refuser", to:null, setFields:()=>({statut:"Refusé"})}
+        ]
+      }
+    }
+  },
+  notations:{
+    label:"Notation de l'agent",
+    start:"brouillon",
+    steps:{
+      // Statuts distincts demandés : Brouillon → Évaluation responsable → Validation agent →
+      // Validation directeur → Clôturée.
+      brouillon:{
+        label:"Brouillon",
+        actor:rec=>{ const a=DB.agents.find(x=>x.id===rec.agentId); return (a&&a.superieurId)?{label:agentName(a.superieurId), agentId:a.superieurId}:{label:"Aucun responsable"}; },
+        actions:[
+          {id:"commencer", label:"Démarrer l'évaluation", to:"responsable", setFields:()=>({statut:"Évaluation responsable"})}
+        ]
+      },
+      responsable:{
+        label:"Évaluation responsable",
+        actor:rec=>{ const a=DB.agents.find(x=>x.id===rec.agentId); return (a&&a.superieurId)?{label:agentName(a.superieurId), agentId:a.superieurId}:{label:"Aucun responsable"}; },
+        actions:[
+          {id:"soumettre", label:"Soumettre à l'agent", to:"agent", setFields:()=>({statut:"Validation agent"})}
+        ]
+      },
+      agent:{
+        label:"Validation agent",
+        actor:rec=>({label:agentName(rec.agentId), agentId:rec.agentId}),
+        actions:[
+          {id:"valider", label:"Prendre connaissance et valider", to:"directeur", setFields:()=>({statut:"Validation directeur"})}
+        ]
+      },
+      directeur:{
+        label:"Validation directeur",
+        actor:()=>{ const dg=DB.agents.find(a=>!a.superieurId && a.actif!==false); return dg?{label:agentName(dg.id), agentId:dg.id}:{label:"Directeur général"}; },
+        actions:[
+          {id:"cloturer", label:"Valider définitivement", to:null, setFields:()=>({statut:"Clôturée"})}
+        ]
+      }
+    }
+  }
+  // Le contrôle des bulletins de paie par la Direction Financière ne suit pas ce moteur générique
+  // à étapes : la DF contrôle globalement TOUS les bulletins non validés en une seule vue (jamais
+  // compte par compte), ce qui se prête mieux à une simple machine à états (voir plus bas,
+  // section "Génération et contrôle des bulletins de paie").
+};
+function startWorkflow(defKey, rec){
+  rec.workflow={defKey, step:WORKFLOW_DEFS[defKey].start, history:[{step:null, actorLabel:"", action:"Création de la demande", date:nowStamp(), commentaire:""}]};
+}
+function currentWorkflowStep(rec){
+  if(!rec.workflow || !rec.workflow.step) return null;
+  return WORKFLOW_DEFS[rec.workflow.defKey].steps[rec.workflow.step];
+}
+function currentWorkflowActor(rec){
+  const step=currentWorkflowStep(rec);
+  return step ? step.actor(rec) : null;
+}
+function advanceWorkflow(rec, actionId, commentaire=""){
+  const step=currentWorkflowStep(rec);
+  if(!step) return;
+  const action=step.actions.find(x=>x.id===actionId);
+  if(!action) return;
+  const actor=step.actor(rec);
+  rec.workflow.history.push({step:step.label, actorLabel:actor.label, action:action.label, date:nowStamp(), commentaire});
+  if(action.setFields) Object.assign(rec, action.setFields(rec, actor));
+  rec.workflow.step=action.to;
+}
+
+/* ---------- Moteur de calcul de la paie ---------- */
+// Variables de paie éditables (taux CPS/CST, plafonds) : la génération des bulletins ne code en
+// dur aucun taux, tout est lu depuis DB.paieConfig pour rester paramétrable par la RH/Finance.
+// Questionnaires d'évaluation des formations (à chaud / à froid) et délai avant envoi à froid,
+// modifiables par la RH plutôt que codés en dur.
+function defaultFormationConfig(){
+  return {
+    questionsChaud:"Contenu de la formation, qualité de l'animation, moyens pédagogiques, satisfaction globale.",
+    questionsFroid:"Utilisation des connaissances acquises, application concrète dans le poste, changements constatés depuis la formation.",
+    delaiFroidSemaines:8
+  };
+}
+/* ---------- Maternité (checklist de suivi) ---------- */
+function addDaysISO(iso, days){ const d=new Date(iso); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+// Check-list générée automatiquement à l'ouverture d'un dossier maternité.
+function defaultMaterniteTaches(){
+  const today=todayISO();
+  return [
+    {id:uid("t_"), intitule:"Déclaration de grossesse (certificat médical)", description:"Transmettre le certificat médical de grossesse à la RH", echeance:addDaysISO(today,7), responsable:"Agent", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:true},
+    {id:uid("t_"), intitule:"Demande de congé maternité", description:"Constituer et transmettre la demande de congé maternité", echeance:addDaysISO(today,30), responsable:"Agent", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:true},
+    {id:uid("t_"), intitule:"Attestation de droits CPS", description:"Fournir l'attestation de droits CPS à jour", echeance:addDaysISO(today,30), responsable:"Agent", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:true},
+    {id:uid("t_"), intitule:"Organisation du remplacement", description:"Identifier et organiser le remplacement pendant le congé", echeance:addDaysISO(today,45), responsable:"RH", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:false},
+    {id:uid("t_"), intitule:"Entretien de reprise d'activité", description:"Planifier l'entretien de reprise avec l'agent", echeance:addDaysISO(today,150), responsable:"RH", statut:"À faire", dateRealisation:"", commentaire:"", piecesJointes:[], pjObligatoire:false}
+  ];
+}
+function defaultRappelsConfig(){ return {avantEcheanceJours:7, jourEcheance:true, apresEcheanceJours:3}; }
+function defaultPaieConfig(){
+  return {
+    horaireMensuel:169,
+    congesAcquisParMois:2.5,
+    cotisationsBrut:[
+      {code:"21800",libelle:"CPS Assurance maladie",plafond:null,tauxSalarial:4.98,tauxPatronal:9.96},
+      {code:"22800",libelle:"CPS Retraite TA",plafond:269000,tauxSalarial:7.84,tauxPatronal:15.69},
+      {code:"23800",libelle:"CPS Retraite TB",plafond:256000,tauxSalarial:5.81,tauxPatronal:11.62},
+      {code:"23950",libelle:"CPS FSR Exceptionnel",plafond:386000,tauxSalarial:0,tauxPatronal:1.00},
+      {code:"24100",libelle:"CPS Prestations familiales",plafond:null,tauxSalarial:0,tauxPatronal:4.16},
+      {code:"24300",libelle:"CPS Accident du travail",plafond:null,tauxSalarial:0,tauxPatronal:0.77},
+      {code:"24600",libelle:"Formation professionnelle",plafond:null,tauxSalarial:0,tauxPatronal:0.50}
+    ],
+    // Contribution de solidarité territoriale : barème progressif par tranches cumulées sur le brut.
+    cstTranches:[
+      {code:"25000",libelle:"CST à 0,5 %",plafond:150000,taux:0.5},
+      {code:"25100",libelle:"CST à 3 %",plafond:250000,taux:3.0},
+      {code:"25300",libelle:"CST à 5 %",plafond:400000,taux:5.0},
+      {code:"25450",libelle:"CST à 9 %",plafond:null,taux:9.0}
+    ],
+    // Congés suivis sur le bulletin (solde M-1 / acquis / pris / solde). Les bonus d'ancienneté et
+    // « mère de famille » sont des règles indicatives, à ajuster avec la RH selon la convention.
+    congesTypes:[
+      {code:"CP", libelle:"Congés Payés", acquisParMois:2.5},
+      {code:"CPA", libelle:"CP Ancienneté", acquisParMois:0, bonusAnciennete:{seuilAns:10, joursParAn:1}},
+      {code:"CPMF", libelle:"CP Mère de Famille", acquisParMois:0, bonusParEnfant:{joursParAnParEnfant:0.5}}
+    ]
+  };
+}
+function anneesAnciennete(entree){
+  if(!entree) return 0;
+  const d0=new Date(entree), d1=new Date();
+  let years=d1.getFullYear()-d0.getFullYear();
+  if(d1.getMonth()<d0.getMonth() || (d1.getMonth()===d0.getMonth() && d1.getDate()<d0.getDate())) years--;
+  return Math.max(0,years);
+}
+// Calcule, pour chaque type de congé suivi, le solde M-1, l'acquis du mois, le pris du mois et le
+// nouveau solde. « Pris » n'est pour l'instant rapproché que des congés annuels validés (type "CP").
+function computeCongesRecap(agent, periode, config){
+  const soldes = agent.soldes || {CP:agent.solde||0, CPA:0, CPMF:0};
+  const anciennete = anneesAnciennete(agent.entree);
+  return (config.congesTypes||[]).map(ct=>{
+    let acquis = ct.acquisParMois||0;
+    if(ct.bonusAnciennete && anciennete>=ct.bonusAnciennete.seuilAns) acquis = ct.bonusAnciennete.joursParAn/12;
+    if(ct.bonusParEnfant && agent.civ==="Mme" && (agent.enfantsListe||[]).length>0) acquis = (agent.enfantsListe.length*ct.bonusParEnfant.joursParAnParEnfant)/12;
+    let pris=0;
+    if(ct.code==="CP"){
+      pris = DB.conges.filter(c=>c.agentId===agent.id && c.type==="Congés annuels" && c.statut==="Validé" && (c.debut||"").slice(0,7)===periode)
+        .reduce((s,c)=>s+(c.jours||0),0);
+    }
+    const soldeM1 = soldes[ct.code]||0;
+    acquis = Math.round(acquis*100)/100;
+    const solde = Math.round((soldeM1+acquis-pris)*100)/100;
+    return {code:ct.code, libelle:ct.libelle, soldeM1, acquis, pris, solde};
+  });
+}
+function computeCST(brut, tranches){
+  const lines=[]; let prevCap=0;
+  (tranches||[]).forEach(t=>{
+    const cap = t.plafond==null ? brut : Math.min(brut, t.plafond);
+    const base = Math.max(0, cap-prevCap);
+    lines.push({...t, base, montant:Math.round(base*t.taux/100)});
+    prevCap=cap;
+  });
+  return lines;
+}
+// Partie « salaire » seule (sans les congés), réutilisable pour recalculer un bulletin après
+// correction sans ré-accumuler les compteurs de congés une seconde fois.
+function computeRemuneration(agent, config){
+  const brut=Math.round((agent.salaireBrutMensuel||0)+(agent.primeEmploi||0));
+  const lignesCotis=(config.cotisationsBrut||[]).map(c=>{
+    const base = c.plafond ? Math.min(brut,c.plafond) : brut;
+    return {...c, base, montantSalarial:Math.round(base*c.tauxSalarial/100), montantPatronal:Math.round(base*c.tauxPatronal/100)};
+  });
+  const cstLignes=computeCST(brut, config.cstTranches);
+  const totalCotisSalariales=lignesCotis.reduce((s,l)=>s+l.montantSalarial,0)+cstLignes.reduce((s,l)=>s+l.montant,0);
+  const totalCotisPatronales=lignesCotis.reduce((s,l)=>s+l.montantPatronal,0);
+  return {brut, lignesCotis, cstLignes, totalCotisSalariales, totalCotisPatronales, net:brut-totalCotisSalariales};
+}
+function computeBulletin(agent, periode, config){
+  const rem=computeRemuneration(agent, config);
+  const congesRecap=computeCongesRecap(agent, periode, config);
+  return {...rem, congesRecap};
+}
+
+/* ---------- Profil de test (droits différenciés par profil utilisateur) ---------- */
+// Il n'y a pas d'authentification dans ce prototype : ce sélecteur simule "je suis connecté
+// en tant que…" pour démontrer que les droits de consultation/modification varient selon le profil.
+const SESSION_KEY = KEY+"_session";
+let SESSION = {role:"rh", asAgentId:null};
+function loadSession(){
+  try{ const raw=localStorage.getItem(SESSION_KEY); if(raw) SESSION={...SESSION, ...JSON.parse(raw)}; }catch(e){}
+}
+function saveSession(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); }catch(e){} }
+function renderSessionBar(){
+  const roleSel=document.getElementById("sessRole"), agentSel=document.getElementById("sessAgent");
+  roleSel.value=SESSION.role;
+  agentSel.innerHTML=DB.agents.map(a=>`<option value="${a.id}">${esc(a.prenom)} ${esc(a.nom)}</option>`).join("");
+  if(!SESSION.asAgentId && DB.agents[0]) SESSION.asAgentId=DB.agents[0].id;
+  agentSel.value=SESSION.asAgentId;
+  agentSel.style.display=SESSION.role==="rh"?"none":"block";
+  roleSel.onchange=()=>{
+    SESSION.role=roleSel.value;
+    agentSel.style.display=SESSION.role==="rh"?"none":"block";
+    saveSession();
+    go((ROLE_MODULES[SESSION.role]||["dashboard"])[0]);
+  };
+  agentSel.onchange=()=>{
+    SESSION.asAgentId=agentSel.value; saveSession();
+    if(ROLE_MODULES[SESSION.role]) go(ROLE_MODULES[SESSION.role][0]);
+    else if(view.agentId) renderAgentDetail();
+  };
+}
+// Niveau d'accès au dossier d'un agent pour le profil de test actuel : "rh" (accès complet),
+// "self" (l'agent consulte son propre dossier, quel que soit son rôle), "team" (un responsable
+// consulte un membre direct de son équipe) ou "none" (accès refusé).
+function dossierAccess(a){
+  if(SESSION.role==="rh") return "rh";
+  if(a.id===SESSION.asAgentId) return "self";
+  if(SESSION.role==="responsable" && a.superieurId===SESSION.asAgentId) return "team";
+  return "none";
+}
+// Un document du dossier agent est-il visible pour le profil de test actuellement sélectionné ?
+function canViewDocument(doc, agentOfDossier){
+  const access=dossierAccess(agentOfDossier);
+  if(access==="rh") return true;
+  if(access==="none") return false;
+  return access==="self" || !doc.confidentiel;
+}
+// Un document du dossier peut-il être ajouté/modifié/supprimé par le profil de test actuel ?
+function canEditDocuments(agentOfDossier){
+  const access=dossierAccess(agentOfDossier);
+  return access==="rh" || access==="team";
+}
 
 const FORMS = {
   agents:{ title:"agent",
@@ -418,16 +978,20 @@ const FORMS = {
       {k:"fonction",l:"Fonction / Poste",t:"text"},
       {k:"grade",l:"Grade / Cadre d'emploi",t:"text"},
       {k:"echelon",l:"Échelon",t:"text"},
+      {k:"superieurId",l:"Supérieur hiérarchique (N+1)",t:"ref",excludeId:true,hint:"Valideur principal des demandes de congés de cet agent"},
       {k:"entree",l:"Date d'entrée",t:"date"},
       {k:"finContrat",l:"Fin de contrat (CDD)",t:"date"},
       {k:"quotite",l:"Quotité de travail (%)",t:"number"},
       {k:"solde",l:"Solde congés (jours)",t:"number"},
+      {s:"Rémunération"},
+      {k:"salaireBrutMensuel",l:"Traitement de base mensuel (XPF)",t:"number",hint:"Utilisé pour générer le bulletin de paie"},
+      {k:"primeEmploi",l:"Prime à l'emploi (XPF/mois)",t:"number"},
       {s:"Contact"},
       {k:"email",l:"Email professionnel",t:"email"},
       {k:"tel",l:"Téléphone",t:"tel"},
       {k:"actif",l:"Agent actif",t:"bool"}
     ],
-    defaults:()=>({civ:"M.",statut:"Titulaire",actif:true,quotite:100,enfants:0,solde:0,entree:todayISO()})
+    defaults:()=>({civ:"M.",statut:"Titulaire",actif:true,quotite:100,enfants:0,solde:0,entree:todayISO(),salaireBrutMensuel:0,primeEmploi:0})
   },
   conges:{ title:"congé",
     fields:[
@@ -435,12 +999,13 @@ const FORMS = {
       {k:"type",l:"Type d'absence",t:"select",o:["Congés annuels","Récupération","Maladie","Longue maladie","Maternité/Paternité","Formation","Congé sans solde","Autorisation d'absence"],req:true},
       {k:"debut",l:"Date de début",t:"date",req:true},
       {k:"fin",l:"Date de fin",t:"date",req:true},
-      {k:"statut",l:"Statut",t:"select",o:["En attente","Validé","Refusé"]},
-      {k:"valide",l:"Validé par",t:"text"},
+      {k:"demiJournee",l:"Durée",t:"select",o:["Journée entière","Matin","Après-midi"],hint:"Demi-journée possible uniquement si début = fin"},
+      {k:"statut",l:"Statut",t:"select",o:["En attente","Validé","Refusé"],hideSelf:true},
+      {k:"valide",l:"Validé par",t:"text",hideSelf:true},
       {k:"motif",l:"Motif / Commentaire",t:"textarea",full:true}
     ],
-    defaults:()=>({statut:"En attente",debut:todayISO(),fin:todayISO()}),
-    compute:o=>({jours:daysBetween(o.debut,o.fin)})
+    defaults:()=>({statut:"En attente",debut:todayISO(),fin:todayISO(),demiJournee:"Journée entière"}),
+    compute:o=>({jours:(o.demiJournee&&o.demiJournee!=="Journée entière"&&o.debut===o.fin)?0.5:joursDecomptesConge(o.debut,o.fin,DB.reglesConges)})
   },
   paie:{ title:"bulletin",
     fields:[
@@ -460,13 +1025,21 @@ const FORMS = {
       {k:"agentId",l:"Agent",t:"ref",req:true},
       {k:"organisme",l:"Organisme",t:"text"},
       {k:"type",l:"Type",t:"select",o:["Obligatoire","Professionnelle","Préparation concours","Sécurité","Bureautique"]},
-      {k:"statut",l:"Statut",t:"select",o:["Prévue","En cours","Terminée","Annulée"]},
-      {k:"debut",l:"Date de début",t:"date"},
-      {k:"fin",l:"Date de fin",t:"date"},
+      {s:"Demande (motivation, objectifs)"},
+      {k:"motivation",l:"Motivation",t:"textarea"},
+      {k:"objectifs",l:"Objectifs",t:"textarea"},
+      {k:"lienPoste",l:"Lien avec le poste",t:"text",full:true},
+      {k:"debutSouhaite",l:"Date de début souhaitée",t:"date"},
+      {k:"finSouhaite",l:"Date de fin souhaitée",t:"date"},
+      {s:"Réalisation"},
+      {k:"debut",l:"Date de début réalisée",t:"date"},
+      {k:"fin",l:"Date de fin réalisée",t:"date"},
       {k:"duree",l:"Durée (heures)",t:"number"},
-      {k:"cout",l:"Coût (XPF)",t:"number"}
+      {k:"cout",l:"Coût (XPF)",t:"number"},
+      {k:"justificatif",l:"Justificatif (nom du fichier)",t:"text"},
+      {k:"statut",l:"Statut",t:"select",o:["Demandée","Validée","En cours","Réalisée","Annulée"],hideSelf:true}
     ],
-    defaults:()=>({statut:"Prévue",type:"Professionnelle",cout:0,duree:0})
+    defaults:()=>({statut:"Demandée",type:"Professionnelle",cout:0,duree:0,debutSouhaite:todayISO()})
   },
   visites:{ title:"visite médicale",
     fields:[
@@ -506,6 +1079,51 @@ const FORMS = {
       {k:"statut",l:"Statut",t:"select",o:["Demandé","Validé","Réalisé","Refusé"]}
     ],
     defaults:()=>({statut:"Demandé",transport:"Avion",frais:0,depart:todayISO(),retour:todayISO()})
+  },
+  carriere:{ title:"événement de carrière",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"date",l:"Date",t:"date",req:true},
+      {k:"type",l:"Type d'événement",t:"select",o:["Recrutement","Titularisation","Changement de poste","Changement de direction","Changement d'échelon","Promotion","Mutation","Fin de contrat","Autre"],req:true},
+      {k:"poste",l:"Poste / fonction",t:"text"},
+      {k:"direction",l:"Direction / service",t:"select",o:DIRECTIONS},
+      {k:"echelon",l:"Échelon",t:"text"},
+      {k:"commentaire",l:"Commentaire",t:"textarea",full:true}
+    ],
+    defaults:()=>({date:todayISO(),type:"Changement de poste"})
+  },
+  documents:{ title:"document",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"type",l:"Type de document",t:"select",o:DOC_TYPES.map(d=>d.type),req:true,hint:"Détermine le classement dans l'arborescence du dossier"},
+      {k:"libelle",l:"Libellé / nom du fichier",t:"text",req:true},
+      {k:"dateAjout",l:"Date d'ajout",t:"date",req:true},
+      {k:"confidentiel",l:"Accès restreint (RH uniquement)",t:"bool"}
+    ],
+    defaults:()=>({dateAjout:todayISO(),type:"Documents administratifs",confidentiel:false})
+  },
+  allaitement:{ title:"autorisation d'allaitement",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"dateDebut",l:"Date de début",t:"date",req:true},
+      {k:"dateFin",l:"Date de fin",t:"date",req:true},
+      {k:"motif",l:"Commentaire",t:"textarea",full:true}
+    ],
+    defaults:()=>({dateDebut:todayISO(), dateFin:todayISO(), statut:"En attente responsable"})
+  },
+  notations:{ title:"campagne de notation",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"campagne",l:"Campagne (année)",t:"text",req:true}
+    ],
+    defaults:()=>({campagne:String(new Date().getFullYear()), statut:"Brouillon", note:null, commentaireResponsable:"", commentaireAgent:"", commentaireDirecteur:""})
+  },
+  maternite:{ title:"dossier maternité",
+    fields:[
+      {k:"agentId",l:"Agent",t:"ref",req:true},
+      {k:"dateDeclaration",l:"Date de déclaration",t:"date",req:true}
+    ],
+    defaults:()=>({dateDeclaration:todayISO(), statut:"En cours"})
   }
 };
 
@@ -518,15 +1136,62 @@ const NAV = [
   {id:"formations", label:"Formations", icon:I.formations, group:"Suivi", coll:"formations"},
   {id:"visites", label:"Visites médicales", icon:I.visites, group:"Suivi", coll:"visites"},
   {id:"accidents", label:"Accidents de travail", icon:I.accidents, group:"Suivi", coll:"accidents"},
-  {id:"deplacements", label:"Ordres de déplacement", icon:I.deplacements, group:"Suivi", coll:"deplacements"}
+  {id:"deplacements", label:"Ordres de déplacement", icon:I.deplacements, group:"Suivi", coll:"deplacements"},
+  {id:"allaitement", label:"Allaitement", icon:I.drop, group:"Temps de travail", coll:"allaitement"},
+  {id:"notations", label:"Notations", icon:I.star, group:"Évaluation", coll:"notations"},
+  {id:"maternite", label:"Maternité", icon:I.checklist, group:"Évaluation", coll:"maternite"}
 ];
+// Libellés des onglets du dossier agent (inclut des onglets propres au dossier, absents du menu principal).
+const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents", allaitement:"Allaitement", notations:"Notations", maternite:"Maternité"};
+// Menus restreints affichés selon le profil de test (chacun n'a accès qu'à son propre périmètre).
+const AGENT_NAV = [
+  {id:"mon-dashboard", label:"Mon espace", icon:I.dash},
+  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
+  {id:"mes-conges", label:"Mes congés & absences", icon:I.conges}
+];
+const RESP_NAV = [
+  {id:"resp-dashboard", label:"Tableau de bord équipe", icon:I.dash},
+  {id:"resp-equipe", label:"Mon équipe", icon:I.agents},
+  {id:"resp-validations", label:"Validations congés", icon:I.conges},
+  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
+  {id:"mes-conges", label:"Mes congés", icon:I.conges}
+];
+const DF_NAV = [
+  {id:"df-controle", label:"Contrôle des bulletins", icon:I.paie},
+  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
+  {id:"mes-conges", label:"Mes congés", icon:I.conges}
+];
+const ROLE_NAV = {agent:AGENT_NAV, responsable:RESP_NAV, df:DF_NAV};
+const ROLE_MODULES = {
+  agent: AGENT_NAV.map(n=>n.id),
+  responsable: RESP_NAV.map(n=>n.id),
+  df: DF_NAV.map(n=>n.id)
+};
+const ALL_RESTRICTED_MODULES = [...new Set([].concat(...Object.values(ROLE_MODULES)))];
 
 /* ---------- App state ---------- */
 let view = {module:"dashboard", agentId:null, tab:"conges", search:"", filter:""};
 
 /* ---------- Render: nav ---------- */
+function navBadgeCount(id){
+  if(id==="mes-conges") return DB.conges.filter(x=>x.agentId===SESSION.asAgentId && x.statut==="En attente").length;
+  if(id==="resp-validations") return pendingApprovalsFor(SESSION.asAgentId).length;
+  if(id==="df-controle") return DB.paie.filter(p=>p.statut==="Brouillon"||p.statut==="Anomalie").length;
+  return 0;
+}
 function renderNav(){
-  const pend = DB.conges.filter(c=>c.statut==="En attente").length + DB.deplacements.filter(d=>d.statut==="Demandé").length;
+  const roleNav=ROLE_NAV[SESSION.role];
+  if(roleNav){
+    let html="";
+    roleNav.forEach(n=>{
+      const active=view.module===n.id?"active":"";
+      const cnt=navBadgeCount(n.id);
+      html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${n.label}</span>${cnt?`<span class="count">${cnt}</span>`:""}</a>`;
+    });
+    document.getElementById("nav").innerHTML=html;
+    document.querySelectorAll("[data-nav]").forEach(a=>a.onclick=()=>{ go(a.dataset.nav); closeSidebar(); });
+    return;
+  }
   let html="", lastGroup="__";
   NAV.forEach(n=>{
     if(n.group!==lastGroup){ if(n.group) html+=`<div class="nav-group">${n.group}</div>`; lastGroup=n.group; }
@@ -544,20 +1209,213 @@ function renderNav(){
 function go(module, opts={}){ view={...view, module, agentId:opts.agentId||null, search:"", filter:""}; if(opts.tab) view.tab=opts.tab; render(); }
 
 function render(){
+  // Chaque profil restreint (Agent, Responsable, Direction Financière) n'a accès qu'à son propre
+  // périmètre ; le RH n'a pas vocation à rester sur ces pages self-service (elles n'ont de sens
+  // que rattachées à SESSION.asAgentId). On ne redirige pas si un dossier d'agent est ouvert
+  // (view.agentId) : c'est à renderAgentDetail() / dossierAccess() de statuer sur ce cas-là.
+  const allowed=ROLE_MODULES[SESSION.role];
+  if(!view.agentId){
+    if(allowed && !allowed.includes(view.module)) view.module=allowed[0];
+    else if(!allowed && ALL_RESTRICTED_MODULES.includes(view.module)) view.module="dashboard";
+  }
   renderNav();
   const c=document.getElementById("content");
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
+  if(view.module==="mon-dashboard"){ t.textContent="Mon espace"; s.textContent="Ma situation personnelle"; c.innerHTML=renderMonEspace(); bindMonEspace(); return; }
+  if(view.module==="mon-dossier"){ view.agentId=SESSION.asAgentId; renderAgentDetail(); return; }
+  if(view.module==="mes-conges"){
+    t.textContent="Mes congés & absences"; s.textContent="Solde, historique et demandes";
+    act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle demande</button>`;
+    c.innerHTML=renderMesConges(); bindMesConges();
+    document.getElementById("addBtn").onclick=()=>openForm("conges", null, {agentId:SESSION.asAgentId}, {selfService:true});
+    return;
+  }
+  if(view.module==="resp-dashboard"){ t.textContent="Tableau de bord équipe"; s.textContent="Vue d'ensemble de mon équipe"; c.innerHTML=renderRespDashboard(); bindRespDashboard(); return; }
+  if(view.module==="resp-equipe"){ const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId); t.textContent="Mon équipe"; s.textContent=`${team.length} agent${team.length>1?"s":""} rattaché${team.length>1?"s":""}`; c.innerHTML=renderMonEquipe(); bindMonEquipe(); return; }
+  if(view.module==="resp-validations"){ t.textContent="Validations congés"; s.textContent="Demandes de mon équipe en attente de ma validation"; c.innerHTML=renderValidations(); bindValidations(); return; }
+  if(view.module==="df-controle"){ t.textContent="Contrôle des bulletins"; s.textContent="Tous comptes confondus : tout bulletin non validé reste ici jusqu'à correction"; c.innerHTML=renderDFControle(); bindDFControle(); return; }
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble des effectifs et des demandes en cours"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
   if(view.agentId){ renderAgentDetail(); return; }
   const nav=NAV.find(n=>n.id===view.module);
   t.textContent=nav.label;
   const coll=DB[nav.coll];
   s.textContent=`${coll.length} enregistrement${coll.length>1?"s":""}`;
-  act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau</button>`;
+  let actHtml=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau</button>`;
+  if(view.module==="paie") actHtml+=` <button class="btn" id="genBulletinsBtn">${svg(I.plus,'ic')} Générer une période</button> <button class="btn" id="paieConfigBtn">${svg(I.settings,'ic')} Variables de paie</button>`;
+  if(view.module==="conges") actHtml+=` <button class="btn" id="reglesCongesBtn">${svg(I.settings,'ic')} Règles de décompte</button>`;
+  if(view.module==="formations") actHtml+=` <button class="btn" id="formationConfigBtn">${svg(I.settings,'ic')} Évaluations (variables)</button>`;
+  if(view.module==="maternite") actHtml+=` <button class="btn" id="rappelsConfigBtn">${svg(I.settings,'ic')} Rappels</button>`;
+  act.innerHTML=actHtml;
   document.getElementById("addBtn").onclick=()=>openForm(view.module);
   c.innerHTML = LISTS[view.module]();
   bindList();
+  if(view.module==="paie"){
+    document.getElementById("genBulletinsBtn").onclick=()=>openGenerateBulletins();
+    document.getElementById("paieConfigBtn").onclick=()=>openPaieConfigForm();
+  }
+  if(view.module==="conges") document.getElementById("reglesCongesBtn").onclick=()=>openReglesCongesForm();
+  if(view.module==="formations") document.getElementById("formationConfigBtn").onclick=()=>openFormationConfigForm();
+  if(view.module==="maternite") document.getElementById("rappelsConfigBtn").onclick=()=>openRappelsConfigForm();
+}
+
+/* ---------- Espace self-service (profil Agent) ---------- */
+function renderMonEspace(){
+  const a=DB.agents.find(x=>x.id===SESSION.asAgentId);
+  if(!a) return `<div class="empty">Profil introuvable.</div>`;
+  const mesConges=DB.conges.filter(c=>c.agentId===a.id);
+  const pend=mesConges.filter(c=>c.statut==="En attente");
+  const recentes=mesConges.slice().sort((x,y)=>(y.debut||"").localeCompare(x.debut||"")).slice(0,5);
+  return `
+    <div class="detail-head">
+      <div class="av">${initials(a.nom,a.prenom)}</div>
+      <div style="flex:1">
+        <h2>${esc(a.civ||"")} ${esc(a.prenom)} ${esc(a.nom)}</h2>
+        <div class="meta"><span class="tag">${esc(a.matricule)}</span><span>${esc(a.fonction||"—")}</span> · <span>${esc(a.direction)}</span></div>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi" tabindex="0" data-goto="mon-dossier"><div class="k-lbl">Ancienneté</div><div class="k-val" style="font-size:21px">${ancienneteLabel(a.entree)}</div></div>
+      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Solde congés</div><div class="k-val">${a.solde??0}</div><div class="k-meta mut">jours disponibles</div></div>
+      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Demandes en attente</div><div class="k-val">${pend.length}</div><div class="k-meta ${pend.length?'warn':'ok'}">${pend.length?"En cours de validation":"Aucune"}</div></div>
+    </div>
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-head"><h3>Mes dernières demandes de congés</h3></div>
+        <div class="panel-body">
+          ${recentes.length?recentes.map(c=>`<div class="mini-row" data-goto="mes-conges"><div><div class="who">${esc(c.type)}</div><div class="det">${fmtDate(c.debut)} → ${fmtDate(c.fin)} · ${c.jours} j</div></div><div class="spacer"></div>${badge(c.statut)}</div>`).join(""):`<div class="empty">Aucune demande enregistrée.</div>`}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Raccourcis</h3></div>
+        <div class="panel-body" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px">
+          <button class="btn" data-goto="mon-dossier">${svg(I.agents,'ic')} Consulter mon dossier</button>
+          <button class="btn primary" id="newCongeShortcut">${svg(I.plus,'ic')} Nouvelle demande de congé</button>
+        </div>
+      </div>
+    </div>`;
+}
+function bindMonEspace(){
+  document.querySelectorAll("[data-goto]").forEach(el=>{ el.onclick=()=>go(el.dataset.goto); });
+  const btn=document.getElementById("newCongeShortcut");
+  if(btn) btn.onclick=()=>openForm("conges", null, {agentId:SESSION.asAgentId}, {selfService:true});
+}
+function renderMesConges(){
+  let rows=DB.conges.filter(c=>c.agentId===SESSION.asAgentId).map(c=>({...c,_search:`${c.type} ${c.statut}`,_filterVal:c.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.debut||"").localeCompare(a.debut||""));
+  const cols=[{h:"Type"},{h:"Période"},{h:"Jours",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(c=>`<tr>
+      <td class="cell-name">${esc(c.type)}</td>
+      <td>${fmtDate(c.debut)} → ${fmtDate(c.fin)}</td>
+      <td class="num">${c.jours}</td>
+      <td>${badge(c.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-history="${c.id}" title="Historique de ma demande">${svg(I.clock,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut",["En attente","Validé","Refusé"])+tableShell(cols,body);
+}
+function bindMesConges(){
+  const si=document.getElementById("searchInp");
+  if(si) si.oninput=()=>{ view.search=si.value; const c=document.getElementById("content"); c.innerHTML=renderMesConges(); bindMesConges(); };
+  const fs=document.getElementById("filterSel");
+  if(fs) fs.onchange=()=>{ view.filter=fs.value; const c=document.getElementById("content"); c.innerHTML=renderMesConges(); bindMesConges(); };
+  document.querySelectorAll("[data-history]").forEach(el=>el.onclick=()=>openWorkflowHistory(el.dataset.history));
+}
+
+/* ---------- Espace self-service (profil Responsable) ---------- */
+function pendingApprovalsFor(agentId){
+  return DB.conges.filter(c=>c.statut==="En attente" && getApprover(c.agentId, todayISO())?.agent?.id===agentId);
+}
+function renderRespDashboard(){
+  const me=DB.agents.find(x=>x.id===SESSION.asAgentId);
+  const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId);
+  const pend=pendingApprovalsFor(SESSION.asAgentId);
+  return `
+    <div class="kpi-grid">
+      <div class="kpi" tabindex="0" data-goto="resp-equipe"><div class="k-lbl">Effectif de mon équipe</div><div class="k-val">${team.length}</div></div>
+      <div class="kpi" tabindex="0" data-goto="resp-validations"><div class="k-lbl">Congés à valider</div><div class="k-val">${pend.length}</div><div class="k-meta ${pend.length?'warn':'ok'}">${pend.length?"Action requise":"À jour"}</div></div>
+      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Mon solde congés</div><div class="k-val">${me?.solde??0}</div><div class="k-meta mut">jours disponibles</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Mon équipe</h3></div>
+      <div class="panel-body">
+        ${team.length?team.map(a=>`<div class="mini-row" data-open="${a.id}"><div class="av">${initials(a.nom,a.prenom)}</div><div><div class="who">${esc(a.prenom)} ${esc(a.nom)}</div><div class="det">${esc(a.fonction||"—")}</div></div><div class="spacer"></div>${a.actif!==false?'<span class="badge ok">Actif</span>':'<span class="badge bad">Inactif</span>'}</div>`).join(""):`<div class="empty">Aucun agent rattaché.</div>`}
+      </div>
+    </div>`;
+}
+function bindRespDashboard(){
+  document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto));
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go("agents",{agentId:el.dataset.open}));
+}
+function renderMonEquipe(){
+  const team=DB.agents.filter(a=>a.superieurId===SESSION.asAgentId);
+  const cols=[{h:"Agent"},{h:"Matricule"},{h:"Fonction"},{h:"Solde CA",num:true},{h:"État"}];
+  const body=team.map(a=>`<tr data-open="${a.id}" style="cursor:pointer">
+      <td><div class="name-cell"><div class="av">${initials(a.nom,a.prenom)}</div><div><div class="cell-name">${esc(a.prenom)} ${esc(a.nom)}</div><div class="cell-sub">${esc(a.grade||"")}</div></div></div></td>
+      <td><span class="tag">${esc(a.matricule)}</span></td>
+      <td>${esc(a.fonction||"—")}</td>
+      <td class="num">${a.solde??0} j</td>
+      <td>${a.actif!==false?'<span class="badge ok">Actif</span>':'<span class="badge bad">Inactif</span>'}</td>
+    </tr>`).join("");
+  return tableShell(cols,body);
+}
+function bindMonEquipe(){
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go("agents",{agentId:el.dataset.open}));
+}
+function renderValidations(){
+  const rows=DB.conges.filter(c=>c.statut==="En attente" && getApprover(c.agentId, todayISO())?.agent?.id===SESSION.asAgentId)
+    .sort((a,b)=>(a.debut||"").localeCompare(b.debut||""));
+  const cols=[{h:"Agent"},{h:"Type"},{h:"Période"},{h:"Jours",num:true},{h:"Motif"},{h:""}];
+  const body=rows.map(c=>`<tr>
+      <td class="cell-name">${esc(agentName(c.agentId))}</td>
+      <td>${esc(c.type)}</td>
+      <td>${fmtDate(c.debut)} → ${fmtDate(c.fin)}</td>
+      <td class="num">${c.jours}</td>
+      <td>${esc(c.motif||"—")}</td>
+      <td><div class="row-actions">
+        <button class="btn ghost sm" data-approve="${c.id}" data-mod="conges" title="Valider">${svg(I.check,'ic')}</button>
+        <button class="btn ghost sm" data-refuse="${c.id}" title="Refuser">${svg(I.x,'ic')}</button>
+        <button class="btn ghost sm" data-history="${c.id}" title="Historique">${svg(I.clock,'ic')}</button>
+      </div></td>
+    </tr>`).join("");
+  return tableShell(cols,body);
+}
+function bindValidations(){
+  document.querySelectorAll("[data-approve]").forEach(el=>el.onclick=()=>approve(el.dataset.mod, el.dataset.approve));
+  document.querySelectorAll("[data-refuse]").forEach(el=>el.onclick=()=>decideConge(el.dataset.refuse,"refuser"));
+  document.querySelectorAll("[data-history]").forEach(el=>el.onclick=()=>openWorkflowHistory(el.dataset.history));
+}
+
+/* ---------- Espace self-service (profil Direction Financière) ---------- */
+// Contrôle global : la DF voit en une seule vue TOUS les bulletins non validés, tous comptes
+// confondus (jamais compte par compte). Un bulletin validé disparaît immédiatement de cette liste.
+function renderDFControle(){
+  const pending=DB.paie.filter(p=>p.statut==="Brouillon"||p.statut==="Anomalie");
+  const periodes=[...new Set(pending.map(p=>p.periode))].sort().reverse();
+  let rows=pending.map(p=>({...p,_search:`${agentName(p.agentId)} ${p.periode} ${p.statut}`,_filterVal:p.periode}));
+  rows=filterRows(rows).sort((x,y)=>(x.periode||"").localeCompare(y.periode||"")||agentName(x.agentId).localeCompare(agentName(y.agentId)));
+  const cols=[{h:"Agent"},{h:"Période"},{h:"Brut",num:true},{h:"Net à payer",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(p=>`<tr>
+      <td class="cell-name">${esc(agentName(p.agentId))}</td>
+      <td>${esc(p.periode)}</td>
+      <td class="num">${fmtMoney(p.brut)}</td>
+      <td class="num" style="font-weight:700">${fmtMoney(p.net)}</td>
+      <td>${badge(p.statut)}${p.statut==="Anomalie"&&p.derniereAnnotation?`<div class="cell-sub" style="white-space:normal;max-width:240px;margin-top:2px">${esc(p.derniereAnnotation)}</div>`:""}</td>
+      <td><div class="row-actions">
+        <button class="btn ghost sm" data-valider-p="${p.id}" title="Valider">${svg(I.check,'ic')}</button>
+        <button class="btn ghost sm" data-anomalie-p="${p.id}" title="Signaler une anomalie">${svg(I.x,'ic')}</button>
+        <button class="btn ghost sm" data-view="${p.id}" title="Voir le détail">${svg(I.eye,'ic')}</button>
+      </div></td>
+    </tr>`).join("");
+  return toolbar("periode", periodes)+tableShell(cols,body);
+}
+function bindDFControle(){
+  const si=document.getElementById("searchInp");
+  if(si) si.oninput=()=>{ view.search=si.value; const c=document.getElementById("content"); c.innerHTML=renderDFControle(); bindDFControle(); };
+  const fs=document.getElementById("filterSel");
+  if(fs) fs.onchange=()=>{ view.filter=fs.value; const c=document.getElementById("content"); c.innerHTML=renderDFControle(); bindDFControle(); };
+  document.querySelectorAll("[data-valider-p]").forEach(el=>el.onclick=()=>{ validerBulletin(DB.paie.find(x=>x.id===el.dataset.validerP)); toast("Bulletin validé"); render(); });
+  document.querySelectorAll("[data-anomalie-p]").forEach(el=>el.onclick=()=>flagAnomalie(DB.paie.find(x=>x.id===el.dataset.anomalieP)));
+  document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
 /* ---------- Dashboard ---------- */
@@ -677,15 +1535,29 @@ const LISTS = {
   conges(){
     let rows=DB.conges.map(c=>({...c,_search:`${agentName(c.agentId)} ${c.type} ${c.statut}`,_filterVal:c.statut}));
     rows=filterRows(rows).sort((a,b)=>(b.debut||"").localeCompare(a.debut||""));
-    const cols=[{h:"Agent"},{h:"Type"},{h:"Période"},{h:"Jours",num:true},{h:"Statut"},{h:""}];
-    const body=rows.map(c=>`<tr>
+    const cols=[{h:"Agent"},{h:"Type"},{h:"Période"},{h:"Jours",num:true},{h:"Validateur"},{h:"Statut"},{h:""}];
+    const body=rows.map(c=>{
+      let validCell;
+      if(c.statut==="En attente"){
+        const appr=getApprover(c.agentId, todayISO());
+        if(appr) validCell=`${esc(agentName(appr.agent.id))}<div class="cell-sub">${appr.level==="rh"?"RH · hiérarchie indisponible":"Supérieur "+appr.level}</div>`;
+        else validCell=`<span class="badge bad">Aucun validateur dispo</span>`;
+      } else validCell=esc(c.valide||"—");
+      const extra=(c.statut==="En attente"
+        ? `<button class="btn ghost sm" data-approve="${c.id}" data-mod="conges" title="Valider">${svg(I.check,'ic')}</button>
+           <button class="btn ghost sm" data-refuse="${c.id}" title="Refuser">${svg(I.x,'ic')}</button>
+           <button class="btn ghost sm" data-teams="${c.id}" title="Notifier sur Teams">${svg(I.teams,'ic')}</button>`
+        : "")+`<button class="btn ghost sm" data-history="${c.id}" title="Historique de validation">${svg(I.clock,'ic')}</button>`;
+      return `<tr>
       <td class="cell-name">${esc(agentName(c.agentId))}</td>
       <td>${esc(c.type)}</td>
       <td>${fmtDate(c.debut)} → ${fmtDate(c.fin)}</td>
       <td class="num">${c.jours}</td>
+      <td>${validCell}</td>
       <td>${badge(c.statut)}</td>
-      <td>${rowActions("conges",c.id, c.statut==="En attente"?`<button class="btn ghost sm" data-approve="${c.id}" data-mod="conges" title="Valider">${svg(I.check,'ic')}</button>`:"")}</td>
-    </tr>`).join("");
+      <td>${rowActions("conges",c.id, extra)}</td>
+    </tr>`;
+    }).join("");
     return toolbar("statut",["En attente","Validé","Refusé"])+tableShell(cols,body);
   },
   paie(){
@@ -700,27 +1572,34 @@ const LISTS = {
       <td class="num">${fmtMoney(p.cotis)}</td>
       <td class="num" style="font-weight:700">${fmtMoney(p.net)}</td>
       <td>${badge(p.statut)}</td>
-      <td>${rowActions("paie",p.id)}</td>
+      <td>${rowActions("paie",p.id,`<button class="btn ghost sm" data-view="${p.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`)}</td>
     </tr>`).join("");
     const totalNet=rows.reduce((s,p)=>s+(p.net||0),0);
-    return toolbar("statut",["Brouillon","Validée","Payée"])+tableShell(cols,body)+
+    return toolbar("statut",["Brouillon","Anomalie","Validée","Payée"])+tableShell(cols,body)+
       `<div style="margin-top:12px;text-align:right;color:var(--ink-2);font-size:13.5px">Masse salariale nette affichée : <strong style="color:var(--ink)">${fmtMoney(totalNet)}</strong></div>`;
   },
   formations(){
     let rows=DB.formations.map(f=>({...f,_search:`${f.intitule} ${agentName(f.agentId)} ${f.organisme} ${f.statut}`,_filterVal:f.statut}));
-    rows=filterRows(rows).sort((a,b)=>(b.debut||"").localeCompare(a.debut||""));
+    rows=filterRows(rows).sort((a,b)=>(b.debutSouhaite||b.debut||"").localeCompare(a.debutSouhaite||a.debut||""));
     const cols=[{h:"Intitulé"},{h:"Agent"},{h:"Organisme"},{h:"Dates"},{h:"Durée",num:true},{h:"Coût",num:true},{h:"Statut"},{h:""}];
-    const body=rows.map(f=>`<tr>
+    const body=rows.map(f=>{
+      const extra=(f.statut==="Demandée"
+        ? `<button class="btn ghost sm" data-fvalide="${f.id}" title="Valider">${svg(I.check,'ic')}</button>
+           <button class="btn ghost sm" data-frefuse="${f.id}" title="Refuser">${svg(I.x,'ic')}</button>`
+        : f.statut==="Validée" ? `<button class="btn ghost sm" data-frealise="${f.id}" title="Marquer réalisée">${svg(I.check,'ic')}</button>` : "")
+        + (f.statut==="Réalisée" ? `<button class="btn ghost sm" data-feval="${f.id}-chaud" title="Évaluation à chaud">${svg(I.teams,'ic')}</button>${f.evalChaud?`<button class="btn ghost sm" data-feval="${f.id}-froid" title="Évaluation à froid">${svg(I.clock,'ic')}</button>`:""}` : "");
+      return `<tr>
       <td class="cell-name">${esc(f.intitule)}<div class="cell-sub">${esc(f.type||"")}</div></td>
       <td>${esc(agentName(f.agentId))}</td>
       <td>${esc(f.organisme||"—")}</td>
-      <td>${f.debut?fmtDate(f.debut):"—"}${f.fin&&f.fin!==f.debut?" → "+fmtDate(f.fin):""}</td>
+      <td>${f.debut?fmtDate(f.debut):(f.debutSouhaite?fmtDate(f.debutSouhaite)+" (souhaité)":"—")}${f.fin&&f.fin!==f.debut?" → "+fmtDate(f.fin):""}</td>
       <td class="num">${f.duree||0} h</td>
       <td class="num">${fmtMoney(f.cout)}</td>
       <td>${badge(f.statut)}</td>
-      <td>${rowActions("formations",f.id)}</td>
-    </tr>`).join("");
-    return toolbar("statut",["Prévue","En cours","Terminée","Annulée"])+tableShell(cols,body);
+      <td>${rowActions("formations",f.id,extra)}</td>
+    </tr>`;
+    }).join("");
+    return toolbar("statut",["Demandée","Validée","En cours","Réalisée","Annulée"])+tableShell(cols,body);
   },
   visites(){
     const today=todayISO();
@@ -769,6 +1648,54 @@ const LISTS = {
       <td>${rowActions("deplacements",d.id, d.statut==="Demandé"?`<button class="btn ghost sm" data-approve="${d.id}" data-mod="deplacements" title="Valider">${svg(I.check,'ic')}</button>`:"")}</td>
     </tr>`).join("");
     return toolbar("statut",["Demandé","Validé","Réalisé","Refusé"])+tableShell(cols,body);
+  },
+  allaitement(){
+    let rows=DB.allaitement.map(x=>({...x,_search:`${agentName(x.agentId)} ${x.statut}`,_filterVal:x.statut}));
+    rows=filterRows(rows).sort((a,b)=>(b.dateDebut||"").localeCompare(a.dateDebut||""));
+    const cols=[{h:"Agent"},{h:"Période"},{h:"Horaire appliqué"},{h:"Statut"},{h:""}];
+    const body=rows.map(x=>{
+      const step=currentWorkflowStep(x);
+      const extra = step && step.actions.length
+        ? step.actions.map(a=>`<button class="btn ghost sm" data-${a.id==="valider"?"avalide":a.id==="appliquer"?"aapplique":"arefuse"}="${x.id}" title="${esc(a.label)}">${svg(a.id==="refuser"?I.x:I.check,'ic')}</button>`).join("")
+        : "";
+      return `<tr>
+      <td class="cell-name">${esc(agentName(x.agentId))}</td>
+      <td>${fmtDate(x.dateDebut)} → ${fmtDate(x.dateFin)}</td>
+      <td class="cell-sub">${x.horaireApplique?`${x.horaireApplique.matin.debut}-${x.horaireApplique.matin.fin} · ${x.horaireApplique.apresMidi.debut}-${x.horaireApplique.apresMidi.fin}`:"—"}</td>
+      <td>${badge(x.statut)}</td>
+      <td>${rowActions("allaitement",x.id,extra)}</td>
+    </tr>`;
+    }).join("");
+    return toolbar("statut",["En attente responsable","En commission","Appliqué","Refusé"])+tableShell(cols,body);
+  },
+  notations(){
+    let rows=DB.notations.map(n=>({...n,_search:`${agentName(n.agentId)} ${n.campagne} ${n.statut}`,_filterVal:n.statut}));
+    rows=filterRows(rows).sort((a,b)=>(b.campagne||"").localeCompare(a.campagne||""));
+    const cols=[{h:"Agent"},{h:"Campagne"},{h:"Note",num:true},{h:"Statut"},{h:""}];
+    const body=rows.map(n=>`<tr>
+      <td class="cell-name">${esc(agentName(n.agentId))}</td>
+      <td>${esc(n.campagne)}</td>
+      <td class="num">${n.note??"—"}</td>
+      <td>${badge(n.statut)}</td>
+      <td>${rowActions("notations",n.id,`<button class="btn ghost sm" data-notestep="${n.id}" title="Étape en cours">${svg(I.star,'ic')}</button>`)}</td>
+    </tr>`).join("");
+    return toolbar("statut",["Brouillon","Évaluation responsable","Validation agent","Validation directeur","Clôturée"])+tableShell(cols,body);
+  },
+  maternite(){
+    let rows=DB.maternite.map(m=>({...m,_search:`${agentName(m.agentId)} ${m.statut}`,_filterVal:m.statut}));
+    rows=filterRows(rows).sort((a,b)=>(b.dateDeclaration||"").localeCompare(a.dateDeclaration||""));
+    const cols=[{h:"Agent"},{h:"Déclaration"},{h:"Avancement"},{h:"Statut"},{h:""}];
+    const body=rows.map(m=>{
+      const total=(m.taches||[]).length, faites=(m.taches||[]).filter(t=>t.statut==="Fait").length;
+      return `<tr>
+      <td class="cell-name">${esc(agentName(m.agentId))}</td>
+      <td>${fmtDate(m.dateDeclaration)}</td>
+      <td class="cell-sub">${faites}/${total} tâches réalisées</td>
+      <td>${badge(m.statut)}</td>
+      <td>${rowActions("maternite",m.id,`<button class="btn ghost sm" data-checklist="${m.id}" title="Voir la check-list">${svg(I.checklist,'ic')}</button>`)}</td>
+    </tr>`;
+    }).join("");
+    return toolbar("statut",["En cours","Clôturé"])+tableShell(cols,body);
   }
 };
 
@@ -781,15 +1708,36 @@ function bindList(){
   document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openForm(view.module, el.dataset.edit); });
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); delRecord(el.dataset.mod, el.dataset.del); });
   document.querySelectorAll("[data-approve]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); approve(el.dataset.mod, el.dataset.approve); });
+  document.querySelectorAll("[data-refuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideConge(el.dataset.refuse,"refuser"); });
+  document.querySelectorAll("[data-teams]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openTeamsModal(el.dataset.teams); });
+  document.querySelectorAll("[data-history]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openWorkflowHistory(el.dataset.history); });
+  document.querySelectorAll("[data-view]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openBulletinDetail(el.dataset.view); });
+  document.querySelectorAll("[data-fvalide]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("formations", el.dataset.fvalide, "valider", "Demande de formation validée"); });
+  document.querySelectorAll("[data-frefuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("formations", el.dataset.frefuse, "refuser", "Demande de formation refusée"); });
+  document.querySelectorAll("[data-frealise]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); const f=DB.formations.find(x=>x.id===el.dataset.frealise); if(f){ f.statut="Réalisée"; if(!f.debut) f.debut=todayISO(); save(); toast("Formation marquée réalisée"); render(); } });
+  document.querySelectorAll("[data-feval]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); const [fid,type]=el.dataset.feval.split("-"); openFormationEvalModal(fid,type); });
+  document.querySelectorAll("[data-avalide]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("allaitement", el.dataset.avalide, "valider", "Autorisation validée, transmise en commission"); });
+  document.querySelectorAll("[data-arefuse]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("allaitement", el.dataset.arefuse, "refuser", "Demande refusée"); });
+  document.querySelectorAll("[data-aapplique]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); decideWorkflowRecord("allaitement", el.dataset.aapplique, "appliquer", "Autorisation appliquée"); });
+  document.querySelectorAll("[data-notestep]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openNotationStepModal(el.dataset.notestep); });
+  document.querySelectorAll("[data-checklist]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openMaterniteChecklist(el.dataset.checklist); });
 }
 
 /* ---------- Agent detail ---------- */
+// Page d'accueil vers laquelle renvoyer selon le profil de test, quand l'accès à un dossier est refusé.
+function roleHome(){ return (ROLE_MODULES[SESSION.role]||["dashboard"])[0]; }
 function renderAgentDetail(){
   const a=DB.agents.find(x=>x.id===view.agentId);
-  if(!a){ go("agents"); return; }
+  if(!a){ go(roleHome()); return; }
+  const access=dossierAccess(a);
+  if(access==="none"){ go(roleHome()); return; }
   document.getElementById("pageTitle").textContent=`${a.prenom} ${a.nom}`;
   document.getElementById("pageSub").textContent=`${a.matricule} · ${a.direction}`;
-  document.getElementById("pageActions").innerHTML=`<button class="btn" id="backBtn">${svg(I.back)} Retour</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`;
+  const backLabel = access==="rh" ? "Retour" : access==="team" ? "Mon équipe" : "Mon espace";
+  const backTarget = access==="rh" ? "agents" : access==="team" ? "resp-equipe" : roleHome();
+  document.getElementById("pageActions").innerHTML = access==="rh"
+    ? `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`
+    : `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button>`;
 
   const rel = coll => DB[coll].filter(x=>x.agentId===a.id);
   const c=document.getElementById("content");
@@ -801,7 +1749,12 @@ function renderAgentDetail(){
     {id:"formations",l:"Formations",n:rel("formations").length},
     {id:"visites",l:"Visites méd.",n:rel("visites").length},
     {id:"accidents",l:"Accidents",n:rel("accidents").length},
-    {id:"deplacements",l:"Déplacements",n:rel("deplacements").length}
+    {id:"deplacements",l:"Déplacements",n:rel("deplacements").length},
+    {id:"carriere",l:"Carrière",n:rel("carriere").length},
+    {id:"allaitement",l:"Allaitement",n:rel("allaitement").length},
+    {id:"notations",l:"Notations",n:rel("notations").length},
+    {id:"maternite",l:"Maternité",n:rel("maternite").length},
+    {id:"documents",l:"Documents",n:rel("documents").filter(d=>canViewDocument(d,a)).length+((dossierAccess(a)==="rh"||dossierAccess(a)==="self")?rel("paie").length:0)}
   ];
 
   c.innerHTML=`
@@ -824,17 +1777,40 @@ function renderAgentDetail(){
           <div class="info-list">
             <div class="row"><span class="l">Statut</span><span class="v">${esc(a.statut)}</span></div>
             <div class="row"><span class="l">Direction</span><span class="v">${esc(a.direction)}</span></div>
+            <div class="row"><span class="l">Supérieur hiérarchique</span><span class="v">${a.superieurId?esc(agentName(a.superieurId)):"—"}</span></div>
             <div class="row"><span class="l">Échelon</span><span class="v">${esc(a.echelon||"—")}</span></div>
             <div class="row"><span class="l">Date d'entrée</span><span class="v">${fmtDate(a.entree)}</span></div>
+            <div class="row"><span class="l">Ancienneté</span><span class="v">${ancienneteLabel(a.entree)}</span></div>
             ${a.finContrat?`<div class="row"><span class="l">Fin de contrat</span><span class="v">${fmtDate(a.finContrat)}</span></div>`:""}
             <div class="row"><span class="l">Quotité</span><span class="v">${a.quotite||100} %</span></div>
             <div class="row"><span class="l">Solde congés</span><span class="v">${a.solde??0} jours</span></div>
             <div class="row"><span class="l">Naissance</span><span class="v">${fmtDate(a.dob)}${age?` (${age} ans)`:""}</span></div>
-            <div class="row"><span class="l">Situation familiale</span><span class="v">${esc(a.famille||"—")}</span></div>
-            <div class="row"><span class="l">Enfants à charge</span><span class="v">${a.enfants??0}</span></div>
             <div class="row"><span class="l">Email</span><span class="v">${esc(a.email||"—")}</span></div>
             <div class="row"><span class="l">Téléphone</span><span class="v">${esc(a.tel||"—")}</span></div>
           </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-head"><h3>Situation familiale</h3><div class="spacer"></div>${(access==="rh"||access==="self")?`<button class="btn ghost sm" id="editFamilyBtn" title="Modifier">${svg(I.edit,'ic')}</button>`:""}</div>
+        <div class="panel-body" style="padding:6px 18px 14px">
+          <div class="info-list">
+            <div class="row"><span class="l">Situation</span><span class="v">${esc(a.famille||"—")}</span></div>
+            ${a.conjoint?`<div class="row"><span class="l">Conjoint</span><span class="v">${esc(a.conjoint.prenom||"")} ${esc(a.conjoint.nom||"")}${a.conjoint.dateNaissance?" · "+fmtDate(a.conjoint.dateNaissance):""}</span></div>`:""}
+            <div class="row"><span class="l">Enfants à charge</span><span class="v">${(a.enfantsListe&&a.enfantsListe.length)?a.enfantsListe.length:(a.enfants??0)}</span></div>
+          </div>
+          ${(a.enfantsListe&&a.enfantsListe.length)?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${a.enfantsListe.map(e=>`<div style="font-size:13px"><strong>${esc(e.prenom)} ${esc(e.nom)}</strong>${e.dateNaissance?` · né(e) le ${fmtDate(e.dateNaissance)}`:""}</div>`).join("")}</div>`:""}
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-head"><h3>Horaire individuel</h3><div class="spacer"></div>${access==="rh"?`<button class="btn ghost sm" id="editHoraireBtn" title="Modifier">${svg(I.edit,'ic')}</button>`:""}</div>
+        <div class="panel-body" style="padding:6px 18px 14px">
+          <div class="info-list">
+            <div class="row"><span class="l">Lundi → Jeudi</span><span class="v">${esc((a.horaire||defaultHoraire()).lunJeuDebut)} - ${esc((a.horaire||defaultHoraire()).lunJeuFin)}</span></div>
+            <div class="row"><span class="l">Vendredi</span><span class="v">${esc((a.horaire||defaultHoraire()).vendrediDebut)} - ${esc((a.horaire||defaultHoraire()).vendrediFin)}</span></div>
+            <div class="row"><span class="l">Pause déjeuner</span><span class="v">${(a.horaire||defaultHoraire()).pauseDejeunerMin} min</span></div>
+            <div class="row"><span class="l">Statut</span><span class="v">${(a.horaire&&a.horaire.reorganise)?'<span class="badge warn">Horaire réorganisé</span>':'<span class="badge ok">Horaire standard</span>'}</span></div>
+          </div>
+          ${(a.horaire&&a.horaire.reorganise&&a.horaire.commentaireReorganisation)?`<p class="hint" style="margin-top:8px;display:block">${esc(a.horaire.commentaireReorganisation)}</p>`:""}
         </div>
       </div>
       <div>
@@ -843,49 +1819,132 @@ function renderAgentDetail(){
       </div>
     </div>`;
 
-  document.getElementById("backBtn").onclick=()=>go("agents");
-  document.getElementById("editAgentBtn").onclick=()=>openForm("agents",a.id);
+  document.getElementById("backBtn").onclick=()=>go(backTarget);
+  const editHoraireBtn=document.getElementById("editHoraireBtn");
+  if(editHoraireBtn) editHoraireBtn.onclick=()=>openHoraireForm(a.id);
+  const editAgentBtn=document.getElementById("editAgentBtn");
+  if(editAgentBtn) editAgentBtn.onclick=()=>openForm("agents",a.id);
+  const editFamilyBtn=document.getElementById("editFamilyBtn");
+  if(editFamilyBtn) editFamilyBtn.onclick=()=>openFamilyForm(a.id);
   document.querySelectorAll("#detailTabs [data-tab]").forEach(b=>b.onclick=()=>{ view.tab=b.dataset.tab; renderDetailPane(a); document.querySelectorAll("#detailTabs [data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===view.tab)); });
   renderDetailPane(a);
 }
 
 function renderDetailPane(a){
   const pane=document.getElementById("detailPane");
-  const rows=DB[view.tab].filter(x=>x.agentId===a.id);
-  const addBtn=`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`;
+  const access=dossierAccess(a);
+  if(view.tab==="documents"){ renderDocumentsPane(pane, a, access); return; }
+  let rows=DB[view.tab].filter(x=>x.agentId===a.id);
+  // Seule la RH gère librement tous les onglets ; le profil "self" (l'agent, quel que soit son
+  // rôle) peut déposer une demande de congé, de formation ou d'allaitement ; un responsable
+  // ("team") ne fait que consulter le dossier de ses subordonnés.
+  const SELF_CREATABLE=["conges","formations","allaitement"];
+  const canAdd = access==="rh" ? true : (SELF_CREATABLE.includes(view.tab) && access==="self");
+  const canEditRow = access==="rh";
+  const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   const head=(title)=>`<div class="panel-head" style="border-radius:10px 10px 0 0"><h3>${title}</h3><div class="spacer"></div>${addBtn}</div>`;
   let inner="";
   if(!rows.length){ inner=`<div class="empty">Aucun enregistrement pour cet agent.</div>`; }
   else{
     inner=`<div style="overflow-x:auto"><table><tbody>`+rows.map(r=>{
-      let main="", sub="", right="";
+      let main="", sub="", right="", extraBtn="";
       if(view.tab==="conges"){ main=r.type; sub=`${fmtDate(r.debut)} → ${fmtDate(r.fin)} · ${r.jours} j`; right=badge(r.statut); }
-      else if(view.tab==="paie"){ main=r.periode; sub=`Net ${fmtMoney(r.net)}`; right=badge(r.statut); }
-      else if(view.tab==="formations"){ main=r.intitule; sub=`${r.organisme||""} · ${r.debut?fmtDate(r.debut):""}`; right=badge(r.statut); }
+      else if(view.tab==="paie"){ main=r.periode; sub=`Net ${fmtMoney(r.net)}`; right=badge(r.statut); extraBtn=`<button class="btn ghost sm" data-view="${r.id}" title="Voir le bulletin">${svg(I.eye,'ic')}</button>`; }
+      else if(view.tab==="formations"){ main=r.intitule; sub=`${r.organisme||""} · ${r.debut?fmtDate(r.debut):(r.debutSouhaite?fmtDate(r.debutSouhaite)+" (souhaité)":"")}`; right=badge(r.statut); }
       else if(view.tab==="visites"){ main=r.type; sub=`${fmtDate(r.prevue)}${r.realisee?" · réalisée "+fmtDate(r.realisee):""}`; right=badge(r.avis); }
       else if(view.tab==="accidents"){ main=fmtDate(r.date); sub=`${r.lesions||""}${r.cafat?" · "+r.cafat:""}`; right=badge(r.statut); }
       else if(view.tab==="deplacements"){ main=r.objet; sub=`${r.destination} · ${fmtDate(r.depart)}`; right=badge(r.statut); }
+      else if(view.tab==="carriere"){ main=r.type; sub=`${fmtDate(r.date)}${r.poste?" · "+r.poste:""}${r.direction?" · "+r.direction:""}`; }
+      else if(view.tab==="allaitement"){ main=`${fmtDate(r.dateDebut)} → ${fmtDate(r.dateFin)}`; sub=r.horaireApplique?`${r.horaireApplique.matin.debut}-${r.horaireApplique.matin.fin} · ${r.horaireApplique.apresMidi.debut}-${r.horaireApplique.apresMidi.fin}`:""; right=badge(r.statut); }
+      else if(view.tab==="notations"){
+        main=`Campagne ${r.campagne}`; sub=r.note!=null?`Note : ${r.note}/100`:"Non notée"; right=badge(r.statut);
+        const step=currentWorkflowStep(r);
+        const peutAgir = step && (access==="rh" || (access==="self" && r.workflow.step==="agent") || (access==="team" && (r.workflow.step==="responsable"||r.workflow.step==="brouillon")));
+        if(peutAgir) extraBtn=`<button class="btn ghost sm" data-notestep="${r.id}" title="${esc(step.label)}">${svg(I.star,'ic')}</button>`;
+      }
+      else if(view.tab==="maternite"){ main=`Dossier maternité`; sub=`Déclaré le ${fmtDate(r.dateDeclaration)} · ${(r.taches||[]).filter(t=>t.statut==="Fait").length}/${(r.taches||[]).length} tâches`; right=badge(r.statut); extraBtn=`<button class="btn ghost sm" data-checklist="${r.id}" title="Check-list">${svg(I.checklist,'ic')}</button>`; }
       return `<tr>
         <td><div class="cell-name">${esc(main)}</div><div class="cell-sub">${esc(sub)}</div></td>
         <td style="text-align:right">${right}</td>
-        <td style="width:1%">${rowActions(view.tab,r.id)}</td>
+        <td style="width:1%">${extraBtn}${canEditRow?rowActions(view.tab,r.id):""}</td>
       </tr>`;
     }).join("")+`</tbody></table></div>`;
   }
-  pane.innerHTML=`<div class="panel">${head(NAV.find(n=>n.id===view.tab).label)}<div class="panel-body" style="padding:6px">${inner}</div></div>`;
-  document.getElementById("detailAdd").onclick=()=>openForm(view.tab, null, {agentId:a.id});
+  pane.innerHTML=`<div class="panel">${head(TAB_LABELS[view.tab])}<div class="panel-body" style="padding:6px">${inner}</div></div>`;
+  const detailAdd=document.getElementById("detailAdd");
+  if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id}, access!=="rh"?{selfService:true}:{});
   pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm(view.tab, el.dataset.edit));
   pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord(el.dataset.mod, el.dataset.del));
+  pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
+  pane.querySelectorAll("[data-notestep]").forEach(el=>el.onclick=()=>openNotationStepModal(el.dataset.notestep));
+  pane.querySelectorAll("[data-checklist]").forEach(el=>el.onclick=()=>openMaterniteChecklist(el.dataset.checklist));
+}
+// Onglet Documents : arborescence par catégories (façon coffre-fort numérique), avec les
+// bulletins de paie générés regroupés par année plutôt que dupliqués en documents génériques.
+function renderDocumentsPane(pane, a, access){
+  const canAdd=canEditDocuments(a);
+  const docs=DB.documents.filter(d=>d.agentId===a.id && canViewDocument(d,a));
+  const byCat={};
+  docs.forEach(d=>{ const cat=docCategoryOf(d.type); (byCat[cat]=byCat[cat]||[]).push(d); });
+  const canSeeBulletins = access==="rh" || access==="self";
+  const bulletins = canSeeBulletins ? DB.paie.filter(p=>p.agentId===a.id) : [];
+  const byYear={};
+  bulletins.forEach(p=>{ const y=(p.periode||"").slice(0,4)||"—"; (byYear[y]=byYear[y]||[]).push(p); });
+  const years=Object.keys(byYear).sort((x,y)=>y.localeCompare(x));
+
+  const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
+  let html=`<div class="doc-tree">`;
+  DOC_CATEGORY_ORDER.filter(cat=>cat!=="Bulletins de paie").forEach(cat=>{
+    const items=byCat[cat]||[];
+    const cid="cat-"+cat.replace(/[^a-zA-Z0-9]/g,"");
+    html+=`<div class="doc-cat">
+      <button class="doc-cat-head" data-toggle="${cid}">${svg(I.chevron,'chev')}<span>${esc(cat)}</span><span class="tag">${items.length}</span></button>
+      <div class="doc-cat-body" id="${cid}" hidden>
+        ${items.length?items.map(d=>`<div class="doc-row">
+            <div><div class="cell-name">${esc(d.type)}</div><div class="cell-sub">${esc(d.libelle)} · ${fmtDate(d.dateAjout)}</div></div>
+            <div class="spacer"></div>
+            ${d.confidentiel?'<span class="badge warn">RH uniquement</span>':'<span class="badge ok">Visible équipe</span>'}
+            ${canAdd?`<div class="row-actions"><button class="btn ghost sm" data-edit="${d.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${d.id}" data-mod="documents" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}
+          </div>`).join(""):`<div class="empty">Aucun document.</div>`}
+      </div>
+    </div>`;
+  });
+  if(canSeeBulletins){
+    html+=`<div class="doc-cat">
+      <button class="doc-cat-head" data-toggle="cat-bulletins">${svg(I.chevron,'chev')}<span>Bulletins de paie</span><span class="tag">${bulletins.length}</span></button>
+      <div class="doc-cat-body" id="cat-bulletins" hidden>
+        ${years.length?years.map(y=>`<div class="doc-year">
+            <div class="doc-year-lbl">${esc(y)} <span class="tag">${byYear[y].length}</span></div>
+            ${byYear[y].slice().sort((x,z)=>z.periode.localeCompare(x.periode)).map(p=>`<div class="doc-row" data-view="${p.id}" style="cursor:pointer">
+              <div><div class="cell-name">Bulletin ${esc(p.periode)}</div><div class="cell-sub">Net ${fmtMoney(p.net)}</div></div><div class="spacer"></div>${badge(p.statut)}
+            </div>`).join("")}
+          </div>`).join(""):`<div class="empty">Aucun bulletin généré.</div>`}
+      </div>
+    </div>`;
+  }
+  html+=`</div>`;
+  pane.innerHTML=`<div class="panel"><div class="panel-head" style="border-radius:10px 10px 0 0"><h3>Documents</h3><div class="spacer"></div>${addBtn}</div><div class="panel-body" style="padding:10px">${html}</div></div>`;
+  const detailAdd=document.getElementById("detailAdd");
+  if(detailAdd) detailAdd.onclick=()=>openForm("documents", null, {agentId:a.id});
+  pane.querySelectorAll("[data-toggle]").forEach(btn=>btn.onclick=()=>{
+    const body=document.getElementById(btn.dataset.toggle);
+    body.hidden=!body.hidden;
+    btn.classList.toggle("open", !body.hidden);
+  });
+  pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("documents", el.dataset.edit));
+  pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("documents", el.dataset.del));
+  pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
 /* ---------- Form modal ---------- */
-function openForm(module, id=null, preset={}){
+function openForm(module, id=null, preset={}, opts={}){
   const cfg=FORMS[module];
   const coll=DB[module];
   const rec = id ? {...coll.find(x=>x.id===id)} : {...cfg.defaults(), ...preset};
   const isEdit=!!id;
 
   const fieldHTML=(f)=>{
+    if(f.hideSelf && opts.selfService) return "";
     if(f.s) return `<div class="form-section">${esc(f.s)}</div>`;
     const val = rec[f.k];
     const req = f.req?'<span class="req"> *</span>':"";
@@ -894,7 +1953,9 @@ function openForm(module, id=null, preset={}){
     if(f.t==="select"){
       input=`<select data-k="${f.k}">${f.o.map(o=>`<option value="${esc(o)}" ${val===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
     } else if(f.t==="ref"){
-      input=`<select data-k="${f.k}" ${disabled}>${agentOptions().map(o=>`<option value="${o.v}" ${val===o.v?"selected":""}>${esc(o.l)}</option>`).join("")}</select>`;
+      const opts = agentOptions().filter(o=> f.excludeId ? o.v!==rec.id : true);
+      const optional = f.req ? "" : `<option value="" ${!val?"selected":""}>—</option>`;
+      input=`<select data-k="${f.k}" ${f.req?"":'data-empty-null="1"'} ${disabled}>${optional}${opts.map(o=>`<option value="${o.v}" ${val===o.v?"selected":""}>${esc(o.l)}</option>`).join("")}</select>`;
     } else if(f.t==="textarea"){
       input=`<textarea data-k="${f.k}">${esc(val||"")}</textarea>`;
     } else if(f.t==="bool"){
@@ -926,25 +1987,50 @@ function openForm(module, id=null, preset={}){
   document.getElementById("cancelModal").onclick=close;
   document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
   document.getElementById("saveModal").onclick=()=>{
-    const obj = isEdit ? rec : {};
+    // Pour une création, on part de rec (défauts + preset) afin que les champs masqués en
+    // self-service (ex: statut/valide d'un congé) conservent leur valeur par défaut.
+    const obj = isEdit ? rec : {...rec};
     let ok=true;
     mr.querySelectorAll("[data-k]").forEach(el=>{
       const k=el.dataset.k; let v=el.value;
       if(el.dataset.num) v = v===""?null:Number(v);
       if(el.dataset.bool) v = (v==="true");
+      if(el.dataset.emptyNull && v==="") v = null;
       obj[k]=v;
     });
     // required check
     for(const f of cfg.fields){ if(f.req){ const v=obj[f.k]; if(v===""||v==null){ ok=false; toast(`Champ requis : ${f.l}`); break; } } }
     if(!ok) return;
     if(cfg.compute) Object.assign(obj, cfg.compute(obj));
+    let teamsToast=null;
     if(isEdit){ const idx=coll.findIndex(x=>x.id===id); coll[idx]={...coll[idx],...obj}; }
     else{
       obj.id=uid(module[0]+"_");
       if(module==="agents"){ const nums=DB.agents.map(a=>parseInt((a.matricule||"AG-1000").replace(/\D/g,""))||1000); obj.matricule="AG-"+(Math.max(1000,...nums)+1); }
+      if(module==="conges"){
+        startWorkflow("conges", obj);
+        const appr=getApprover(obj.agentId, todayISO());
+        const msg=`Nouvelle demande de congés — ${agentName(obj.agentId)}\n${obj.type} du ${fmtDate(obj.debut)} au ${fmtDate(obj.fin)} (${obj.jours} j).${obj.motif?`\nMotif : ${obj.motif}`:""}\nMerci de valider ou refuser cette demande.`;
+        if(appr){
+          obj.teamsTo=appr.agent.id; obj.teamsLevel=appr.level;
+          obj.teamsLog=[{from:"Système RH", text:msg, at:new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}];
+          teamsToast=`Demande créée et transmise sur Teams à ${agentName(appr.agent.id)}${appr.level==="rh"?" (RH, hiérarchie indisponible)":""}`;
+        } else {
+          obj.teamsTo=null; obj.teamsLevel=null; obj.teamsLog=[];
+          teamsToast="Demande créée — aucun validateur disponible, la RH doit intervenir manuellement";
+        }
+      }
+      if(module==="formations" && obj.statut==="Demandée") startWorkflow("formations", obj);
+      if(module==="allaitement"){
+        const agentPourHoraire=DB.agents.find(x=>x.id===obj.agentId);
+        obj.horaireApplique=calculerHoraireAllaitement(agentPourHoraire);
+        startWorkflow("allaitement", obj);
+      }
+      if(module==="notations") startWorkflow("notations", obj);
+      if(module==="maternite") obj.taches=defaultMaterniteTaches();
       coll.push(obj);
     }
-    save(); close(); toast(isEdit?"Modifications enregistrées":"Enregistrement créé");
+    save(); close(); toast(teamsToast || (isEdit?"Modifications enregistrées":"Enregistrement créé"));
     if(view.agentId) renderAgentDetail(); else render();
   };
 }
@@ -962,12 +2048,731 @@ function delRecord(module,id){
   else render();
 }
 function approve(module,id){
+  if(module==="conges"){ decideConge(id,"valider"); return; }
   const rec=DB[module].find(x=>x.id===id);
-  if(module==="conges") rec.statut="Validé";
   if(module==="deplacements") rec.statut="Validé";
   rec.valide=rec.valide||"Validé (RH)";
   save(); toast("Demande validée");
   if(view.agentId) renderAgentDetail(); else render();
+}
+function decideConge(id, actionId){
+  const rec=DB.conges.find(x=>x.id===id);
+  if(!rec) return;
+  if(rec.workflow) advanceWorkflow(rec, actionId);
+  else rec.statut = actionId==="valider" ? "Validé" : "Refusé";
+  save();
+  toast(actionId==="valider" ? "Demande validée" : "Demande refusée");
+  if(view.agentId) renderAgentDetail(); else render();
+}
+// Version générique de decideConge, réutilisable pour toute collection pilotée par le moteur de
+// workflow (formations, allaitement…) : fait avancer l'étape courante et rafraîchit l'écran.
+function decideWorkflowRecord(coll, id, actionId, msg){
+  const rec=DB[coll].find(x=>x.id===id);
+  if(!rec || !rec.workflow) return;
+  advanceWorkflow(rec, actionId);
+  save();
+  toast(msg||"Mis à jour");
+  if(view.agentId) renderAgentDetail(); else render();
+}
+
+/* ---------- Historique du workflow (audit des décisions) ---------- */
+function openWorkflowHistory(id){
+  const rec=DB.conges.find(x=>x.id===id);
+  if(!rec) return;
+  const items = rec.workflow ? rec.workflow.history : [];
+  const rowsHtml = items.length ? items.map(h=>`<div class="wf-item">
+      <div class="wf-dot"></div>
+      <div class="wf-body">
+        <div class="wf-top"><strong>${esc(h.action||"—")}</strong><span class="wf-date">${esc(h.date)}</span></div>
+        <div class="wf-actor">${esc(h.actorLabel||"—")}${h.step?" · "+esc(h.step):""}</div>
+        ${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}
+      </div>
+    </div>`).join("") : `<div class="empty">Aucun historique.</div>`;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Historique de validation</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="wf-timeline">${rowsHtml}</div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+}
+
+/* ---------- Campagnes de notation (Responsable → Agent → Directeur) ---------- */
+function openNotationStepModal(id){
+  const n=DB.notations.find(x=>x.id===id);
+  if(!n) return;
+  const step=currentWorkflowStep(n);
+  const actor=step?step.actor(n):null;
+  const a=DB.agents.find(x=>x.id===n.agentId);
+  let body="";
+  if(!step){
+    body=`<p>Campagne clôturée.</p>`;
+  } else if(n.workflow.step==="responsable"){
+    body=`<div class="form-grid">
+      <div class="field"><label>Note (/100)</label><input type="number" id="noteVal" min="0" max="100" value="${n.note??""}"></div>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Commentaire du responsable</label><textarea id="commResp">${esc(n.commentaireResponsable||"")}</textarea></div>`;
+  } else if(n.workflow.step==="agent"){
+    body=`<div class="info-list" style="margin-bottom:10px">
+      <div class="row"><span class="l">Note attribuée</span><span class="v">${n.note??"—"}/100</span></div>
+      <div class="row"><span class="l">Commentaire du responsable</span><span class="v">${esc(n.commentaireResponsable||"—")}</span></div>
+    </div>
+    <div class="field"><label>Commentaire de l'agent (facultatif)</label><textarea id="commAgent">${esc(n.commentaireAgent||"")}</textarea></div>`;
+  } else if(n.workflow.step==="directeur"){
+    body=`<div class="info-list" style="margin-bottom:10px">
+      <div class="row"><span class="l">Note attribuée</span><span class="v">${n.note??"—"}/100</span></div>
+      <div class="row"><span class="l">Commentaire de l'agent</span><span class="v">${esc(n.commentaireAgent||"—")}</span></div>
+    </div>
+    <div class="field"><label>Commentaire du directeur</label><textarea id="commDir">${esc(n.commentaireDirecteur||"")}</textarea></div>`;
+  }
+  const historyHtml=(n.workflow&&n.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${n.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("")}</div>`:"";
+  const actions=step?step.actions.map(ac=>`<button class="btn primary sm" data-step-action="${ac.id}">${svg(I.check,'ic')} ${esc(ac.label)}</button>`).join(" "):"";
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Notation ${esc(n.campagne)} — ${esc(agentName(n.agentId))}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="info-list" style="margin-bottom:10px">
+        <div class="row"><span class="l">Statut</span><span class="v">${badge(n.statut)}</span></div>
+        <div class="row"><span class="l">Étape actuelle</span><span class="v">${step?esc(step.label):"—"}</span></div>
+        ${actor?`<div class="row"><span class="l">Acteur attendu</span><span class="v">${esc(actor.label)}</span></div>`:""}
+      </div>
+      ${body}
+      ${historyHtml}
+    </div>
+    <div class="modal-foot">${actions}<button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  mr.querySelectorAll("[data-step-action]").forEach(btn=>btn.onclick=()=>{
+    if(n.workflow.step==="responsable"){ n.note=Number(document.getElementById("noteVal").value)||null; n.commentaireResponsable=document.getElementById("commResp").value.trim(); }
+    if(n.workflow.step==="agent"){ n.commentaireAgent=document.getElementById("commAgent").value.trim(); }
+    if(n.workflow.step==="directeur"){ n.commentaireDirecteur=document.getElementById("commDir").value.trim(); }
+    advanceWorkflow(n, btn.dataset.stepAction);
+    save(); close(); toast("Notation mise à jour"); render();
+  });
+}
+
+/* ---------- Dossier maternité (check-list de suivi) ---------- */
+function rappelBadge(tache, config){
+  if(tache.statut==="Fait") return "";
+  const today=todayISO();
+  const diff=Math.round((new Date(tache.echeance)-new Date(today))/86400000);
+  if(diff<0) return `<span class="badge bad">En retard de ${-diff} j</span>`;
+  if(diff===0 && config.jourEcheance) return `<span class="badge bad">Échéance aujourd'hui</span>`;
+  if(diff<=config.avantEcheanceJours) return `<span class="badge warn">Échéance dans ${diff} j</span>`;
+  return "";
+}
+function canCloturerMaternite(m){
+  return !(m.taches||[]).some(t=>t.pjObligatoire && t.statut!=="Fait");
+}
+function openMaterniteChecklist(id){
+  const m=DB.maternite.find(x=>x.id===id);
+  if(!m) return;
+  const cfg=DB.rappelsConfig;
+  const rows=(m.taches||[]).map(t=>`<div class="tache-row">
+      <div style="flex:1">
+        <div class="cell-name">${esc(t.intitule)} ${t.pjObligatoire?'<span class="tag">PJ obligatoire</span>':''}</div>
+        <div class="cell-sub">${esc(t.description||"")}</div>
+        <div class="cell-sub">Échéance ${fmtDate(t.echeance)} · Responsable : ${esc(t.responsable)}${t.piecesJointes&&t.piecesJointes.length?` · ${t.piecesJointes.length} pièce(s) jointe(s)`:""}</div>
+        ${t.commentaire?`<div class="cell-sub" style="font-style:italic">${esc(t.commentaire)}</div>`:""}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        ${badge(t.statut)}
+        ${rappelBadge(t,cfg)}
+        ${t.statut!=="Fait"?`<button class="btn ghost sm" data-marquer-fait="${t.id}">${svg(I.check,'ic')} Marquer fait</button>`:`<span class="cell-sub">Fait le ${fmtDate(t.dateRealisation)}</span>`}
+      </div>
+    </div>`).join("");
+  const peutCloturer=canCloturerMaternite(m);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:760px">
+    <div class="modal-head"><h3>Dossier maternité — ${esc(agentName(m.agentId))}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="info-list" style="margin-bottom:10px">
+        <div class="row"><span class="l">Date de déclaration</span><span class="v">${fmtDate(m.dateDeclaration)}</span></div>
+        <div class="row"><span class="l">Statut</span><span class="v">${badge(m.statut)}</span></div>
+      </div>
+      <div class="tache-list">${rows}</div>
+      ${!peutCloturer&&m.statut!=="Clôturé"?`<p class="hint" style="margin-top:10px;display:block">La clôture est bloquée tant qu'une pièce jointe obligatoire n'a pas été fournie.</p>`:""}
+    </div>
+    <div class="modal-foot">
+      ${m.statut!=="Clôturé"?`<button class="btn primary" id="cloturerDossier" ${peutCloturer?"":"disabled"}>${svg(I.check,'ic')} Clôturer le dossier</button>`:""}
+      <button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button>
+    </div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  mr.querySelectorAll("[data-marquer-fait]").forEach(btn=>btn.onclick=()=>{
+    const t=m.taches.find(x=>x.id===btn.dataset.marquerFait);
+    if(t.pjObligatoire && !(t.piecesJointes&&t.piecesJointes.length)){
+      const nom=prompt("Nom du justificatif joint (pièce obligatoire) :");
+      if(!nom) return;
+      t.piecesJointes=[{nom}];
+    }
+    t.statut="Fait"; t.dateRealisation=todayISO();
+    save(); openMaterniteChecklist(id);
+  });
+  const clotBtn=document.getElementById("cloturerDossier");
+  if(clotBtn) clotBtn.onclick=()=>{ m.statut="Clôturé"; save(); close(); toast("Dossier maternité clôturé"); render(); };
+}
+
+/* ---------- Notification Teams (conversation simulée) ---------- */
+function openTeamsModal(id){
+  const c=DB.conges.find(x=>x.id===id);
+  if(!c) return;
+  const appr=getApprover(c.agentId, todayISO());
+  if(!c.teamsLog) c.teamsLog=[];
+  if(!appr && !c.teamsLog.length){ toast("Aucun validateur disponible actuellement — la RH doit intervenir manuellement"); return; }
+  const defaultMsg=`Nouvelle demande de congés — ${agentName(c.agentId)}\n${c.type} du ${fmtDate(c.debut)} au ${fmtDate(c.fin)} (${c.jours} j).${c.motif?`\nMotif : ${c.motif}`:""}\nMerci de valider ou refuser cette demande.`;
+  const target = appr ? appr.agent : DB.agents.find(a=>a.id===c.teamsTo);
+  const levelLabel = appr ? (appr.level==="rh" ? "RH · hiérarchie indisponible" : "Supérieur hiérarchique · "+appr.level) : "Destinataire précédent";
+  const bubbles = c.teamsLog.map(m=>`<div class="teams-msg out"><div class="teams-bubble"><div class="teams-from">${esc(m.from)}</div><div class="teams-text">${esc(m.text).replace(/\n/g,"<br>")}</div><div class="teams-time">${esc(m.at)}</div></div></div>`).join("");
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div class="av" style="background:#464775;color:#fff">${target?initials(target.nom,target.prenom):"?"}</div>
+        <div><h3 style="margin:0">${target?esc(target.prenom)+" "+esc(target.nom):"Destinataire inconnu"}</h3><div class="sub" style="font-size:12px;color:var(--ink-3)">Teams · ${levelLabel}</div></div>
+        <div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="teams-thread">${c.teamsLog.length?bubbles:`<div class="empty">Aucun message envoyé pour l'instant.</div>`}</div>
+      </div>
+      <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:8px">
+        <textarea id="teamsMsg" placeholder="Message à envoyer sur Teams…">${c.teamsLog.length?"":esc(defaultMsg)}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn" id="cancelModal">Fermer</button>
+          <button class="btn primary" id="sendTeams" ${appr?"":"disabled"}>${svg(I.check)} Envoyer sur Teams</button>
+        </div>
+      </div>
+    </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  const sendBtn=document.getElementById("sendTeams");
+  if(sendBtn) sendBtn.onclick=()=>{
+    const txt=document.getElementById("teamsMsg").value.trim();
+    if(!txt){ toast("Message vide"); return; }
+    c.teamsLog.push({from:"Système RH", text:txt, at:new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})});
+    c.teamsTo=appr.agent.id; c.teamsLevel=appr.level;
+    save();
+    toast(`Message envoyé sur Teams à ${agentName(appr.agent.id)}`);
+    openTeamsModal(id);
+  };
+}
+
+/* ---------- Évaluations de formation (à chaud / à froid, envoyées via Teams) ---------- */
+function openFormationEvalModal(formationId, type){
+  const f=DB.formations.find(x=>x.id===formationId);
+  if(!f) return;
+  const cfg=DB.formationConfig;
+  const isFroid = type==="froid";
+  if(isFroid && !f.evalChaud){ toast("L'évaluation à chaud doit être envoyée en premier"); return; }
+  const evalKey = isFroid ? "evalFroid" : "evalChaud";
+  if(!f[evalKey]) f[evalKey]={envoyeLe:null, reponses:"", complete:false};
+  const evalObj=f[evalKey];
+  const questions = isFroid ? cfg.questionsFroid : cfg.questionsChaud;
+  const dateEnvoiPrevue = (!isFroid || !f.debut) ? null : (()=>{ const d=new Date(f.debut||f.debutSouhaite); d.setDate(d.getDate()+cfg.delaiFroidSemaines*7); return d.toISOString().slice(0,10); })();
+  const a=DB.agents.find(x=>x.id===f.agentId);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div class="av" style="background:#464775;color:#fff">${a?initials(a.nom,a.prenom):"?"}</div>
+        <div><h3 style="margin:0">${a?esc(a.prenom)+" "+esc(a.nom):"Agent"}</h3><div class="sub" style="font-size:12px;color:var(--ink-3)">Teams · Évaluation ${isFroid?"à froid":"à chaud"} — ${esc(f.intitule)}</div></div>
+        <div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="teams-thread">
+          <div class="teams-msg out"><div class="teams-bubble"><div class="teams-from">Système RH</div><div class="teams-text">Merci de compléter votre évaluation ${isFroid?"à froid":"à chaud"} de la formation « ${esc(f.intitule)} ».<br>Critères : ${esc(questions)}</div><div class="teams-time">${esc(evalObj.envoyeLe?fmtDate(evalObj.envoyeLe):"Pas encore envoyée")}</div></div></div>
+          ${evalObj.complete?`<div class="teams-msg"><div class="teams-bubble"><div class="teams-from">${esc(a?a.prenom:"Agent")}</div><div class="teams-text">${esc(evalObj.reponses)}</div></div></div>`:""}
+        </div>
+        ${isFroid&&dateEnvoiPrevue?`<p class="hint" style="margin-top:10px;display:block">Envoi prévu ${cfg.delaiFroidSemaines} semaines après la formation, soit le ${fmtDate(dateEnvoiPrevue)}.</p>`:""}
+      </div>
+      <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:8px">
+        <textarea id="evalReponse" placeholder="Réponse de l'agent (simulation)…">${esc(evalObj.reponses||"")}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn" id="cancelModal">Fermer</button>
+          ${!evalObj.envoyeLe?`<button class="btn" id="sendEval">${svg(I.teams,'ic')} Envoyer sur Teams</button>`:""}
+          <button class="btn primary" id="saveEval">${svg(I.check)} Enregistrer la réponse</button>
+        </div>
+      </div>
+    </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  const sendBtn=document.getElementById("sendEval");
+  if(sendBtn) sendBtn.onclick=()=>{ evalObj.envoyeLe=todayISO(); save(); toast("Évaluation envoyée sur Teams"); openFormationEvalModal(formationId,type); };
+  document.getElementById("saveEval").onclick=()=>{
+    evalObj.reponses=document.getElementById("evalReponse").value.trim();
+    evalObj.complete=!!evalObj.reponses;
+    if(!evalObj.envoyeLe) evalObj.envoyeLe=todayISO();
+    save(); close(); toast("Réponse enregistrée"); render();
+  };
+}
+
+/* ---------- Situation familiale (conjoint + enfants à charge) ---------- */
+const FAMILLE_OPTS=["Célibataire","Marié(e)","Concubinage","Divorcé(e)","Veuf(ve)","Pacsé(e)"];
+function openFamilyForm(agentId){
+  const a=DB.agents.find(x=>x.id===agentId);
+  if(!a) return;
+  const draft={
+    famille:a.famille||"Célibataire",
+    conjoint:{nom:(a.conjoint&&a.conjoint.nom)||"", prenom:(a.conjoint&&a.conjoint.prenom)||"", dateNaissance:(a.conjoint&&a.conjoint.dateNaissance)||""},
+    enfants:(a.enfantsListe||[]).map(e=>({...e}))
+  };
+  const mr=document.getElementById("modalRoot");
+  const childRow=(e,i)=>`<div class="child-row" data-i="${i}">
+      <input data-cf="nom" placeholder="Nom" value="${esc(e.nom)}">
+      <input data-cf="prenom" placeholder="Prénom" value="${esc(e.prenom)}">
+      <input data-cf="dateNaissance" type="date" value="${esc(e.dateNaissance)}">
+      <button type="button" class="btn ghost sm" data-rmchild="${i}" title="Retirer">${svg(I.trash,'ic')}</button>
+    </div>`;
+  function paint(){
+    mr.innerHTML=`<div class="overlay" id="overlay">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-head"><h3>Situation familiale — ${esc(a.prenom)} ${esc(a.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field"><label>Situation familiale</label><select id="famSitu">${FAMILLE_OPTS.map(o=>`<option ${draft.famille===o?"selected":""}>${esc(o)}</option>`).join("")}</select></div>
+          </div>
+          <div class="form-section">Conjoint</div>
+          <div class="form-grid">
+            <div class="field"><label>Nom</label><input id="conjNom" value="${esc(draft.conjoint.nom)}"></div>
+            <div class="field"><label>Prénom</label><input id="conjPrenom" value="${esc(draft.conjoint.prenom)}"></div>
+            <div class="field"><label>Date de naissance</label><input type="date" id="conjDob" value="${esc(draft.conjoint.dateNaissance)}"></div>
+          </div>
+          <div class="form-section">Enfants à charge</div>
+          <div id="childrenList">${draft.enfants.length?draft.enfants.map(childRow).join(""):`<div class="empty">Aucun enfant renseigné.</div>`}</div>
+          <button type="button" class="btn ghost sm" id="addChild" style="margin-top:8px">${svg(I.plus,'ic')} Ajouter un enfant</button>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" id="cancelModal">Annuler</button>
+          <button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button>
+        </div>
+      </div></div>`;
+    const close=()=>{ mr.innerHTML=""; };
+    document.getElementById("closeModal").onclick=close;
+    document.getElementById("cancelModal").onclick=close;
+    document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+    document.getElementById("famSitu").onchange=e=>{ draft.famille=e.target.value; };
+    document.getElementById("conjNom").oninput=e=>{ draft.conjoint.nom=e.target.value; };
+    document.getElementById("conjPrenom").oninput=e=>{ draft.conjoint.prenom=e.target.value; };
+    document.getElementById("conjDob").oninput=e=>{ draft.conjoint.dateNaissance=e.target.value; };
+    mr.querySelectorAll(".child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ inp.oninput=()=>{ draft.enfants[i][inp.dataset.cf]=inp.value; }; });
+    });
+    mr.querySelectorAll("[data-rmchild]").forEach(btn=>{ btn.onclick=()=>{ draft.enfants.splice(Number(btn.dataset.rmchild),1); paint(); }; });
+    document.getElementById("addChild").onclick=()=>{ draft.enfants.push({nom:"",prenom:"",dateNaissance:""}); paint(); };
+    document.getElementById("saveModal").onclick=()=>{
+      a.famille=draft.famille;
+      a.conjoint=(draft.conjoint.nom||draft.conjoint.prenom||draft.conjoint.dateNaissance)?{...draft.conjoint}:null;
+      a.enfantsListe=draft.enfants.filter(e=>e.nom||e.prenom||e.dateNaissance);
+      a.enfants=a.enfantsListe.length;
+      save(); close(); toast("Situation familiale mise à jour");
+      renderAgentDetail();
+    };
+  }
+  paint();
+}
+
+/* ---------- Horaire individuel (utilisé par les congés et l'allaitement) ---------- */
+function openHoraireForm(agentId){
+  const a=DB.agents.find(x=>x.id===agentId);
+  if(!a) return;
+  const h={...defaultHoraire(), ...(a.horaire||{})};
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Horaire individuel — ${esc(a.prenom)} ${esc(a.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-section">Lundi → Jeudi</div>
+      <div class="form-grid">
+        <div class="field"><label>Début</label><input type="time" id="hLunJeuDebut" value="${esc(h.lunJeuDebut)}"></div>
+        <div class="field"><label>Fin</label><input type="time" id="hLunJeuFin" value="${esc(h.lunJeuFin)}"></div>
+      </div>
+      <div class="form-section">Vendredi</div>
+      <div class="form-grid">
+        <div class="field"><label>Début</label><input type="time" id="hVenDebut" value="${esc(h.vendrediDebut)}"></div>
+        <div class="field"><label>Fin</label><input type="time" id="hVenFin" value="${esc(h.vendrediFin)}"></div>
+      </div>
+      <div class="form-section">Réorganisation</div>
+      <div class="form-grid">
+        <div class="field"><label>Pause déjeuner (min)</label><input type="number" id="hPause" value="${h.pauseDejeunerMin}"></div>
+        <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:22px">
+          <input type="checkbox" id="hReorganise" ${h.reorganise?"checked":""} style="width:auto">
+          <label style="margin:0">Réorganisation individuelle validée</label>
+        </div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Commentaire (motif de la réorganisation)</label><textarea id="hCommentaire">${esc(h.commentaireReorganisation||"")}</textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    a.horaire={
+      lunJeuDebut:document.getElementById("hLunJeuDebut").value||h.lunJeuDebut,
+      lunJeuFin:document.getElementById("hLunJeuFin").value||h.lunJeuFin,
+      vendrediDebut:document.getElementById("hVenDebut").value||h.vendrediDebut,
+      vendrediFin:document.getElementById("hVenFin").value||h.vendrediFin,
+      pauseDejeunerMin:Number(document.getElementById("hPause").value)||0,
+      reorganise:document.getElementById("hReorganise").checked,
+      commentaireReorganisation:document.getElementById("hCommentaire").value.trim()
+    };
+    save(); close(); toast("Horaire individuel mis à jour");
+    renderAgentDetail();
+  };
+}
+
+/* ---------- Génération et contrôle des bulletins de paie ---------- */
+function openGenerateBulletins(){
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Générer les bulletins de paie</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Période (mois)</label><input type="month" id="genPeriode" value="${todayISO().slice(0,7)}"></div>
+      </div>
+      <p class="hint" style="margin-top:10px;display:block">Un bulletin est généré pour chaque agent actif n'en ayant pas déjà un sur cette période, à partir de son traitement de base, de sa prime à l'emploi et des variables de paie configurées (cotisations CPS/CST).</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="genBtn">${svg(I.check)} Générer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("genBtn").onclick=()=>{
+    const periode=document.getElementById("genPeriode").value;
+    if(!periode){ toast("Choisir une période"); return; }
+    let created=0;
+    DB.agents.filter(a=>a.actif!==false).forEach(a=>{
+      if(DB.paie.some(p=>p.agentId===a.id && p.periode===periode)) return;
+      const calc=computeBulletin(a, periode, DB.paieConfig);
+      DB.paie.push({
+        id:uid("p_"), agentId:a.id, periode,
+        brut:calc.brut, primes:a.primeEmploi||0,
+        lignesCotis:calc.lignesCotis, cstLignes:calc.cstLignes,
+        cotis:calc.totalCotisSalariales, cotisPatronales:calc.totalCotisPatronales,
+        congesRecap:calc.congesRecap,
+        net:calc.net, statut:"Brouillon",
+        workflow:{history:[{action:"Génération du bulletin", actorLabel:agentName(SESSION.asAgentId)||"RH", date:nowStamp(), commentaire:""}]}
+      });
+      // Fait progresser les compteurs de congés de l'agent (solde M-1 + acquis - pris = nouveau solde).
+      if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+      calc.congesRecap.forEach(r=>{ a.soldes[r.code]=r.solde; });
+      a.solde=a.soldes.CP;
+      created++;
+    });
+    save(); close();
+    toast(created?`${created} bulletin(s) généré(s) pour ${periode}`:"Tous les agents actifs ont déjà un bulletin pour cette période");
+    render();
+  };
+}
+function openPaieConfigForm(){
+  const cfg=DB.paieConfig;
+  const mr=document.getElementById("modalRoot");
+  const cotisRows=cfg.cotisationsBrut.map((l,i)=>`<div class="child-row" data-i="${i}" style="grid-template-columns:2fr 1fr 1fr 1fr">
+      <div style="font-size:12.5px;align-self:center">${esc(l.libelle)}</div>
+      <input data-cf="plafond" type="number" placeholder="Plafond (vide=brut)" value="${l.plafond??""}">
+      <input data-cf="tauxSalarial" type="number" step="0.01" placeholder="Taux sal. %" value="${l.tauxSalarial}">
+      <input data-cf="tauxPatronal" type="number" step="0.01" placeholder="Taux pat. %" value="${l.tauxPatronal}">
+    </div>`).join("");
+  const cstRows=cfg.cstTranches.map((l,i)=>`<div class="child-row" data-i="${i}" style="grid-template-columns:2fr 1fr 1fr">
+      <div style="font-size:12.5px;align-self:center">${esc(l.libelle)}</div>
+      <input data-cf="plafond" type="number" placeholder="Plafond cumulé (vide=illimité)" value="${l.plafond??""}">
+      <input data-cf="taux" type="number" step="0.01" placeholder="Taux %" value="${l.taux}">
+    </div>`).join("");
+  const congesRows=cfg.congesTypes.map((l,i)=>`<div class="child-row" data-i="${i}" style="grid-template-columns:2fr 1fr">
+      <div style="font-size:12.5px;align-self:center">${esc(l.libelle)}</div>
+      <input data-cf="acquisParMois" type="number" step="0.1" placeholder="Jours/mois" value="${l.acquisParMois}">
+    </div>`).join("");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:720px">
+    <div class="modal-head"><h3>Variables de paie</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-section">Cotisations CPS (assises sur le brut, plafonné si indiqué)</div>
+      <div id="cotisList">${cotisRows}</div>
+      <div class="form-section" style="margin-top:14px">CST — barème progressif (tranches cumulées sur le brut)</div>
+      <div id="cstList">${cstRows}</div>
+      <div class="form-section" style="margin-top:14px">Congés — acquisition mensuelle de base</div>
+      <div id="congesList">${congesRows}</div>
+      <p class="hint" style="margin-top:6px;display:block">Les bonus « ancienneté » et « mère de famille » restent des règles indicatives fixes pour l'instant.</p>
+      <div class="form-section" style="margin-top:14px">Autres paramètres</div>
+      <div class="form-grid">
+        <div class="field"><label>Horaire mensuel de référence</label><input type="number" id="cfgHoraire" value="${cfg.horaireMensuel}"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    document.querySelectorAll("#cotisList .child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.cotisationsBrut[i][inp.dataset.cf]=inp.value===""?null:Number(inp.value); });
+    });
+    document.querySelectorAll("#cstList .child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.cstTranches[i][inp.dataset.cf]=inp.value===""?null:Number(inp.value); });
+    });
+    document.querySelectorAll("#congesList .child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.congesTypes[i][inp.dataset.cf]=Number(inp.value)||0; });
+    });
+    cfg.horaireMensuel=Number(document.getElementById("cfgHoraire").value)||0;
+    save(); close(); toast("Variables de paie mises à jour");
+  };
+}
+// Règles de décompte des congés (grille ANFA) — paramétrables plutôt que codées en dur.
+function openReglesCongesForm(){
+  const cfg=DB.reglesConges;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Règles de décompte des congés</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px">
+        <input type="checkbox" id="rgSamedi" ${cfg.inclureSamediSiVendredi?"checked":""} style="width:auto">
+        <label style="margin:0">Un congé se terminant un vendredi entraîne le décompte du samedi en plus</label>
+      </div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:10px">
+        <input type="checkbox" id="rgDimanche" ${cfg.inclureDimancheSiSamediInclus?"checked":""} style="width:auto">
+        <label style="margin:0">Dans ce cas, décompter également le dimanche</label>
+      </div>
+      <p class="hint" style="margin-top:12px;display:block">Grille ANFA : ces règles s'appliquent au calcul automatique du nombre de jours décomptés lors du dépôt d'une demande de congés annuels.</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    cfg.inclureSamediSiVendredi=document.getElementById("rgSamedi").checked;
+    cfg.inclureDimancheSiSamediInclus=document.getElementById("rgDimanche").checked;
+    save(); close(); toast("Règles de décompte mises à jour");
+  };
+}
+// Variables des évaluations de formation (questionnaires à chaud/à froid, délai avant l'envoi à froid).
+function openFormationConfigForm(){
+  const cfg=DB.formationConfig;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Variables des évaluations de formation</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Critères de l'évaluation à chaud</label><textarea id="cfgChaud">${esc(cfg.questionsChaud)}</textarea></div>
+      <div class="field" style="margin-top:10px"><label>Critères de l'évaluation à froid</label><textarea id="cfgFroid">${esc(cfg.questionsFroid)}</textarea></div>
+      <div class="field" style="margin-top:10px"><label>Délai avant l'évaluation à froid (semaines)</label><input type="number" id="cfgDelai" value="${cfg.delaiFroidSemaines}"></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    cfg.questionsChaud=document.getElementById("cfgChaud").value.trim();
+    cfg.questionsFroid=document.getElementById("cfgFroid").value.trim();
+    cfg.delaiFroidSemaines=Number(document.getElementById("cfgDelai").value)||0;
+    save(); close(); toast("Variables des évaluations mises à jour");
+  };
+}
+// Paramètres des rappels d'échéance (dossiers maternité et, demain, autres check-lists).
+function openRappelsConfigForm(){
+  const cfg=DB.rappelsConfig;
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Configuration des rappels</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Alerter dès (jours avant l'échéance)</label><input type="number" id="cfgAvant" value="${cfg.avantEcheanceJours}"></div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:10px">
+        <input type="checkbox" id="cfgJour" ${cfg.jourEcheance?"checked":""} style="width:auto">
+        <label style="margin:0">Alerter le jour de l'échéance</label>
+      </div>
+      <p class="hint" style="margin-top:12px;display:block">Ce prototype affiche les rappels à l'écran (badges) ; il n'envoie pas de notification automatique réelle.</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check)} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    cfg.avantEcheanceJours=Number(document.getElementById("cfgAvant").value)||0;
+    cfg.jourEcheance=document.getElementById("cfgJour").checked;
+    save(); close(); toast("Configuration des rappels mise à jour");
+  };
+}
+// Cycle de contrôle : Brouillon/Anomalie (contrôlé globalement par la DF, tous comptes confondus)
+// → Validée (disparaît du contrôle) → Payée. Une anomalie signalée reste visible au contrôle
+// jusqu'à correction RH puis revalidation — autant de fois que nécessaire.
+function paieHistoryPush(p, action, actorLabel, commentaire){
+  if(!p.workflow) p.workflow={history:[]};
+  p.workflow.history.push({action, actorLabel, date:nowStamp(), commentaire:commentaire||""});
+}
+function validerBulletin(p){
+  p.statut="Validée"; p.derniereAnnotation=null;
+  paieHistoryPush(p,"Bulletin validé", agentName(SESSION.asAgentId)+" (Direction Financière)");
+  save();
+}
+function signalerAnomalie(p, commentaire){
+  p.statut="Anomalie"; p.derniereAnnotation=commentaire;
+  paieHistoryPush(p,"Anomalie signalée", agentName(SESSION.asAgentId)+" (Direction Financière)", commentaire);
+  save();
+}
+function regenererBulletin(p){
+  const a=DB.agents.find(x=>x.id===p.agentId);
+  const rem=computeRemuneration(a, DB.paieConfig);
+  Object.assign(p, rem, {primes:a.primeEmploi||0});
+  p.statut="Brouillon";
+  paieHistoryPush(p,"Bulletin corrigé et renvoyé au contrôle", agentName(SESSION.asAgentId)+" (RH)");
+  save();
+}
+function marquerBulletinPaye(p){
+  p.statut="Payée";
+  paieHistoryPush(p,"Marqué comme payé", agentName(SESSION.asAgentId));
+  save();
+}
+function flagAnomalie(p){
+  const commentaire=prompt("Décrire l'anomalie constatée sur ce bulletin :", p.derniereAnnotation||"");
+  if(commentaire===null) return;
+  if(!commentaire.trim()){ toast("Merci de préciser l'anomalie constatée"); return; }
+  signalerAnomalie(p, commentaire.trim());
+  document.getElementById("modalRoot").innerHTML="";
+  toast("Anomalie signalée à la RH");
+  render();
+}
+function paieActionsHTML(p){
+  const isDF = SESSION.role==="df" || SESSION.role==="rh";
+  let html="";
+  if((p.statut==="Brouillon"||p.statut==="Anomalie") && isDF){
+    html+=`<button class="btn primary sm" id="validerBulletinBtn">${svg(I.check,'ic')} Valider</button> <button class="btn sm" id="anomalieBulletinBtn">${svg(I.x,'ic')} Signaler une anomalie</button>`;
+  }
+  if(p.statut==="Anomalie" && SESSION.role==="rh"){
+    html+=`<button class="btn sm" id="regenererBulletinBtn">${svg(I.check,'ic')} Corriger et renvoyer au contrôle</button>`;
+  }
+  if(p.statut==="Validée" && isDF){
+    html+=`<button class="btn primary sm" id="marquerPayeBtn">${svg(I.check,'ic')} Marquer payé</button>`;
+  }
+  return html;
+}
+function wireBulletinActions(p){
+  const rerender=(msg)=>{ document.getElementById("modalRoot").innerHTML=""; toast(msg); render(); };
+  const val=document.getElementById("validerBulletinBtn");
+  if(val) val.onclick=()=>{ validerBulletin(p); rerender("Bulletin validé"); };
+  const ano=document.getElementById("anomalieBulletinBtn");
+  if(ano) ano.onclick=()=>flagAnomalie(p);
+  const rege=document.getElementById("regenererBulletinBtn");
+  if(rege) rege.onclick=()=>{ regenererBulletin(p); rerender("Bulletin corrigé et renvoyé au contrôle"); };
+  const pay=document.getElementById("marquerPayeBtn");
+  if(pay) pay.onclick=()=>{ marquerBulletinPaye(p); rerender("Bulletin marqué comme payé"); };
+}
+function openBulletinDetail(id){
+  const p=DB.paie.find(x=>x.id===id);
+  if(!p) return;
+  const a=DB.agents.find(x=>x.id===p.agentId);
+  const cotisRows=(p.lignesCotis||[]).map(l=>`<tr>
+      <td>${esc(l.code)} ${esc(l.libelle)}</td><td class="num">${fmtMoney(l.base)}</td>
+      <td class="num">${l.tauxSalarial||0}%</td><td class="num">${l.montantSalarial?fmtMoney(l.montantSalarial):"—"}</td>
+      <td class="num">${l.tauxPatronal||0}%</td><td class="num">${l.montantPatronal?fmtMoney(l.montantPatronal):"—"}</td>
+    </tr>`).join("");
+  const cstRows=(p.cstLignes||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td class="num">${fmtMoney(l.base)}</td><td class="num">${l.taux}%</td><td class="num">${fmtMoney(l.montant)}</td><td class="num">—</td><td class="num">—</td></tr>`).join("");
+  const congesRows=(p.congesRecap||[]).map(r=>`<tr><td>${esc(r.libelle)}</td><td class="num">${r.soldeM1}</td><td class="num">${r.acquis}</td><td class="num">${r.pris}</td><td class="num" style="font-weight:700">${r.solde}</td></tr>`).join("");
+  const congesTable=p.congesRecap?`<div class="table-wrap" style="margin:14px 0"><table>
+        <thead><tr><th>Congés</th><th style="text-align:right">Solde M-1</th><th style="text-align:right">Acquis/Mois</th><th style="text-align:right">Pris/Mois</th><th style="text-align:right">Solde</th></tr></thead>
+        <tbody>${congesRows}</tbody>
+      </table></div>`:"";
+  const actions=paieActionsHTML(p);
+  const historyHtml=(p.workflow&&p.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${p.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("")}</div>`:"";
+  const anomalieBox = (p.statut==="Anomalie" && p.derniereAnnotation) ? `<div class="anomalie-box"><strong>Anomalie signalée par la Direction Financière</strong><div>${esc(p.derniereAnnotation)}</div></div>` : "";
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:820px">
+    <div class="modal-head"><h3>Bulletin de paie — ${esc(agentName(p.agentId))} · ${esc(p.periode)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:14px">
+        <div><div class="cell-sub">Matricule</div><div class="cell-name">${esc(a?.matricule||"—")}</div></div>
+        <div><div class="cell-sub">Direction / Service</div><div class="cell-name">${esc(a?.direction||"—")}</div></div>
+        <div><div class="cell-sub">Statut</div>${badge(p.statut)}</div>
+      </div>
+      ${anomalieBox}
+      <div class="table-wrap" style="margin-bottom:14px"><table>
+        <thead><tr><th>Désignation</th><th style="text-align:right">Base</th><th style="text-align:right">Taux sal.</th><th style="text-align:right">Retenue sal.</th><th style="text-align:right">Taux pat.</th><th style="text-align:right">Charge pat.</th></tr></thead>
+        <tbody>
+          <tr><td>Traitement de base</td><td class="num">${fmtMoney(a?.salaireBrutMensuel)}</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Prime à l'emploi</td><td class="num">${fmtMoney(a?.primeEmploi)}</td><td></td><td></td><td></td><td></td></tr>
+          <tr style="font-weight:700"><td>Total Brut</td><td class="num">${fmtMoney(p.brut)}</td><td></td><td></td><td></td><td></td></tr>
+          ${cotisRows}${cstRows}
+          <tr style="font-weight:700"><td>Total cotisations</td><td></td><td></td><td class="num">${fmtMoney(p.cotis)}</td><td></td><td class="num">${fmtMoney(p.cotisPatronales)}</td></tr>
+        </tbody>
+      </table></div>
+      <div style="text-align:right;font-size:16px;font-weight:800">Net à payer : ${fmtMoney(p.net)}</div>
+      ${congesTable}
+      ${historyHtml}
+      <p class="hint" style="margin-top:14px;display:block">Modèle de calcul simplifié à des fins de démonstration (traitement de base + prime, sans gestion des tranches horaires) — les taux/plafonds CPS, CST et les acquis de congés sont paramétrables via « Variables de paie ».</p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="printBulletinBtn">${svg(I.print,'ic')} Imprimer / PDF</button>${actions}<button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("printBulletinBtn").onclick=()=>printBulletin(p);
+  wireBulletinActions(p);
+}
+// Ouvre une version imprimable épurée du bulletin dans un nouvel onglet (Ctrl/Cmd+P → Enregistrer
+// en PDF) : pas de dépendance ni de génération PDF côté serveur dans ce prototype statique.
+function printBulletin(p){
+  const a=DB.agents.find(x=>x.id===p.agentId);
+  const cotisRows=(p.lignesCotis||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td>${fmtMoney(l.base)}</td><td>${l.tauxSalarial||0}%</td><td>${l.montantSalarial?fmtMoney(l.montantSalarial):"—"}</td><td>${l.tauxPatronal||0}%</td><td>${l.montantPatronal?fmtMoney(l.montantPatronal):"—"}</td></tr>`).join("");
+  const cstRows=(p.cstLignes||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td>${fmtMoney(l.base)}</td><td>${l.taux}%</td><td>${fmtMoney(l.montant)}</td><td></td><td></td></tr>`).join("");
+  const congesRows=(p.congesRecap||[]).map(r=>`<tr><td>${esc(r.libelle)}</td><td>${r.soldeM1}</td><td>${r.acquis}</td><td>${r.pris}</td><td><strong>${r.solde}</strong></td></tr>`).join("");
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Bulletin de paie - ${esc(agentName(p.agentId))} - ${esc(p.periode)}</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#12211f;margin:24px}
+  h1{font-size:16px;margin:0 0 4px}
+  .head{display:flex;justify-content:space-between;border-bottom:2px solid #0f6e6a;padding-bottom:10px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11.5px}
+  th,td{border:1px solid #d7dddb;padding:5px 8px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{background:#f6f8f7}
+  .net{text-align:right;font-size:14px;font-weight:800;margin-top:6px}
+  .foot{margin-top:24px;font-size:10px;color:#7a8a87}
+  @media print{ body{margin:0} }
+</style></head><body>
+  <div class="head">
+    <div><h1>OPH · Office Polynésien de l'Habitat</h1><div>Bulletin de paie</div></div>
+    <div style="text-align:right"><div><strong>${esc(agentName(p.agentId))}</strong></div><div>Matricule ${esc(a?.matricule||"—")}</div><div>Période ${esc(p.periode)}</div></div>
+  </div>
+  <table><tr><th>Direction / Service</th><td style="text-align:left">${esc(a?.direction||"—")}</td><th>Statut</th><td style="text-align:left">${esc(p.statut)}</td></tr></table>
+  <table>
+    <thead><tr><th>Désignation</th><th>Base</th><th>Taux sal.</th><th>Retenue sal.</th><th>Taux pat.</th><th>Charge pat.</th></tr></thead>
+    <tbody>
+      <tr><td>Traitement de base</td><td>${fmtMoney(a?.salaireBrutMensuel)}</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Prime à l'emploi</td><td>${fmtMoney(a?.primeEmploi)}</td><td></td><td></td><td></td><td></td></tr>
+      <tr style="font-weight:700"><td>Total Brut</td><td>${fmtMoney(p.brut)}</td><td></td><td></td><td></td><td></td></tr>
+      ${cotisRows}${cstRows}
+      <tr style="font-weight:700"><td>Total cotisations</td><td></td><td></td><td>${fmtMoney(p.cotis)}</td><td></td><td>${fmtMoney(p.cotisPatronales)}</td></tr>
+    </tbody>
+  </table>
+  <div class="net">Net à payer : ${fmtMoney(p.net)}</div>
+  ${p.congesRecap?`<table style="margin-top:18px"><thead><tr><th>Congés</th><th>Solde M-1</th><th>Acquis/Mois</th><th>Pris/Mois</th><th>Solde</th></tr></thead><tbody>${congesRows}</tbody></table>`:""}
+  <div class="foot">Document généré par la plateforme ERP OPH — modèle simplifié à des fins de démonstration.</div>
+  <script>window.onload=()=>{ window.print(); };<\/script>
+</body></html>`;
+  const w=window.open("", "_blank");
+  if(!w){ toast("Autorisez les pop-ups pour imprimer le bulletin"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 /* ---------- Chrome ---------- */
@@ -992,6 +2797,8 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElemen
 
 /* ---------- Boot ---------- */
 load();
+loadSession();
+renderSessionBar();
 render();
 </script>
 </body>
