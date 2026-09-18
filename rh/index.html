@@ -257,6 +257,20 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 .session-bar .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); font-weight:700}
 .session-bar select{padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; width:100%}
 
+/* Arborescence de documents */
+.doc-tree{display:flex; flex-direction:column; gap:8px}
+.doc-cat{border:1px solid var(--border); border-radius:10px; overflow:hidden}
+.doc-cat-head{display:flex; align-items:center; gap:10px; width:100%; padding:11px 14px; background:var(--surface-2); border:none; cursor:pointer; font-weight:600; font-size:13.5px; color:var(--ink); text-align:left}
+.doc-cat-head:hover{background:var(--bg)}
+.doc-cat-head .chev{width:14px; height:14px; stroke:var(--ink-3); transition:transform .15s; flex:0 0 auto}
+.doc-cat-head.open .chev{transform:rotate(90deg)}
+.doc-cat-head .tag{margin-left:auto}
+.doc-cat-body{padding:4px 14px}
+.doc-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border)}
+.doc-row:last-child{border-bottom:none}
+.doc-year{padding:6px 0}
+.doc-year-lbl{font-size:12px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.03em; padding:8px 0 4px; display:flex; align-items:center; gap:8px}
+
 /* Responsive */
 @media (max-width:960px){ .panels{grid-template-columns:1fr} .detail-cols{grid-template-columns:1fr} }
 @media (max-width:820px){
@@ -342,7 +356,9 @@ const I = {
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
   teams:'<path d="M4 4.5h16v11H9l-5 4z"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
-  settings:'<path d="M4 6h16M4 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 12h16M14 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 18h16M8 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"/>'
+  settings:'<path d="M4 6h16M4 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 12h16M14 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0zM4 18h16M8 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"/>',
+  print:'<path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><path d="M6 14h12v7H6z"/>',
+  chevron:'<path d="M9 6l6 6-6 6"/>'
 };
 const svg = (p,cls='ic')=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${p}</svg>`;
 
@@ -396,7 +412,11 @@ function migrate(){
   if(!DB.carriere) DB.carriere=[];
   if(!DB.documents) DB.documents=[];
   if(!DB.paieConfig) DB.paieConfig=defaultPaieConfig();
-  DB.agents.forEach(a=>{ if(a.superieurId===undefined) a.superieurId=null; });
+  if(!DB.paieConfig.congesTypes) DB.paieConfig.congesTypes=defaultPaieConfig().congesTypes;
+  DB.agents.forEach(a=>{
+    if(a.superieurId===undefined) a.superieurId=null;
+    if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+  });
   DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
   save();
 }
@@ -422,7 +442,7 @@ function seed(){
 
   // Rémunération de base (utilisée par le moteur de génération des bulletins de paie)
   const REM=[[550000,60000],[420000,35000],[260000,10000],[380000,25000],[480000,40000],[180000,0],[300000,15000],[420000,30000],[210000,5000]];
-  agents.forEach((a,i)=>{ a.salaireBrutMensuel=REM[i][0]; a.primeEmploi=REM[i][1]; });
+  agents.forEach((a,i)=>{ a.salaireBrutMensuel=REM[i][0]; a.primeEmploi=REM[i][1]; a.soldes={CP:a.solde??0, CPA:0, CPMF:0}; });
 
   // Situation familiale détaillée (démo sur quelques agents)
   agents[0].conjoint={nom:"TEHEIURA",prenom:"Vaihere",dateNaissance:"1986-02-10"};
@@ -496,11 +516,14 @@ function seed(){
 
   const documents = [
     {agentId:gid(0),type:"CV",libelle:"CV_Teheiura_Manea.pdf",dateAjout:"2012-08-20",confidentiel:false},
-    {agentId:gid(0),type:"Contrat de travail",libelle:"Contrat_titularisation_2012.pdf",dateAjout:"2012-09-01",confidentiel:false},
-    {agentId:gid(2),type:"Diplôme",libelle:"BTS_SIO_Tama_Teiva.pdf",dateAjout:"2023-02-15",confidentiel:false},
-    {agentId:gid(2),type:"Contrat de travail",libelle:"CDD_2023-2026.pdf",dateAjout:"2023-03-01",confidentiel:false},
-    {agentId:gid(3),type:"Fiche de paie",libelle:"Paie_2026-01_Marurai.pdf",dateAjout:"2026-02-01",confidentiel:true},
-    {agentId:gid(1),type:"Justificatif administratif",libelle:"Avertissement_2025.pdf",dateAjout:"2025-11-10",confidentiel:true}
+    {agentId:gid(0),type:"Décision",libelle:"Decision_titularisation_2012.pdf",dateAjout:"2012-09-01",confidentiel:false},
+    {agentId:gid(2),type:"Diplômes",libelle:"BTS_SIO_Tama_Teiva.pdf",dateAjout:"2023-02-15",confidentiel:false},
+    {agentId:gid(2),type:"CDD - Contrat de travail",libelle:"CDD_2023-2026.pdf",dateAjout:"2023-03-01",confidentiel:false},
+    {agentId:gid(3),type:"Notations",libelle:"Evaluation_2025_Marurai.pdf",dateAjout:"2026-02-01",confidentiel:true},
+    {agentId:gid(1),type:"Discipline",libelle:"Avertissement_2025.pdf",dateAjout:"2025-11-10",confidentiel:true},
+    {agentId:gid(7),type:"Aptitude médical",libelle:"Avis_aptitude_2026-01_Tetuanui.pdf",dateAjout:"2026-01-28",confidentiel:true},
+    {agentId:gid(1),type:"Attestations de formation",libelle:"Attestation_cybersecurite_2026.pdf",dateAjout:"2026-01-13",confidentiel:false},
+    {agentId:gid(8),type:"Recrutement",libelle:"Dossier_candidature_AhScha.pdf",dateAjout:"2024-10-20",confidentiel:false}
   ].map(d=>({id:uid("doc_"), ...d}));
 
   const deplacements = [
@@ -515,6 +538,35 @@ function seed(){
 /* ---------- Module field configs ---------- */
 const DIRECTIONS = ["Direction Générale","DSI","Direction des Ressources Humaines","Direction de la Maîtrise d'Ouvrage","Direction de la Gestion Locative","Direction Financière","Direction du Patrimoine"];
 const agentOptions = ()=> DB.agents.filter(a=>a.actif!==false||true).map(a=>({v:a.id,l:`${a.prenom} ${a.nom} · ${a.matricule}`}));
+
+/* ---------- Classement des documents du dossier (arborescence façon coffre-fort numérique) ---------- */
+const DOC_TYPES = [
+  {cat:"Carrière", type:"Aménagement horaire"},
+  {cat:"Carrière", type:"Attestation diverse"},
+  {cat:"Carrière", type:"CDD - Avenant"},
+  {cat:"Carrière", type:"CDD - Contrat de travail"},
+  {cat:"Carrière", type:"CDI - Avenant"},
+  {cat:"Carrière", type:"CDI - Contrat de travail"},
+  {cat:"Carrière", type:"Correspondances"},
+  {cat:"Carrière", type:"Décès"},
+  {cat:"Carrière", type:"Décision"},
+  {cat:"Carrière", type:"Discipline"},
+  {cat:"Carrière", type:"Fiche de poste"},
+  {cat:"Carrière", type:"Fin de contrat"},
+  {cat:"Carrière", type:"Maternité"},
+  {cat:"Carrière", type:"Notations"},
+  {cat:"Carrière", type:"Réorganisation horaire"},
+  {cat:"Médical", type:"Aptitude médical"},
+  {cat:"Formation", type:"Attestations de formation"},
+  {cat:"Information personnelle", type:"Cartes CPS"},
+  {cat:"Information personnelle", type:"CV"},
+  {cat:"Information personnelle", type:"Diplômes"},
+  {cat:"Information personnelle", type:"Documents administratifs"},
+  {cat:"Information personnelle", type:"Permis de conduire"},
+  {cat:"Information personnelle", type:"Recrutement"}
+];
+const DOC_CATEGORY_ORDER = ["Carrière","Médical","Formation","Information personnelle","Bulletins de paie"];
+function docCategoryOf(type){ const m=DOC_TYPES.find(d=>d.type===type); return m?m.cat:"Information personnelle"; }
 
 /* ---------- Circuit de validation des congés (N+1 → N+2 → RH) ---------- */
 const RH_DIRECTION = "Direction des Ressources Humaines";
@@ -632,8 +684,42 @@ function defaultPaieConfig(){
       {code:"25100",libelle:"CST à 3 %",plafond:250000,taux:3.0},
       {code:"25300",libelle:"CST à 5 %",plafond:400000,taux:5.0},
       {code:"25450",libelle:"CST à 9 %",plafond:null,taux:9.0}
+    ],
+    // Congés suivis sur le bulletin (solde M-1 / acquis / pris / solde). Les bonus d'ancienneté et
+    // « mère de famille » sont des règles indicatives, à ajuster avec la RH selon la convention.
+    congesTypes:[
+      {code:"CP", libelle:"Congés Payés", acquisParMois:2.5},
+      {code:"CPA", libelle:"CP Ancienneté", acquisParMois:0, bonusAnciennete:{seuilAns:10, joursParAn:1}},
+      {code:"CPMF", libelle:"CP Mère de Famille", acquisParMois:0, bonusParEnfant:{joursParAnParEnfant:0.5}}
     ]
   };
+}
+function anneesAnciennete(entree){
+  if(!entree) return 0;
+  const d0=new Date(entree), d1=new Date();
+  let years=d1.getFullYear()-d0.getFullYear();
+  if(d1.getMonth()<d0.getMonth() || (d1.getMonth()===d0.getMonth() && d1.getDate()<d0.getDate())) years--;
+  return Math.max(0,years);
+}
+// Calcule, pour chaque type de congé suivi, le solde M-1, l'acquis du mois, le pris du mois et le
+// nouveau solde. « Pris » n'est pour l'instant rapproché que des congés annuels validés (type "CP").
+function computeCongesRecap(agent, periode, config){
+  const soldes = agent.soldes || {CP:agent.solde||0, CPA:0, CPMF:0};
+  const anciennete = anneesAnciennete(agent.entree);
+  return (config.congesTypes||[]).map(ct=>{
+    let acquis = ct.acquisParMois||0;
+    if(ct.bonusAnciennete && anciennete>=ct.bonusAnciennete.seuilAns) acquis = ct.bonusAnciennete.joursParAn/12;
+    if(ct.bonusParEnfant && agent.civ==="Mme" && (agent.enfantsListe||[]).length>0) acquis = (agent.enfantsListe.length*ct.bonusParEnfant.joursParAnParEnfant)/12;
+    let pris=0;
+    if(ct.code==="CP"){
+      pris = DB.conges.filter(c=>c.agentId===agent.id && c.type==="Congés annuels" && c.statut==="Validé" && (c.debut||"").slice(0,7)===periode)
+        .reduce((s,c)=>s+(c.jours||0),0);
+    }
+    const soldeM1 = soldes[ct.code]||0;
+    acquis = Math.round(acquis*100)/100;
+    const solde = Math.round((soldeM1+acquis-pris)*100)/100;
+    return {code:ct.code, libelle:ct.libelle, soldeM1, acquis, pris, solde};
+  });
 }
 function computeCST(brut, tranches){
   const lines=[]; let prevCap=0;
@@ -645,7 +731,7 @@ function computeCST(brut, tranches){
   });
   return lines;
 }
-function computeBulletin(agent, config){
+function computeBulletin(agent, periode, config){
   const brut=Math.round((agent.salaireBrutMensuel||0)+(agent.primeEmploi||0));
   const lignesCotis=(config.cotisationsBrut||[]).map(c=>{
     const base = c.plafond ? Math.min(brut,c.plafond) : brut;
@@ -654,7 +740,8 @@ function computeBulletin(agent, config){
   const cstLignes=computeCST(brut, config.cstTranches);
   const totalCotisSalariales=lignesCotis.reduce((s,l)=>s+l.montantSalarial,0)+cstLignes.reduce((s,l)=>s+l.montant,0);
   const totalCotisPatronales=lignesCotis.reduce((s,l)=>s+l.montantPatronal,0);
-  return {brut, lignesCotis, cstLignes, totalCotisSalariales, totalCotisPatronales, net:brut-totalCotisSalariales};
+  const congesRecap=computeCongesRecap(agent, periode, config);
+  return {brut, lignesCotis, cstLignes, totalCotisSalariales, totalCotisPatronales, congesRecap, net:brut-totalCotisSalariales};
 }
 
 /* ---------- Profil de test (droits différenciés par profil utilisateur) ---------- */
@@ -831,12 +918,12 @@ const FORMS = {
   documents:{ title:"document",
     fields:[
       {k:"agentId",l:"Agent",t:"ref",req:true},
-      {k:"type",l:"Type de document",t:"select",o:["CV","Diplôme","Permis","Contrat de travail","Avenant","Justificatif administratif","Fiche de paie","Autre"],req:true},
+      {k:"type",l:"Type de document",t:"select",o:DOC_TYPES.map(d=>d.type),req:true,hint:"Détermine le classement dans l'arborescence du dossier"},
       {k:"libelle",l:"Libellé / nom du fichier",t:"text",req:true},
       {k:"dateAjout",l:"Date d'ajout",t:"date",req:true},
       {k:"confidentiel",l:"Accès restreint (RH uniquement)",t:"bool"}
     ],
-    defaults:()=>({dateAjout:todayISO(),type:"Autre",confidentiel:false})
+    defaults:()=>({dateAjout:todayISO(),type:"Documents administratifs",confidentiel:false})
   }
 };
 
@@ -1376,7 +1463,7 @@ function renderAgentDetail(){
     {id:"accidents",l:"Accidents",n:rel("accidents").length},
     {id:"deplacements",l:"Déplacements",n:rel("deplacements").length},
     {id:"carriere",l:"Carrière",n:rel("carriere").length},
-    {id:"documents",l:"Documents",n:rel("documents").filter(d=>canViewDocument(d,a)).length}
+    {id:"documents",l:"Documents",n:rel("documents").filter(d=>canViewDocument(d,a)).length+((dossierAccess(a)==="rh"||dossierAccess(a)==="self")?rel("paie").length:0)}
   ];
 
   c.innerHTML=`
@@ -1441,17 +1528,16 @@ function renderAgentDetail(){
 function renderDetailPane(a){
   const pane=document.getElementById("detailPane");
   const access=dossierAccess(a);
+  if(view.tab==="documents"){ renderDocumentsPane(pane, a, access); return; }
   let rows=DB[view.tab].filter(x=>x.agentId===a.id);
   // Seule la RH gère librement tous les onglets ; le profil "self" (l'agent, quel que soit son
-  // rôle) peut uniquement déposer une demande de congés ; un responsable ("team") ne fait que
-  // consulter, sauf pour les documents où ses droits sont gérés séparément (canEditDocuments).
-  let canAdd = access==="rh" ? true : (view.tab==="conges" && access==="self");
-  let canEditRow = access==="rh";
-  if(view.tab==="documents"){ rows=rows.filter(d=>canViewDocument(d,a)); canAdd=canEditDocuments(a); canEditRow=canAdd; }
+  // rôle) peut uniquement déposer une demande de congés ; un responsable ("team") ne fait que consulter.
+  const canAdd = access==="rh" ? true : (view.tab==="conges" && access==="self");
+  const canEditRow = access==="rh";
   const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   const head=(title)=>`<div class="panel-head" style="border-radius:10px 10px 0 0"><h3>${title}</h3><div class="spacer"></div>${addBtn}</div>`;
   let inner="";
-  if(!rows.length){ inner=`<div class="empty">${view.tab==="documents"&&!canAdd?"Aucun document accessible avec ce profil.":"Aucun enregistrement pour cet agent."}</div>`; }
+  if(!rows.length){ inner=`<div class="empty">Aucun enregistrement pour cet agent.</div>`; }
   else{
     inner=`<div style="overflow-x:auto"><table><tbody>`+rows.map(r=>{
       let main="", sub="", right="", viewBtn="";
@@ -1462,7 +1548,6 @@ function renderDetailPane(a){
       else if(view.tab==="accidents"){ main=fmtDate(r.date); sub=`${r.lesions||""}${r.cafat?" · "+r.cafat:""}`; right=badge(r.statut); }
       else if(view.tab==="deplacements"){ main=r.objet; sub=`${r.destination} · ${fmtDate(r.depart)}`; right=badge(r.statut); }
       else if(view.tab==="carriere"){ main=r.type; sub=`${fmtDate(r.date)}${r.poste?" · "+r.poste:""}${r.direction?" · "+r.direction:""}`; }
-      else if(view.tab==="documents"){ main=r.libelle; sub=`${r.type} · ${fmtDate(r.dateAjout)}`; right=r.confidentiel?'<span class="badge warn">RH uniquement</span>':'<span class="badge ok">Visible équipe</span>'; }
       return `<tr>
         <td><div class="cell-name">${esc(main)}</div><div class="cell-sub">${esc(sub)}</div></td>
         <td style="text-align:right">${right}</td>
@@ -1475,6 +1560,62 @@ function renderDetailPane(a){
   if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id}, access!=="rh"?{selfService:true}:{});
   pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm(view.tab, el.dataset.edit));
   pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord(el.dataset.mod, el.dataset.del));
+  pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
+}
+// Onglet Documents : arborescence par catégories (façon coffre-fort numérique), avec les
+// bulletins de paie générés regroupés par année plutôt que dupliqués en documents génériques.
+function renderDocumentsPane(pane, a, access){
+  const canAdd=canEditDocuments(a);
+  const docs=DB.documents.filter(d=>d.agentId===a.id && canViewDocument(d,a));
+  const byCat={};
+  docs.forEach(d=>{ const cat=docCategoryOf(d.type); (byCat[cat]=byCat[cat]||[]).push(d); });
+  const canSeeBulletins = access==="rh" || access==="self";
+  const bulletins = canSeeBulletins ? DB.paie.filter(p=>p.agentId===a.id) : [];
+  const byYear={};
+  bulletins.forEach(p=>{ const y=(p.periode||"").slice(0,4)||"—"; (byYear[y]=byYear[y]||[]).push(p); });
+  const years=Object.keys(byYear).sort((x,y)=>y.localeCompare(x));
+
+  const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
+  let html=`<div class="doc-tree">`;
+  DOC_CATEGORY_ORDER.filter(cat=>cat!=="Bulletins de paie").forEach(cat=>{
+    const items=byCat[cat]||[];
+    const cid="cat-"+cat.replace(/[^a-zA-Z0-9]/g,"");
+    html+=`<div class="doc-cat">
+      <button class="doc-cat-head" data-toggle="${cid}">${svg(I.chevron,'chev')}<span>${esc(cat)}</span><span class="tag">${items.length}</span></button>
+      <div class="doc-cat-body" id="${cid}" hidden>
+        ${items.length?items.map(d=>`<div class="doc-row">
+            <div><div class="cell-name">${esc(d.type)}</div><div class="cell-sub">${esc(d.libelle)} · ${fmtDate(d.dateAjout)}</div></div>
+            <div class="spacer"></div>
+            ${d.confidentiel?'<span class="badge warn">RH uniquement</span>':'<span class="badge ok">Visible équipe</span>'}
+            ${canAdd?`<div class="row-actions"><button class="btn ghost sm" data-edit="${d.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${d.id}" data-mod="documents" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}
+          </div>`).join(""):`<div class="empty">Aucun document.</div>`}
+      </div>
+    </div>`;
+  });
+  if(canSeeBulletins){
+    html+=`<div class="doc-cat">
+      <button class="doc-cat-head" data-toggle="cat-bulletins">${svg(I.chevron,'chev')}<span>Bulletins de paie</span><span class="tag">${bulletins.length}</span></button>
+      <div class="doc-cat-body" id="cat-bulletins" hidden>
+        ${years.length?years.map(y=>`<div class="doc-year">
+            <div class="doc-year-lbl">${esc(y)} <span class="tag">${byYear[y].length}</span></div>
+            ${byYear[y].slice().sort((x,z)=>z.periode.localeCompare(x.periode)).map(p=>`<div class="doc-row" data-view="${p.id}" style="cursor:pointer">
+              <div><div class="cell-name">Bulletin ${esc(p.periode)}</div><div class="cell-sub">Net ${fmtMoney(p.net)}</div></div><div class="spacer"></div>${badge(p.statut)}
+            </div>`).join("")}
+          </div>`).join(""):`<div class="empty">Aucun bulletin généré.</div>`}
+      </div>
+    </div>`;
+  }
+  html+=`</div>`;
+  pane.innerHTML=`<div class="panel"><div class="panel-head" style="border-radius:10px 10px 0 0"><h3>Documents</h3><div class="spacer"></div>${addBtn}</div><div class="panel-body" style="padding:10px">${html}</div></div>`;
+  const detailAdd=document.getElementById("detailAdd");
+  if(detailAdd) detailAdd.onclick=()=>openForm("documents", null, {agentId:a.id});
+  pane.querySelectorAll("[data-toggle]").forEach(btn=>btn.onclick=()=>{
+    const body=document.getElementById(btn.dataset.toggle);
+    body.hidden=!body.hidden;
+    btn.classList.toggle("open", !body.hidden);
+  });
+  pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("documents", el.dataset.edit));
+  pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("documents", el.dataset.del));
   pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
@@ -1759,14 +1900,19 @@ function openGenerateBulletins(){
     let created=0;
     DB.agents.filter(a=>a.actif!==false).forEach(a=>{
       if(DB.paie.some(p=>p.agentId===a.id && p.periode===periode)) return;
-      const calc=computeBulletin(a, DB.paieConfig);
+      const calc=computeBulletin(a, periode, DB.paieConfig);
       DB.paie.push({
         id:uid("p_"), agentId:a.id, periode,
         brut:calc.brut, primes:a.primeEmploi||0,
         lignesCotis:calc.lignesCotis, cstLignes:calc.cstLignes,
         cotis:calc.totalCotisSalariales, cotisPatronales:calc.totalCotisPatronales,
+        congesRecap:calc.congesRecap,
         net:calc.net, statut:"Brouillon"
       });
+      // Fait progresser les compteurs de congés de l'agent (solde M-1 + acquis - pris = nouveau solde).
+      if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+      calc.congesRecap.forEach(r=>{ a.soldes[r.code]=r.solde; });
+      a.solde=a.soldes.CP;
       created++;
     });
     save(); close();
@@ -1788,6 +1934,10 @@ function openPaieConfigForm(){
       <input data-cf="plafond" type="number" placeholder="Plafond cumulé (vide=illimité)" value="${l.plafond??""}">
       <input data-cf="taux" type="number" step="0.01" placeholder="Taux %" value="${l.taux}">
     </div>`).join("");
+  const congesRows=cfg.congesTypes.map((l,i)=>`<div class="child-row" data-i="${i}" style="grid-template-columns:2fr 1fr">
+      <div style="font-size:12.5px;align-self:center">${esc(l.libelle)}</div>
+      <input data-cf="acquisParMois" type="number" step="0.1" placeholder="Jours/mois" value="${l.acquisParMois}">
+    </div>`).join("");
   mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:720px">
     <div class="modal-head"><h3>Variables de paie</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
     <div class="modal-body">
@@ -1795,9 +1945,11 @@ function openPaieConfigForm(){
       <div id="cotisList">${cotisRows}</div>
       <div class="form-section" style="margin-top:14px">CST — barème progressif (tranches cumulées sur le brut)</div>
       <div id="cstList">${cstRows}</div>
+      <div class="form-section" style="margin-top:14px">Congés — acquisition mensuelle de base</div>
+      <div id="congesList">${congesRows}</div>
+      <p class="hint" style="margin-top:6px;display:block">Les bonus « ancienneté » et « mère de famille » restent des règles indicatives fixes pour l'instant.</p>
       <div class="form-section" style="margin-top:14px">Autres paramètres</div>
       <div class="form-grid">
-        <div class="field"><label>Congés acquis / mois (jours)</label><input type="number" step="0.1" id="cfgConges" value="${cfg.congesAcquisParMois}"></div>
         <div class="field"><label>Horaire mensuel de référence</label><input type="number" id="cfgHoraire" value="${cfg.horaireMensuel}"></div>
       </div>
     </div>
@@ -1816,7 +1968,10 @@ function openPaieConfigForm(){
       const i=Number(row.dataset.i);
       row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.cstTranches[i][inp.dataset.cf]=inp.value===""?null:Number(inp.value); });
     });
-    cfg.congesAcquisParMois=Number(document.getElementById("cfgConges").value)||0;
+    document.querySelectorAll("#congesList .child-row").forEach(row=>{
+      const i=Number(row.dataset.i);
+      row.querySelectorAll("[data-cf]").forEach(inp=>{ cfg.congesTypes[i][inp.dataset.cf]=Number(inp.value)||0; });
+    });
     cfg.horaireMensuel=Number(document.getElementById("cfgHoraire").value)||0;
     save(); close(); toast("Variables de paie mises à jour");
   };
@@ -1857,6 +2012,11 @@ function openBulletinDetail(id){
       <td class="num">${l.tauxPatronal||0}%</td><td class="num">${l.montantPatronal?fmtMoney(l.montantPatronal):"—"}</td>
     </tr>`).join("");
   const cstRows=(p.cstLignes||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td class="num">${fmtMoney(l.base)}</td><td class="num">${l.taux}%</td><td class="num">${fmtMoney(l.montant)}</td><td class="num">—</td><td class="num">—</td></tr>`).join("");
+  const congesRows=(p.congesRecap||[]).map(r=>`<tr><td>${esc(r.libelle)}</td><td class="num">${r.soldeM1}</td><td class="num">${r.acquis}</td><td class="num">${r.pris}</td><td class="num" style="font-weight:700">${r.solde}</td></tr>`).join("");
+  const congesTable=p.congesRecap?`<div class="table-wrap" style="margin:14px 0"><table>
+        <thead><tr><th>Congés</th><th style="text-align:right">Solde M-1</th><th style="text-align:right">Acquis/Mois</th><th style="text-align:right">Pris/Mois</th><th style="text-align:right">Solde</th></tr></thead>
+        <tbody>${congesRows}</tbody>
+      </table></div>`:"";
   const actions=paieActionsHTML(p);
   const historyHtml=(p.workflow&&p.workflow.history.length)?`<div class="wf-timeline" style="margin-top:16px">${p.workflow.history.map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div><div class="wf-actor">${esc(h.actorLabel||"—")}</div></div></div>`).join("")}</div>`:"";
   const mr=document.getElementById("modalRoot");
@@ -1879,16 +2039,62 @@ function openBulletinDetail(id){
         </tbody>
       </table></div>
       <div style="text-align:right;font-size:16px;font-weight:800">Net à payer : ${fmtMoney(p.net)}</div>
+      ${congesTable}
       ${historyHtml}
-      <p class="hint" style="margin-top:14px;display:block">Modèle de calcul simplifié à des fins de démonstration (traitement de base + prime, sans gestion des tranches horaires) — les taux/plafonds CPS et CST sont paramétrables via « Variables de paie ».</p>
+      <p class="hint" style="margin-top:14px;display:block">Modèle de calcul simplifié à des fins de démonstration (traitement de base + prime, sans gestion des tranches horaires) — les taux/plafonds CPS, CST et les acquis de congés sont paramétrables via « Variables de paie ».</p>
     </div>
-    <div class="modal-foot">${actions}<button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button></div>
+    <div class="modal-foot"><button class="btn" id="printBulletinBtn">${svg(I.print,'ic')} Imprimer / PDF</button>${actions}<button class="btn" id="cancelModal" style="margin-left:auto">Fermer</button></div>
   </div></div>`;
   const close=()=>{ mr.innerHTML=""; };
   document.getElementById("closeModal").onclick=close;
   document.getElementById("cancelModal").onclick=close;
   document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("printBulletinBtn").onclick=()=>printBulletin(p);
   wireBulletinActions(p);
+}
+// Ouvre une version imprimable épurée du bulletin dans un nouvel onglet (Ctrl/Cmd+P → Enregistrer
+// en PDF) : pas de dépendance ni de génération PDF côté serveur dans ce prototype statique.
+function printBulletin(p){
+  const a=DB.agents.find(x=>x.id===p.agentId);
+  const cotisRows=(p.lignesCotis||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td>${fmtMoney(l.base)}</td><td>${l.tauxSalarial||0}%</td><td>${l.montantSalarial?fmtMoney(l.montantSalarial):"—"}</td><td>${l.tauxPatronal||0}%</td><td>${l.montantPatronal?fmtMoney(l.montantPatronal):"—"}</td></tr>`).join("");
+  const cstRows=(p.cstLignes||[]).map(l=>`<tr><td>${esc(l.code)} ${esc(l.libelle)}</td><td>${fmtMoney(l.base)}</td><td>${l.taux}%</td><td>${fmtMoney(l.montant)}</td><td></td><td></td></tr>`).join("");
+  const congesRows=(p.congesRecap||[]).map(r=>`<tr><td>${esc(r.libelle)}</td><td>${r.soldeM1}</td><td>${r.acquis}</td><td>${r.pris}</td><td><strong>${r.solde}</strong></td></tr>`).join("");
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Bulletin de paie - ${esc(agentName(p.agentId))} - ${esc(p.periode)}</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#12211f;margin:24px}
+  h1{font-size:16px;margin:0 0 4px}
+  .head{display:flex;justify-content:space-between;border-bottom:2px solid #0f6e6a;padding-bottom:10px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11.5px}
+  th,td{border:1px solid #d7dddb;padding:5px 8px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{background:#f6f8f7}
+  .net{text-align:right;font-size:14px;font-weight:800;margin-top:6px}
+  .foot{margin-top:24px;font-size:10px;color:#7a8a87}
+  @media print{ body{margin:0} }
+</style></head><body>
+  <div class="head">
+    <div><h1>OPH · Office Polynésien de l'Habitat</h1><div>Bulletin de paie</div></div>
+    <div style="text-align:right"><div><strong>${esc(agentName(p.agentId))}</strong></div><div>Matricule ${esc(a?.matricule||"—")}</div><div>Période ${esc(p.periode)}</div></div>
+  </div>
+  <table><tr><th>Direction / Service</th><td style="text-align:left">${esc(a?.direction||"—")}</td><th>Statut</th><td style="text-align:left">${esc(p.statut)}</td></tr></table>
+  <table>
+    <thead><tr><th>Désignation</th><th>Base</th><th>Taux sal.</th><th>Retenue sal.</th><th>Taux pat.</th><th>Charge pat.</th></tr></thead>
+    <tbody>
+      <tr><td>Traitement de base</td><td>${fmtMoney(a?.salaireBrutMensuel)}</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Prime à l'emploi</td><td>${fmtMoney(a?.primeEmploi)}</td><td></td><td></td><td></td><td></td></tr>
+      <tr style="font-weight:700"><td>Total Brut</td><td>${fmtMoney(p.brut)}</td><td></td><td></td><td></td><td></td></tr>
+      ${cotisRows}${cstRows}
+      <tr style="font-weight:700"><td>Total cotisations</td><td></td><td></td><td>${fmtMoney(p.cotis)}</td><td></td><td>${fmtMoney(p.cotisPatronales)}</td></tr>
+    </tbody>
+  </table>
+  <div class="net">Net à payer : ${fmtMoney(p.net)}</div>
+  ${p.congesRecap?`<table style="margin-top:18px"><thead><tr><th>Congés</th><th>Solde M-1</th><th>Acquis/Mois</th><th>Pris/Mois</th><th>Solde</th></tr></thead><tbody>${congesRows}</tbody></table>`:""}
+  <div class="foot">Document généré par la plateforme ERP OPH — modèle simplifié à des fins de démonstration.</div>
+  <script>window.onload=()=>{ window.print(); };<\/script>
+</body></html>`;
+  const w=window.open("", "_blank");
+  if(!w){ toast("Autorisez les pop-ups pour imprimer le bulletin"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 /* ---------- Chrome ---------- */
