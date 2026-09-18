@@ -596,8 +596,17 @@ function renderSessionBar(){
   if(!SESSION.asAgentId && DB.agents[0]) SESSION.asAgentId=DB.agents[0].id;
   agentSel.value=SESSION.asAgentId;
   agentSel.style.display=SESSION.role==="rh"?"none":"block";
-  roleSel.onchange=()=>{ SESSION.role=roleSel.value; agentSel.style.display=SESSION.role==="rh"?"none":"block"; saveSession(); render(); if(view.agentId) renderAgentDetail(); };
-  agentSel.onchange=()=>{ SESSION.asAgentId=agentSel.value; saveSession(); if(view.agentId) renderAgentDetail(); };
+  roleSel.onchange=()=>{
+    SESSION.role=roleSel.value;
+    agentSel.style.display=SESSION.role==="rh"?"none":"block";
+    saveSession();
+    go(SESSION.role==="agent" ? "mon-dashboard" : "dashboard");
+  };
+  agentSel.onchange=()=>{
+    SESSION.asAgentId=agentSel.value; saveSession();
+    if(SESSION.role==="agent") go("mon-dashboard");
+    else if(view.agentId) renderAgentDetail();
+  };
 }
 // Un document du dossier agent est-il visible pour le profil de test actuellement sélectionné ?
 function canViewDocument(doc, agentOfDossier){
@@ -652,8 +661,8 @@ const FORMS = {
       {k:"type",l:"Type d'absence",t:"select",o:["Congés annuels","Récupération","Maladie","Longue maladie","Maternité/Paternité","Formation","Congé sans solde","Autorisation d'absence"],req:true},
       {k:"debut",l:"Date de début",t:"date",req:true},
       {k:"fin",l:"Date de fin",t:"date",req:true},
-      {k:"statut",l:"Statut",t:"select",o:["En attente","Validé","Refusé"]},
-      {k:"valide",l:"Validé par",t:"text"},
+      {k:"statut",l:"Statut",t:"select",o:["En attente","Validé","Refusé"],hideSelf:true},
+      {k:"valide",l:"Validé par",t:"text",hideSelf:true},
       {k:"motif",l:"Motif / Commentaire",t:"textarea",full:true}
     ],
     defaults:()=>({statut:"En attente",debut:todayISO(),fin:todayISO()}),
@@ -761,13 +770,31 @@ const NAV = [
 ];
 // Libellés des onglets du dossier agent (inclut des onglets propres au dossier, absents du menu principal).
 const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents"};
+// Menu restreint affiché quand le profil de test est "Agent" : accès uniquement à son propre espace.
+const AGENT_NAV = [
+  {id:"mon-dashboard", label:"Mon espace", icon:I.dash},
+  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
+  {id:"mes-conges", label:"Mes congés & absences", icon:I.conges}
+];
+const SELF_SERVICE_MODULES=["mon-dashboard","mon-dossier","mes-conges"];
 
 /* ---------- App state ---------- */
 let view = {module:"dashboard", agentId:null, tab:"conges", search:"", filter:""};
 
 /* ---------- Render: nav ---------- */
 function renderNav(){
-  const pend = DB.conges.filter(c=>c.statut==="En attente").length + DB.deplacements.filter(d=>d.statut==="Demandé").length;
+  if(SESSION.role==="agent"){
+    let html="";
+    AGENT_NAV.forEach(n=>{
+      const active=view.module===n.id?"active":"";
+      let cnt="";
+      if(n.id==="mes-conges"){ const c=DB.conges.filter(x=>x.agentId===SESSION.asAgentId && x.statut==="En attente").length; if(c) cnt=`<span class="count">${c}</span>`; }
+      html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${n.label}</span>${cnt}</a>`;
+    });
+    document.getElementById("nav").innerHTML=html;
+    document.querySelectorAll("[data-nav]").forEach(a=>a.onclick=()=>{ go(a.dataset.nav); closeSidebar(); });
+    return;
+  }
   let html="", lastGroup="__";
   NAV.forEach(n=>{
     if(n.group!==lastGroup){ if(n.group) html+=`<div class="nav-group">${n.group}</div>`; lastGroup=n.group; }
@@ -785,10 +812,26 @@ function renderNav(){
 function go(module, opts={}){ view={...view, module, agentId:opts.agentId||null, search:"", filter:""}; if(opts.tab) view.tab=opts.tab; render(); }
 
 function render(){
+  // Un profil "Agent" n'a accès qu'à son espace personnel ; un profil RH/Responsable n'a pas
+  // vocation à rester sur les pages self-service (elles n'ont de sens que rattachées à SESSION.asAgentId).
+  if(SESSION.role==="agent"){
+    if(!SELF_SERVICE_MODULES.includes(view.module)){ view.module="mon-dashboard"; view.agentId=null; }
+  } else if(SELF_SERVICE_MODULES.includes(view.module)){
+    view.module="dashboard"; view.agentId=null;
+  }
   renderNav();
   const c=document.getElementById("content");
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
+  if(view.module==="mon-dashboard"){ t.textContent="Mon espace"; s.textContent="Ma situation personnelle"; c.innerHTML=renderMonEspace(); bindMonEspace(); return; }
+  if(view.module==="mon-dossier"){ view.agentId=SESSION.asAgentId; renderAgentDetail(); return; }
+  if(view.module==="mes-conges"){
+    t.textContent="Mes congés & absences"; s.textContent="Solde, historique et demandes";
+    act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle demande</button>`;
+    c.innerHTML=renderMesConges(); bindMesConges();
+    document.getElementById("addBtn").onclick=()=>openForm("conges", null, {agentId:SESSION.asAgentId}, {selfService:true});
+    return;
+  }
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble des effectifs et des demandes en cours"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
   if(view.agentId){ renderAgentDetail(); return; }
   const nav=NAV.find(n=>n.id===view.module);
@@ -799,6 +842,68 @@ function render(){
   document.getElementById("addBtn").onclick=()=>openForm(view.module);
   c.innerHTML = LISTS[view.module]();
   bindList();
+}
+
+/* ---------- Espace self-service (profil Agent) ---------- */
+function renderMonEspace(){
+  const a=DB.agents.find(x=>x.id===SESSION.asAgentId);
+  if(!a) return `<div class="empty">Profil introuvable.</div>`;
+  const mesConges=DB.conges.filter(c=>c.agentId===a.id);
+  const pend=mesConges.filter(c=>c.statut==="En attente");
+  const recentes=mesConges.slice().sort((x,y)=>(y.debut||"").localeCompare(x.debut||"")).slice(0,5);
+  return `
+    <div class="detail-head">
+      <div class="av">${initials(a.nom,a.prenom)}</div>
+      <div style="flex:1">
+        <h2>${esc(a.civ||"")} ${esc(a.prenom)} ${esc(a.nom)}</h2>
+        <div class="meta"><span class="tag">${esc(a.matricule)}</span><span>${esc(a.fonction||"—")}</span> · <span>${esc(a.direction)}</span></div>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi" tabindex="0" data-goto="mon-dossier"><div class="k-lbl">Ancienneté</div><div class="k-val" style="font-size:21px">${ancienneteLabel(a.entree)}</div></div>
+      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Solde congés</div><div class="k-val">${a.solde??0}</div><div class="k-meta mut">jours disponibles</div></div>
+      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Demandes en attente</div><div class="k-val">${pend.length}</div><div class="k-meta ${pend.length?'warn':'ok'}">${pend.length?"En cours de validation":"Aucune"}</div></div>
+    </div>
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-head"><h3>Mes dernières demandes de congés</h3></div>
+        <div class="panel-body">
+          ${recentes.length?recentes.map(c=>`<div class="mini-row" data-goto="mes-conges"><div><div class="who">${esc(c.type)}</div><div class="det">${fmtDate(c.debut)} → ${fmtDate(c.fin)} · ${c.jours} j</div></div><div class="spacer"></div>${badge(c.statut)}</div>`).join(""):`<div class="empty">Aucune demande enregistrée.</div>`}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Raccourcis</h3></div>
+        <div class="panel-body" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px">
+          <button class="btn" data-goto="mon-dossier">${svg(I.agents,'ic')} Consulter mon dossier</button>
+          <button class="btn primary" id="newCongeShortcut">${svg(I.plus,'ic')} Nouvelle demande de congé</button>
+        </div>
+      </div>
+    </div>`;
+}
+function bindMonEspace(){
+  document.querySelectorAll("[data-goto]").forEach(el=>{ el.onclick=()=>go(el.dataset.goto); });
+  const btn=document.getElementById("newCongeShortcut");
+  if(btn) btn.onclick=()=>openForm("conges", null, {agentId:SESSION.asAgentId}, {selfService:true});
+}
+function renderMesConges(){
+  let rows=DB.conges.filter(c=>c.agentId===SESSION.asAgentId).map(c=>({...c,_search:`${c.type} ${c.statut}`,_filterVal:c.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.debut||"").localeCompare(a.debut||""));
+  const cols=[{h:"Type"},{h:"Période"},{h:"Jours",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(c=>`<tr>
+      <td class="cell-name">${esc(c.type)}</td>
+      <td>${fmtDate(c.debut)} → ${fmtDate(c.fin)}</td>
+      <td class="num">${c.jours}</td>
+      <td>${badge(c.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-history="${c.id}" title="Historique de ma demande">${svg(I.clock,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut",["En attente","Validé","Refusé"])+tableShell(cols,body);
+}
+function bindMesConges(){
+  const si=document.getElementById("searchInp");
+  if(si) si.oninput=()=>{ view.search=si.value; const c=document.getElementById("content"); c.innerHTML=renderMesConges(); bindMesConges(); };
+  const fs=document.getElementById("filterSel");
+  if(fs) fs.onchange=()=>{ view.filter=fs.value; const c=document.getElementById("content"); c.innerHTML=renderMesConges(); bindMesConges(); };
+  document.querySelectorAll("[data-history]").forEach(el=>el.onclick=()=>openWorkflowHistory(el.dataset.history));
 }
 
 /* ---------- Dashboard ---------- */
@@ -1044,10 +1149,13 @@ function bindList(){
 /* ---------- Agent detail ---------- */
 function renderAgentDetail(){
   const a=DB.agents.find(x=>x.id===view.agentId);
-  if(!a){ go("agents"); return; }
+  const isSelf=SESSION.role==="agent";
+  if(!a){ go(isSelf?"mon-dashboard":"agents"); return; }
   document.getElementById("pageTitle").textContent=`${a.prenom} ${a.nom}`;
   document.getElementById("pageSub").textContent=`${a.matricule} · ${a.direction}`;
-  document.getElementById("pageActions").innerHTML=`<button class="btn" id="backBtn">${svg(I.back)} Retour</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`;
+  document.getElementById("pageActions").innerHTML = isSelf
+    ? `<button class="btn" id="backBtn">${svg(I.back)} Mon espace</button>`
+    : `<button class="btn" id="backBtn">${svg(I.back)} Retour</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`;
 
   const rel = coll => DB[coll].filter(x=>x.agentId===a.id);
   const c=document.getElementById("content");
@@ -1114,8 +1222,9 @@ function renderAgentDetail(){
       </div>
     </div>`;
 
-  document.getElementById("backBtn").onclick=()=>go("agents");
-  document.getElementById("editAgentBtn").onclick=()=>openForm("agents",a.id);
+  document.getElementById("backBtn").onclick=()=>go(isSelf?"mon-dashboard":"agents");
+  const editAgentBtn=document.getElementById("editAgentBtn");
+  if(editAgentBtn) editAgentBtn.onclick=()=>openForm("agents",a.id);
   document.getElementById("editFamilyBtn").onclick=()=>openFamilyForm(a.id);
   document.querySelectorAll("#detailTabs [data-tab]").forEach(b=>b.onclick=()=>{ view.tab=b.dataset.tab; renderDetailPane(a); document.querySelectorAll("#detailTabs [data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===view.tab)); });
   renderDetailPane(a);
@@ -1123,12 +1232,15 @@ function renderAgentDetail(){
 
 function renderDetailPane(a){
   const pane=document.getElementById("detailPane");
+  const isSelf=SESSION.role==="agent";
   let rows=DB[view.tab].filter(x=>x.agentId===a.id);
-  let canAdd=true;
-  if(view.tab==="documents"){ rows=rows.filter(d=>canViewDocument(d,a)); canAdd=canEditDocuments(a); }
+  // Profil Agent : ne peut déposer que des demandes de congés, et ne peut ni modifier ni
+  // supprimer un enregistrement déjà existant (données administratives gérées par la RH).
+  let canAdd = view.tab==="conges" ? true : !isSelf;
+  let canEditRow = view.tab==="conges" ? !isSelf : canAdd;
+  if(view.tab==="documents"){ rows=rows.filter(d=>canViewDocument(d,a)); canAdd=canEditDocuments(a); canEditRow=canAdd; }
   const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   const head=(title)=>`<div class="panel-head" style="border-radius:10px 10px 0 0"><h3>${title}</h3><div class="spacer"></div>${addBtn}</div>`;
-  const canEditRow = view.tab==="documents" ? canEditDocuments(a) : true;
   let inner="";
   if(!rows.length){ inner=`<div class="empty">${view.tab==="documents"&&!canAdd?"Aucun document accessible avec ce profil.":"Aucun enregistrement pour cet agent."}</div>`; }
   else{
@@ -1151,19 +1263,20 @@ function renderDetailPane(a){
   }
   pane.innerHTML=`<div class="panel">${head(TAB_LABELS[view.tab])}<div class="panel-body" style="padding:6px">${inner}</div></div>`;
   const detailAdd=document.getElementById("detailAdd");
-  if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id});
+  if(detailAdd) detailAdd.onclick=()=>openForm(view.tab, null, {agentId:a.id}, isSelf?{selfService:true}:{});
   pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm(view.tab, el.dataset.edit));
   pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord(el.dataset.mod, el.dataset.del));
 }
 
 /* ---------- Form modal ---------- */
-function openForm(module, id=null, preset={}){
+function openForm(module, id=null, preset={}, opts={}){
   const cfg=FORMS[module];
   const coll=DB[module];
   const rec = id ? {...coll.find(x=>x.id===id)} : {...cfg.defaults(), ...preset};
   const isEdit=!!id;
 
   const fieldHTML=(f)=>{
+    if(f.hideSelf && opts.selfService) return "";
     if(f.s) return `<div class="form-section">${esc(f.s)}</div>`;
     const val = rec[f.k];
     const req = f.req?'<span class="req"> *</span>':"";
@@ -1206,7 +1319,9 @@ function openForm(module, id=null, preset={}){
   document.getElementById("cancelModal").onclick=close;
   document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
   document.getElementById("saveModal").onclick=()=>{
-    const obj = isEdit ? rec : {};
+    // Pour une création, on part de rec (défauts + preset) afin que les champs masqués en
+    // self-service (ex: statut/valide d'un congé) conservent leur valeur par défaut.
+    const obj = isEdit ? rec : {...rec};
     let ok=true;
     mr.querySelectorAll("[data-k]").forEach(el=>{
       const k=el.dataset.k; let v=el.value;
