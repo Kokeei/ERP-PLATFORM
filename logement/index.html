@@ -249,7 +249,10 @@ function badge(s){
     "Actif":"ok","Préavis":"warn","Résilié":"mut",
     "À émettre":"info","Émise":"info","Payée":"ok","Impayée":"bad",
     "Signalée":"warn","Planifiée":"info","Réalisée":"ok",
-    "En réhabilitation":"warn","En cours":"info","Terminée":"ok"}[s] || "mut";
+    "En réhabilitation":"warn","En cours":"info","Terminée":"ok",
+    "Repérée":"mut","En négociation":"warn","Acquise":"ok","Abandonnée":"bad",
+    "Étude":"mut","Financement":"warn","Appel d'offres":"warn","En construction":"info","Livré":"ok",
+    "AAHI":"info","FARE":"info","CHE":"info","Logement":"mut"}[s] || "mut";
   return `<span class="badge ${tone}">${esc(s||"—")}</span>`;
 }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2400); }
@@ -257,30 +260,37 @@ function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg
 const COMMUNES = ["Papeete","Faa'a","Pirae","Punaauia","Mahina","Arue","Paea","Papara"];
 const TYPES_LOGEMENT = ["T1","T2","T3","T4","T5"];
 const TYPES_STATIONNEMENT = ["Garage","Place de parking"];
+const TYPES_CHE = ["Studio","Chambre partagée"];
+const TYPES_LOTISSEMENT = ["Locatif social","Accession à la propriété","Mixte","CHE"];
 
 /* ---------- Données de démonstration ---------- */
 function seed(){
   const lotissements = [
-    {nom:"Manutahi", commune:"Papeete", statut:"Actif"},
-    {nom:"Teavaraa", commune:"Faa'a", statut:"Actif"},
-    {nom:"Ariiheue", commune:"Pirae", statut:"En réhabilitation"},
-    {nom:"Punavai", commune:"Punaauia", statut:"Actif"}
+    {nom:"Manutahi", commune:"Papeete", lieuDit:"Rue du Commandant Destremau", type:"Locatif social", statut:"Actif", aireJeux:true, localPoubelle:true, localVelos:false, gardiennage:true, ascenseur:false},
+    {nom:"Teavaraa", commune:"Faa'a", lieuDit:"Route de l'Aéroport", type:"Locatif social", statut:"Actif", aireJeux:true, localPoubelle:true, localVelos:true, gardiennage:false, ascenseur:false},
+    {nom:"Ariiheue", commune:"Pirae", lieuDit:"Lotissement Ariiheue", type:"Locatif social", statut:"En réhabilitation", aireJeux:false, localPoubelle:true, localVelos:false, gardiennage:false, ascenseur:false},
+    {nom:"Punavai", commune:"Punaauia", lieuDit:"PK 12 côté montagne", type:"Mixte", statut:"Actif", aireJeux:true, localPoubelle:true, localVelos:false, gardiennage:true, ascenseur:true},
+    {nom:"CHE Outumaoro", commune:"Punaauia", lieuDit:"Outumaoro", type:"CHE", statut:"Actif", aireJeux:false, localPoubelle:true, localVelos:true, gardiennage:true, ascenseur:false},
+    {nom:"CHE Paraita", commune:"Punaauia", lieuDit:"Paraita", type:"CHE", statut:"Actif", aireJeux:false, localPoubelle:true, localVelos:true, gardiennage:true, ascenseur:false}
   ].map(l=>({id:uid("lt_"), ...l}));
   const ltid = n => lotissements[n].id;
 
   const logements = [
-    {lotissementId:ltid(0), categorie:"Logement", numero:"A101", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Occupé"},
-    {lotissementId:ltid(0), categorie:"Logement", numero:"A102", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T3", surface:62, etage:"1", loyerBase:82000, chargesBase:10000, statut:"Occupé"},
-    {lotissementId:ltid(0), categorie:"Logement", numero:"A203", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
-    {lotissementId:ltid(1), categorie:"Logement", numero:"B10", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T4", surface:78, etage:"0", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
-    {lotissementId:ltid(1), categorie:"Logement", numero:"B11", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Travaux"},
-    {lotissementId:ltid(1), categorie:"Logement", numero:"B22", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
-    {lotissementId:ltid(2), categorie:"Logement", numero:"C01", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T5", surface:95, etage:"0", loyerBase:115000, chargesBase:14000, statut:"Occupé"},
-    {lotissementId:ltid(2), categorie:"Logement", numero:"C02", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Vacant"},
-    {lotissementId:ltid(3), categorie:"Logement", numero:"D14", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T4", surface:78, etage:"1", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
-    {lotissementId:ltid(3), categorie:"Logement", numero:"D15", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
+    {lotissementId:ltid(0), categorie:"Logement", numero:"A101", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Occupé", pmr:false},
+    {lotissementId:ltid(0), categorie:"Logement", numero:"A102", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T3", surface:62, etage:"1", loyerBase:82000, chargesBase:10000, statut:"Occupé", pmr:false},
+    {lotissementId:ltid(0), categorie:"Logement", numero:"A203", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant", pmr:false},
+    {lotissementId:ltid(1), categorie:"Logement", numero:"B10", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T4", surface:78, etage:"0", loyerBase:98000, chargesBase:12000, statut:"Occupé", pmr:true},
+    {lotissementId:ltid(1), categorie:"Logement", numero:"B11", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Travaux", pmr:false},
+    {lotissementId:ltid(1), categorie:"Logement", numero:"B22", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant", pmr:false},
+    {lotissementId:ltid(2), categorie:"Logement", numero:"C01", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T5", surface:95, etage:"0", loyerBase:115000, chargesBase:14000, statut:"Occupé", pmr:false},
+    {lotissementId:ltid(2), categorie:"Logement", numero:"C02", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Vacant", pmr:false},
+    {lotissementId:ltid(3), categorie:"Logement", numero:"D14", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T4", surface:78, etage:"1", loyerBase:98000, chargesBase:12000, statut:"Occupé", pmr:false},
+    {lotissementId:ltid(3), categorie:"Logement", numero:"D15", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Vacant", pmr:true},
     {lotissementId:ltid(0), categorie:"Stationnement", numero:"P-A01", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"Place de parking", surface:12, etage:"Rez", loyerBase:6000, chargesBase:0, statut:"Vacant"},
-    {lotissementId:ltid(1), categorie:"Stationnement", numero:"G-B01", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"Garage", surface:15, etage:"Rez", loyerBase:9000, chargesBase:0, statut:"Occupé"}
+    {lotissementId:ltid(1), categorie:"Stationnement", numero:"G-B01", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"Garage", surface:15, etage:"Rez", loyerBase:9000, chargesBase:0, statut:"Occupé"},
+    {lotissementId:ltid(4), categorie:"CHE", numero:"OUT-101", adresse:"Outumaoro", direction:"Punaauia", type:"Studio", surface:18, etage:"1", loyerBase:18000, chargesBase:0, statut:"Occupé", capacite:1},
+    {lotissementId:ltid(4), categorie:"CHE", numero:"OUT-102", adresse:"Outumaoro", direction:"Punaauia", type:"Chambre partagée", surface:24, etage:"1", loyerBase:18000, chargesBase:0, statut:"Vacant", capacite:2},
+    {lotissementId:ltid(5), categorie:"CHE", numero:"PAR-201", adresse:"Paraita", direction:"Punaauia", type:"Studio", surface:18, etage:"2", loyerBase:18000, chargesBase:0, statut:"Vacant", capacite:1}
   ].map(l=>({id:uid("lg_"), ...l}));
   const gid = n => logements[n].id;
 
@@ -288,7 +298,8 @@ function seed(){
     {nom:"TEPAVA", prenom:"Heiarii", civ:"M.", dateNaissance:"1982-04-11", tel:"87 20 11 22", email:"h.tepava@mail.pf"},
     {nom:"TERIIERO", prenom:"Manda", civ:"Mme", dateNaissance:"1990-09-03", tel:"87 30 44 55", email:"m.teriiero@mail.pf"},
     {nom:"CHUNG", prenom:"Edwin", civ:"M.", dateNaissance:"1975-01-20", tel:"87 40 66 77", email:"e.chung@mail.pf"},
-    {nom:"TEROOATEA", prenom:"Vaiana", civ:"Mme", dateNaissance:"1988-11-14", tel:"87 50 88 99", email:"v.terooatea@mail.pf"}
+    {nom:"TEROOATEA", prenom:"Vaiana", civ:"Mme", dateNaissance:"1988-11-14", tel:"87 50 88 99", email:"v.terooatea@mail.pf"},
+    {nom:"TETUANUI", prenom:"Heirani", civ:"Mme", dateNaissance:"2004-05-02", tel:"87 70 99 11", email:"h.tetuanui@mail.pf", estEtudiant:true}
   ].map(l=>({id:uid("lo_"), ...l}));
   const lid = n => locataires[n].id;
 
@@ -300,6 +311,8 @@ function seed(){
   ].map(b=>({id:uid("bx_"), ...b}));
   // Le logement D14 est occupé mais son bail n'est pas encore saisi (démonstration de données incomplètes réelles) :
   baux.push({id:uid("bx_"), locataireId:lid(2), logementId:gid(8), dateEffet:"2024-02-01", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif", modeOccupation:"Accession à la propriété", prixVente:18500000, aideType:"Aucune", aideMontant:0});
+  // Bail CHE (hébergement étudiant, Outumaoro), annuel :
+  baux.push({id:uid("bx_"), locataireId:lid(4), logementId:gid(12), dateEffet:"2025-08-15", loyer:18000, charges:0, depotGarantie:18000, statut:"Actif", modeOccupation:"CHE", anneeAcademique:"2025-2026", aideType:"Aucune", aideMontant:0});
 
   const bid = n => baux[n].id;
   const quittances = [];
@@ -313,12 +326,15 @@ function seed(){
   });
 
   const demandeurs = [
-    {civ:"Mme", nom:"MARAEURA", prenom:"Teiva", dateNaissance:"1994-02-18", tel:"87 60 11 33", email:"t.maraeura@mail.pf", adresseActuelle:"Chez ses parents, Punaauia", nbPersonnes:3, ressourcesMensuelles:180000, typeSouhaite:"T3", zoneSouhaitee:"Punaauia", dateDepot:"2026-04-02", statut:"Instruction", commentaire:"Dossier CAF à compléter"},
-    {civ:"M.", nom:"FAANA", prenom:"Teiki", dateNaissance:"1985-07-09", tel:"87 61 22 44", email:"t.faana@mail.pf", adresseActuelle:"Location privée, Papeete", nbPersonnes:1, ressourcesMensuelles:145000, typeSouhaite:"T1", zoneSouhaitee:"Papeete", dateDepot:"2026-02-10", statut:"Éligible", commentaire:""},
-    {civ:"Mme", nom:"TEHEI", prenom:"Rava", dateNaissance:"1979-12-01", tel:"87 62 33 55", email:"r.tehei@mail.pf", adresseActuelle:"Hébergée, Pirae", nbPersonnes:4, ressourcesMensuelles:210000, typeSouhaite:"T4", zoneSouhaitee:"Pirae", dateDepot:"2026-01-20", statut:"Proposée", commentaire:"Proposition logement D15 en cours", logementProposeId:gid(9)},
-    {civ:"M.", nom:"AH-PUOU", prenom:"Steven", dateNaissance:"1991-05-25", tel:"87 63 44 66", email:"s.ahpuou@mail.pf", adresseActuelle:"Location privée, Faa'a", nbPersonnes:2, ressourcesMensuelles:160000, typeSouhaite:"T2", zoneSouhaitee:"Faa'a", dateDepot:"2025-11-05", statut:"Déposée", commentaire:""},
-    {civ:"Mme", nom:"TEROOATEA", prenom:"Vaiana", dateNaissance:"1988-11-14", tel:"87 50 88 99", email:"v.terooatea@mail.pf", adresseActuelle:"—", nbPersonnes:2, ressourcesMensuelles:150000, typeSouhaite:"T4", zoneSouhaitee:"Punaauia", dateDepot:"2023-06-01", statut:"Attribuée", commentaire:"Relogée résidence Punavai", locataireId:lid(2)},
-    {civ:"M.", nom:"MARO", prenom:"Hiro", dateNaissance:"1983-03-30", tel:"87 64 55 77", email:"h.maro@mail.pf", adresseActuelle:"Location privée, Mahina", nbPersonnes:1, ressourcesMensuelles:250000, typeSouhaite:"T1", zoneSouhaitee:"Mahina", dateDepot:"2025-09-12", statut:"Refusée", commentaire:"Ressources au-dessus du plafond"}
+    {typeDemande:"Logement", civ:"Mme", nom:"MARAEURA", prenom:"Teiva", dateNaissance:"1994-02-18", tel:"87 60 11 33", email:"t.maraeura@mail.pf", adresseActuelle:"Chez ses parents, Punaauia", nbPersonnes:3, ressourcesMensuelles:180000, typeSouhaite:"T3", zoneSouhaitee:"Punaauia", dateDepot:"2026-04-02", statut:"Instruction", commentaire:"Dossier CAF à compléter"},
+    {typeDemande:"Logement", civ:"M.", nom:"FAANA", prenom:"Teiki", dateNaissance:"1985-07-09", tel:"87 61 22 44", email:"t.faana@mail.pf", adresseActuelle:"Location privée, Papeete", nbPersonnes:1, ressourcesMensuelles:145000, typeSouhaite:"T1", zoneSouhaitee:"Papeete", dateDepot:"2026-02-10", statut:"Éligible", commentaire:""},
+    {typeDemande:"Logement", civ:"Mme", nom:"TEHEI", prenom:"Rava", dateNaissance:"1979-12-01", tel:"87 62 33 55", email:"r.tehei@mail.pf", adresseActuelle:"Hébergée, Pirae", nbPersonnes:4, ressourcesMensuelles:210000, typeSouhaite:"T4", zoneSouhaitee:"Pirae", dateDepot:"2026-01-20", statut:"Proposée", commentaire:"Proposition logement D15 en cours", logementProposeId:gid(9)},
+    {typeDemande:"Logement", civ:"M.", nom:"AH-PUOU", prenom:"Steven", dateNaissance:"1991-05-25", tel:"87 63 44 66", email:"s.ahpuou@mail.pf", adresseActuelle:"Location privée, Faa'a", nbPersonnes:2, ressourcesMensuelles:160000, typeSouhaite:"T2", zoneSouhaitee:"Faa'a", dateDepot:"2025-11-05", statut:"Déposée", commentaire:""},
+    {typeDemande:"Logement", civ:"Mme", nom:"TEROOATEA", prenom:"Vaiana", dateNaissance:"1988-11-14", tel:"87 50 88 99", email:"v.terooatea@mail.pf", adresseActuelle:"—", nbPersonnes:2, ressourcesMensuelles:150000, typeSouhaite:"T4", zoneSouhaitee:"Punaauia", dateDepot:"2023-06-01", statut:"Attribuée", commentaire:"Relogée résidence Punavai", locataireId:lid(2)},
+    {typeDemande:"Logement", civ:"M.", nom:"MARO", prenom:"Hiro", dateNaissance:"1983-03-30", tel:"87 64 55 77", email:"h.maro@mail.pf", adresseActuelle:"Location privée, Mahina", nbPersonnes:1, ressourcesMensuelles:250000, typeSouhaite:"T1", zoneSouhaitee:"Mahina", dateDepot:"2025-09-12", statut:"Refusée", commentaire:"Ressources au-dessus du plafond"},
+    {typeDemande:"AAHI", civ:"M.", nom:"TEAI", prenom:"Manutea", dateNaissance:"1970-06-15", tel:"87 65 22 33", email:"m.teai@mail.pf", adresseActuelle:"Propriétaire, Papara", nbPersonnes:5, ressourcesMensuelles:190000, typeSouhaite:"T4", zoneSouhaitee:"Papara", dateDepot:"2026-03-01", statut:"Éligible", commentaire:"Toiture à reprendre — devis catalogue OPH fourni"},
+    {typeDemande:"FARE", civ:"Mme", nom:"TAUFA", prenom:"Moeata", dateNaissance:"1992-10-08", tel:"87 66 33 44", email:"m.taufa@mail.pf", adresseActuelle:"Terrain familial, Arue", nbPersonnes:4, ressourcesMensuelles:165000, typeSouhaite:"T3", zoneSouhaitee:"Arue", dateDepot:"2026-01-05", statut:"Éligible", commentaire:"Terrain propre déjà viabilisé"},
+    {typeDemande:"CHE", civ:"M.", nom:"MARAE", prenom:"Toriki", dateNaissance:"2005-09-20", tel:"87 67 44 55", email:"t.marae@etudiant.pf", adresseActuelle:"Chez ses parents, Taravao", nbPersonnes:1, ressourcesMensuelles:0, typeSouhaite:"T1", zoneSouhaitee:"Punaauia", dateDepot:"2026-05-10", statut:"Éligible", commentaire:"Étudiant inscrit à l'UPF, rentrée 2026-2027"}
   ].map(d=>({id:uid("dm_"), historique:[{action:"Dépôt du dossier", date:d.dateDepot, commentaire:""}], ...d}));
 
   const interventions = [
@@ -332,17 +348,33 @@ function seed(){
     {lotissementId:ltid(1), logementId:gid(4), objet:"Reprise d'étanchéité toiture-terrasse", dateDebut:"2026-03-01", dateFinPrevue:"2026-05-30", statut:"Terminée", budgetEstime:3200000, entreprise:"Polynésie Bâtiment"}
   ].map(r=>({id:uid("rh_"), ...r}));
 
-  return { lotissements, logements, locataires, baux, quittances, demandeurs, interventions, rehabilitations };
+  const pistesFoncieres = [
+    {nom:"Terrain domanial Taharuu", commune:"Papara", lieuDit:"Bord de mer, PK 51", surfaceM2:8500, nbLogementsPotentiel:40, statut:"En négociation", notes:"Étude de viabilisation en cours avec la Direction des Affaires Foncières"},
+    {nom:"Réserve foncière Tefarerii", commune:"Mahina", lieuDit:"Plateau Tefarerii", surfaceM2:5200, nbLogementsPotentiel:24, statut:"Repérée", notes:""}
+  ].map(p=>({id:uid("pf_"), ...p}));
+  const pfid = n => pistesFoncieres[n].id;
+
+  const projetsConstruction = [
+    {nom:"Extension Punavai tranche 2", lotissementId:ltid(3), pisteFonciereId:null, chargeOperation:"Heremoana TETUANUI", maitreOeuvre:"Indigo — Tahiti Ingénierie", budgetEstime:280000000, nbLogementsPrevisionnel:18, dateDebut:"2026-02-01", dateLivraisonPrevue:"2027-06-30", statut:"En construction"},
+    {nom:"Lotissement Taharuu", lotissementId:null, pisteFonciereId:pfid(0), chargeOperation:"Vaite TEROOATEA", maitreOeuvre:"Indigo — Tahiti Ingénierie", budgetEstime:420000000, nbLogementsPrevisionnel:40, dateDebut:null, dateLivraisonPrevue:null, statut:"Étude"}
+  ].map(pc=>({id:uid("pc_"), ...pc}));
+
+  return { lotissements, logements, locataires, baux, quittances, demandeurs, interventions, rehabilitations, pistesFoncieres, projetsConstruction };
 }
 function migrate(db){
   if(!db.lotissements) db.lotissements=[];
+  db.lotissements.forEach(l=>{ if(l.type==null) l.type="Locatif social"; });
   if(!db.logements) db.logements=[];
+  db.logements.forEach(l=>{ if(l.pmr==null) l.pmr=false; });
   if(!db.locataires) db.locataires=[];
   if(!db.baux) db.baux=[];
   if(!db.quittances) db.quittances=[];
   if(!db.demandeurs) db.demandeurs=[];
+  db.demandeurs.forEach(d=>{ if(!d.typeDemande) d.typeDemande="Logement"; });
   if(!db.interventions) db.interventions=[];
   if(!db.rehabilitations) db.rehabilitations=[];
+  if(!db.pistesFoncieres) db.pistesFoncieres=[];
+  if(!db.projetsConstruction) db.projetsConstruction=[];
   return db;
 }
 let DB = null;
@@ -364,6 +396,8 @@ function locataireName(id){ const l=DB.locataires.find(x=>x.id===id); return l?`
 function lotissementName(id){ const l=DB.lotissements.find(x=>x.id===id); return l?l.nom:"—"; }
 function logementLabel(id){ const l=DB.logements.find(x=>x.id===id); return l?`${lotissementName(l.lotissementId)} ${l.numero}`:"—"; }
 function bailOf(logementId){ return DB.baux.find(b=>b.logementId===logementId && b.statut!=="Résilié")||null; }
+function occupantsCount(logementId){ return DB.baux.filter(b=>b.logementId===logementId && b.statut!=="Résilié").length; }
+function academicYearLabel(){ const d=new Date(); const y=d.getFullYear(); return d.getMonth()+1>=8 ? `${y}-${y+1}` : `${y-1}-${y}`; }
 
 function renderSessionBar(){
   const roleSel=document.getElementById("sessRole"), idSel=document.getElementById("sessId");
@@ -383,6 +417,8 @@ function roleHome(){ return ROLE_MODULES[SESSION.role] ? ROLE_MODULES[SESSION.ro
 /* ---------- Navigation ---------- */
 const NAV_GESTION = [
   {id:"dashboard", label:"Tableau de bord", icon:I.dash},
+  {id:"pistes-foncieres", label:"Pistes foncières", icon:I.star, group:"Patrimoine"},
+  {id:"projets-construction", label:"Projets de construction", icon:I.file, group:"Patrimoine"},
   {id:"lotissements", label:"Lotissements", icon:I.home, group:"Patrimoine"},
   {id:"logements", label:"Logements & stationnements", icon:I.key, group:"Patrimoine"},
   {id:"rehabilitations", label:"Réhabilitations", icon:I.wrench, group:"Patrimoine"},
@@ -454,29 +490,40 @@ const FORMS = {
     fields:[
       {k:"nom",l:"Nom du lotissement",t:"text",req:true},
       {k:"commune",l:"Commune",t:"select",o:COMMUNES,req:true},
-      {k:"statut",l:"Statut",t:"select",o:["Actif","En réhabilitation"]}
+      {k:"lieuDit",l:"Lieu-dit / adresse",t:"text",full:true},
+      {k:"type",l:"Type",t:"select",o:TYPES_LOTISSEMENT,req:true},
+      {k:"statut",l:"Statut",t:"select",o:["En projet","En construction","Actif","En réhabilitation"]},
+      {s:"Équipements"},
+      {k:"aireJeux",l:"Aire de jeux",t:"bool"},
+      {k:"localPoubelle",l:"Local poubelle",t:"bool"},
+      {k:"localVelos",l:"Local vélos",t:"bool"},
+      {k:"gardiennage",l:"Gardiennage",t:"bool"},
+      {k:"ascenseur",l:"Ascenseur",t:"bool"}
     ],
-    defaults:()=>({commune:COMMUNES[0], statut:"Actif"})
+    defaults:()=>({commune:COMMUNES[0], type:"Locatif social", statut:"Actif", aireJeux:false, localPoubelle:false, localVelos:false, gardiennage:false, ascenseur:false})
   },
   logements:{ title:"logement",
     fields:[
       {k:"lotissementId",l:"Lotissement",t:"ref",coll:"lotissements",labelFn:l=>l.nom,req:true},
-      {k:"categorie",l:"Catégorie",t:"select",o:["Logement","Stationnement"],req:true},
+      {k:"categorie",l:"Catégorie",t:"select",o:["Logement","Stationnement","CHE"],req:true},
       {k:"numero",l:"Numéro / porte",t:"text",req:true},
       {k:"adresse",l:"Adresse",t:"text",full:true},
       {k:"direction",l:"Commune",t:"select",o:COMMUNES,req:true},
-      {k:"type",l:"Type",t:"select",o:TYPES_LOGEMENT.concat(TYPES_STATIONNEMENT),req:true},
+      {k:"type",l:"Type",t:"select",o:TYPES_LOGEMENT.concat(TYPES_STATIONNEMENT,TYPES_CHE),req:true},
       {k:"surface",l:"Surface (m²)",t:"number"},
       {k:"etage",l:"Étage",t:"text"},
       {k:"loyerBase",l:"Loyer de base (XPF)",t:"number",req:true},
       {k:"chargesBase",l:"Charges (XPF)",t:"number"},
+      {k:"capacite",l:"Capacité (places, pour un hébergement CHE)",t:"number"},
+      {k:"pmr",l:"Logement accessible PMR",t:"bool"},
       {k:"statut",l:"Statut",t:"select",o:["Vacant","Occupé","Travaux"]}
     ],
-    defaults:()=>({lotissementId:(DB.lotissements[0]||{}).id, categorie:"Logement", direction:COMMUNES[0], type:"T2", surface:45, loyerBase:65000, chargesBase:8000, statut:"Vacant"})
+    defaults:()=>({lotissementId:(DB.lotissements[0]||{}).id, categorie:"Logement", direction:COMMUNES[0], type:"T2", surface:45, loyerBase:65000, chargesBase:8000, capacite:1, pmr:false, statut:"Vacant"})
   },
   demandeurs:{ title:"demandeur",
     fields:[
       {s:"Identité"},
+      {k:"typeDemande",l:"Type de demande",t:"select",o:["Logement","AAHI","FARE","CHE"],req:true},
       {k:"civ",l:"Civilité",t:"select",o:["M.","Mme"]},
       {k:"nom",l:"Nom",t:"text",req:true},
       {k:"prenom",l:"Prénom",t:"text",req:true},
@@ -494,7 +541,7 @@ const FORMS = {
       {k:"statut",l:"Statut",t:"select",o:["Déposée","Instruction","Éligible","Proposée","Attribuée","Refusée","Radiée"],hideSelf:true},
       {k:"commentaire",l:"Commentaire",t:"textarea",full:true}
     ],
-    defaults:()=>({civ:"M.",dateDepot:todayISO(),nbPersonnes:1,typeSouhaite:"T2",zoneSouhaitee:COMMUNES[0],statut:"Déposée"})
+    defaults:()=>({typeDemande:"Logement",civ:"M.",dateDepot:todayISO(),nbPersonnes:1,typeSouhaite:"T2",zoneSouhaitee:COMMUNES[0],statut:"Déposée"})
   },
   locataires:{ title:"locataire",
     fields:[
@@ -511,12 +558,13 @@ const FORMS = {
     fields:[
       {k:"locataireId",l:"Locataire",t:"ref",coll:"locataires",labelFn:l=>`${l.prenom} ${l.nom}`,req:true},
       {k:"logementId",l:"Logement",t:"ref",coll:"logements",labelFn:l=>logementLabel(l.id),req:true},
-      {k:"modeOccupation",l:"Mode d'occupation",t:"select",o:["Location","Accession à la propriété"]},
+      {k:"modeOccupation",l:"Mode d'occupation",t:"select",o:["Location","Accession à la propriété","CHE"]},
       {k:"dateEffet",l:"Date d'effet",t:"date",req:true},
       {k:"loyer",l:"Loyer / mensualité (XPF)",t:"number",req:true},
       {k:"charges",l:"Refacturation de charges (XPF)",t:"number"},
       {k:"depotGarantie",l:"Dépôt de garantie (XPF)",t:"number"},
       {k:"prixVente",l:"Prix de vente (accession à la propriété, XPF)",t:"number"},
+      {k:"anneeAcademique",l:"Année académique (hébergement CHE)",t:"text"},
       {k:"aideType",l:"Aide au logement",t:"select",o:["Aucune","AFL","ALE"]},
       {k:"aideMontant",l:"Montant de l'aide (XPF)",t:"number"},
       {k:"statut",l:"Statut",t:"select",o:["Actif","Préavis","Résilié"]},
@@ -547,6 +595,33 @@ const FORMS = {
       {k:"entreprise",l:"Entreprise",t:"text"}
     ],
     defaults:()=>({dateDebut:todayISO(),statut:"Planifiée"})
+  },
+  pistesFoncieres:{ title:"piste foncière",
+    fields:[
+      {k:"nom",l:"Nom / repère",t:"text",req:true},
+      {k:"commune",l:"Commune",t:"select",o:COMMUNES,req:true},
+      {k:"lieuDit",l:"Lieu-dit",t:"text",full:true},
+      {k:"surfaceM2",l:"Surface (m²)",t:"number"},
+      {k:"nbLogementsPotentiel",l:"Nb logements potentiel",t:"number"},
+      {k:"statut",l:"Statut",t:"select",o:["Repérée","En négociation","Acquise","Abandonnée"]},
+      {k:"notes",l:"Notes",t:"textarea",full:true}
+    ],
+    defaults:()=>({commune:COMMUNES[0], statut:"Repérée"})
+  },
+  projetsConstruction:{ title:"projet de construction",
+    fields:[
+      {k:"nom",l:"Nom du projet",t:"text",req:true},
+      {k:"pisteFonciereId",l:"Piste foncière d'origine (optionnel)",t:"ref",coll:"pistesFoncieres",labelFn:p=>p.nom},
+      {k:"lotissementId",l:"Lotissement concerné (optionnel)",t:"ref",coll:"lotissements",labelFn:l=>l.nom},
+      {k:"chargeOperation",l:"Chargé d'opération",t:"text",req:true},
+      {k:"maitreOeuvre",l:"Maître d'œuvre",t:"text"},
+      {k:"budgetEstime",l:"Budget estimé (XPF)",t:"number"},
+      {k:"nbLogementsPrevisionnel",l:"Nb logements prévisionnel",t:"number"},
+      {k:"dateDebut",l:"Date de début",t:"date"},
+      {k:"dateLivraisonPrevue",l:"Livraison prévue",t:"date"},
+      {k:"statut",l:"Statut",t:"select",o:["Étude","Financement","Appel d'offres","En construction","Livré"]}
+    ],
+    defaults:()=>({statut:"Étude"})
   }
 };
 
@@ -562,6 +637,9 @@ function openForm(module, id=null, preset={}, opts={}){
     const req=f.req?'<span class="req"> *</span>':"";
     let input="";
     const disabled=(f.k==="locataireId"||f.k==="logementId"||f.k==="bailId") && preset[f.k] ? "disabled":"";
+    if(f.t==="bool"){
+      return `<div class="field ${f.full?"full":""}"><label style="display:flex;align-items:center;gap:8px;padding-top:6px;font-weight:500"><input data-k="${f.k}" type="checkbox" ${val?"checked":""} style="width:auto"> ${esc(f.l)}</label></div>`;
+    }
     if(f.t==="select"){
       input=`<select data-k="${f.k}" ${disabled}>${f.o.map(o=>`<option value="${esc(o)}" ${val===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
     } else if(f.t==="ref"){
@@ -591,9 +669,9 @@ function openForm(module, id=null, preset={}, opts={}){
       if(f.s || (f.hideSelf&&opts.selfService)) return;
       const el=mr.querySelector(`[data-k="${f.k}"]`);
       if(!el) return;
-      let v=el.value;
+      let v = f.t==="bool" ? el.checked : el.value;
       if(f.t==="number") v=v===""?0:Number(v);
-      if(f.req && (v===""||v==null)) missing=f.l;
+      if(f.req && f.t!=="bool" && (v===""||v==null)) missing=f.l;
       data[f.k]=v;
     });
     if(missing){ toast(`Champ requis : ${missing}`); return; }
@@ -616,6 +694,8 @@ function render(){
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble du patrimoine et des demandes"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
+  if(view.module==="pistes-foncieres"){ t.textContent="Pistes foncières"; s.textContent="Repérage et négociation de foncier avant lancement d'un projet"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle piste foncière</button>`; c.innerHTML=renderPistesFoncieres(); wireToolbar(renderPistesFoncieres, bindPistesFoncieres); bindPistesFoncieres(); document.getElementById("addBtn").onclick=()=>openForm("pistesFoncieres"); return; }
+  if(view.module==="projets-construction"){ t.textContent="Projets de construction"; s.textContent="Opérations de construction pilotées par les chargés d'opération"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau projet</button>`; c.innerHTML=renderProjetsConstruction(); wireToolbar(renderProjetsConstruction, bindProjetsConstruction); bindProjetsConstruction(); document.getElementById("addBtn").onclick=()=>openForm("projetsConstruction"); return; }
   if(view.module==="lotissements"){ t.textContent="Lotissements"; s.textContent="Ensembles immobiliers gérés par l'office"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau lotissement</button>`; c.innerHTML=renderLotissements(); wireToolbar(renderLotissements, bindLotissements); bindLotissements(); document.getElementById("addBtn").onclick=()=>openForm("lotissements"); return; }
   if(view.module==="logements"){ t.textContent="Patrimoine"; s.textContent="Logements et stationnements gérés par l'office, répartis en lotissements"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau logement</button>`; c.innerHTML=renderLogements(); wireToolbar(renderLogements, bindLogements); bindLogements(); document.getElementById("addBtn").onclick=()=>openForm("logements"); return; }
   if(view.module==="rehabilitations"){ t.textContent="Réhabilitations"; s.textContent="Travaux de réhabilitation planifiés et en cours sur le parc"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle réhabilitation</button>`; c.innerHTML=renderRehabilitations(); wireToolbar(renderRehabilitations, bindRehabilitations); bindRehabilitations(); document.getElementById("addBtn").onclick=()=>openForm("rehabilitations"); return; }
@@ -665,24 +745,78 @@ function bindDashboard(){
 
 /* ---------- Patrimoine ---------- */
 function renderLotissements(){
-  let rows=DB.lotissements.map(l=>({...l, _search:`${l.nom} ${l.commune}`, _filterVal:l.statut}));
+  let rows=DB.lotissements.map(l=>({...l, _search:`${l.nom} ${l.commune} ${l.lieuDit||""} ${l.type||""}`, _filterVal:l.statut}));
   rows=filterRows(rows);
-  const cols=[{h:"Lotissement"},{h:"Commune"},{h:"Logements"},{h:"Statut"},{h:""}];
+  const cols=[{h:"Lotissement"},{h:"Commune"},{h:"Type"},{h:"Logements"},{h:"Statut"},{h:""}];
   const body=rows.map(l=>{
     const n=DB.logements.filter(g=>g.lotissementId===l.id).length;
-    return `<tr>
-      <td class="cell-name">${esc(l.nom)}</td>
+    return `<tr data-open="${l.id}" style="cursor:pointer">
+      <td><div class="cell-name">${esc(l.nom)}</div><div class="cell-sub">${esc(l.lieuDit||"—")}</div></td>
       <td>${esc(l.commune)}</td>
+      <td><span class="tag">${esc(l.type||"—")}</span></td>
       <td>${n}</td>
       <td>${badge(l.statut)}</td>
       <td><div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
     </tr>`;
   }).join("");
-  return toolbar("statut", ["Actif","En réhabilitation"]) + tableShell(cols, body);
+  return toolbar("statut", ["En projet","En construction","Actif","En réhabilitation"]) + tableShell(cols, body);
 }
 function bindLotissements(){
-  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("lotissements", el.dataset.edit));
-  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("lotissements", el.dataset.del));
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=(e)=>{ if(e.target.closest("[data-edit],[data-del]")) return; openLotissementDetail(el.dataset.open); });
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); openForm("lotissements", el.dataset.edit); });
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); delRecord("lotissements", el.dataset.del); });
+}
+function openLotissementDetail(id){
+  const l=DB.lotissements.find(x=>x.id===id); if(!l) return;
+  const logs=DB.logements.filter(g=>g.lotissementId===id);
+  const logements=logs.filter(g=>(g.categorie||"Logement")==="Logement");
+  const total=logs.length, occupes=logs.filter(g=>g.statut==="Occupé").length, vacants=logs.filter(g=>g.statut==="Vacant").length;
+  const tauxOccupation = total? Math.round((occupes/total)*100) : 0;
+  const nbPmr = logs.filter(g=>g.pmr).length;
+  const parType = {};
+  logements.forEach(g=>{ if(!parType[g.type]) parType[g.type]={n:0, total:0}; parType[g.type].n++; parType[g.type].total += (g.loyerBase||0); });
+  const typoRows = Object.keys(parType).sort().map(t=>`<tr><td class="cell-name">${esc(t)}</td><td class="num">${parType[t].n}</td><td class="num">${fmtMoney(parType[t].total/parType[t].n)}</td></tr>`).join("");
+  const equip = [
+    ["Aire de jeux", l.aireJeux], ["Local poubelle", l.localPoubelle], ["Local vélos", l.localVelos],
+    ["Gardiennage", l.gardiennage], ["Ascenseur", l.ascenseur]
+  ].map(([label,ok])=>`<span class="badge ${ok?'ok':'mut'}">${ok?svg(I.check,'ic'):svg(I.x,'ic')} ${esc(label)}</span>`).join(" ");
+  const rehabs = DB.rehabilitations.filter(r=>r.lotissementId===id);
+  const rehabsHtml = rehabs.map(r=>`<div class="mini-row"><div><div class="who">${esc(r.objet)}</div><div class="det">${fmtDate(r.dateDebut)} → ${r.dateFinPrevue?fmtDate(r.dateFinPrevue):"—"}</div></div><div class="spacer"></div>${badge(r.statut)}</div>`).join("") || '<div class="empty">Aucune réhabilitation.</div>';
+  const logsRows = logs.map(g=>{ const bail=bailOf(g.id); return `<tr>
+      <td class="cell-name">${esc(g.numero)}${g.pmr?' <span class="tag">PMR</span>':""}</td>
+      <td>${esc(g.categorie||"Logement")}</td><td>${esc(g.type)}</td>
+      <td>${badge(g.statut)}${bail?`<div class="cell-sub">${esc(locataireName(bail.locataireId))}</div>`:""}</td>
+    </tr>`; }).join("");
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:900px">
+    <div class="modal-head"><h3>${esc(l.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="detail-head" style="margin-bottom:16px">
+        <div class="av">${svg(I.home)}</div>
+        <div style="flex:1"><h2>${esc(l.nom)}</h2><div class="meta">${esc(l.commune)}${l.lieuDit?` · ${esc(l.lieuDit)}`:""} · <span class="tag">${esc(l.type||"—")}</span> ${badge(l.statut)}</div></div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="k-lbl">Logements</div><div class="k-val">${total}</div><div class="k-meta mut">${tauxOccupation}% occupés</div></div>
+        <div class="kpi"><div class="k-lbl">Vacants</div><div class="k-val">${vacants}</div></div>
+        <div class="kpi"><div class="k-lbl">Accessibles PMR</div><div class="k-val">${nbPmr}</div></div>
+        <div class="kpi"><div class="k-lbl">Réhabilitations</div><div class="k-val">${rehabs.filter(r=>r.statut==="En cours").length}</div><div class="k-meta mut">en cours</div></div>
+      </div>
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Équipements</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${equip}</div>
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Répartition par typologie</h4>
+      ${typoRows?`<div class="table-wrap"><table><thead><tr><th>Type</th><th style="text-align:right">Nb logements</th><th style="text-align:right">Loyer moyen</th></tr></thead><tbody>${typoRows}</tbody></table></div>`:'<div class="empty">Aucun logement de type habitation.</div>'}
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Réhabilitations</h4>
+      ${rehabsHtml}
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Logements et stationnements du lotissement</h4>
+      <div class="table-wrap"><table><thead><tr><th>Bien</th><th>Catégorie</th><th>Type</th><th>Statut</th></tr></thead><tbody>${logsRows||`<tr><td colspan="4"><div class="empty">Aucun bien.</div></td></tr>`}</tbody></table></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="editBtn">${svg(I.edit,'ic')} Modifier</button><button class="btn primary" id="cancelModal">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("editBtn").onclick=()=>{ close(); openForm("lotissements", id); };
 }
 function renderLogements(){
   let rows=DB.logements.map(l=>({...l, _search:`${lotissementName(l.lotissementId)} ${l.numero} ${l.direction} ${l.type}`, _filterVal:l.statut}));
@@ -725,13 +859,55 @@ function bindRehabilitations(){
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("rehabilitations", el.dataset.del));
 }
 
+/* ---------- Pistes foncières ---------- */
+function renderPistesFoncieres(){
+  let rows=DB.pistesFoncieres.map(p=>({...p, _search:`${p.nom} ${p.commune} ${p.lieuDit||""}`, _filterVal:p.statut}));
+  rows=filterRows(rows);
+  const cols=[{h:"Piste"},{h:"Commune"},{h:"Surface",num:true},{h:"Logements potentiel",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(p=>`<tr>
+      <td><div class="cell-name">${esc(p.nom)}</div><div class="cell-sub">${esc(p.lieuDit||"—")}</div></td>
+      <td>${esc(p.commune)}</td>
+      <td class="num">${p.surfaceM2?`${p.surfaceM2.toLocaleString("fr-FR")} m²`:"—"}</td>
+      <td class="num">${p.nbLogementsPotentiel||"—"}</td>
+      <td>${badge(p.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${p.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${p.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Repérée","En négociation","Acquise","Abandonnée"]) + tableShell(cols, body);
+}
+function bindPistesFoncieres(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("pistesFoncieres", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("pistesFoncieres", el.dataset.del));
+}
+
+/* ---------- Projets de construction ---------- */
+function renderProjetsConstruction(){
+  let rows=DB.projetsConstruction.map(p=>({...p, _search:`${p.nom} ${p.chargeOperation||""} ${p.maitreOeuvre||""}`, _filterVal:p.statut}));
+  rows=filterRows(rows);
+  const cols=[{h:"Projet"},{h:"Chargé d'opération"},{h:"Logements prév."},{h:"Budget",num:true},{h:"Livraison prévue"},{h:"Statut"},{h:""}];
+  const body=rows.map(p=>`<tr>
+      <td><div class="cell-name">${esc(p.nom)}</div><div class="cell-sub">${p.lotissementId?esc(lotissementName(p.lotissementId)):(p.pisteFonciereId?esc((DB.pistesFoncieres.find(x=>x.id===p.pisteFonciereId)||{}).nom):"—")}</div></td>
+      <td>${esc(p.chargeOperation||"—")}<div class="cell-sub">${esc(p.maitreOeuvre||"—")}</div></td>
+      <td class="num">${p.nbLogementsPrevisionnel||"—"}</td>
+      <td class="num">${p.budgetEstime?fmtMoney(p.budgetEstime):"—"}</td>
+      <td>${p.dateLivraisonPrevue?fmtDate(p.dateLivraisonPrevue):"—"}</td>
+      <td>${badge(p.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${p.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${p.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Étude","Financement","Appel d'offres","En construction","Livré"]) + tableShell(cols, body);
+}
+function bindProjetsConstruction(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("projetsConstruction", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("projetsConstruction", el.dataset.del));
+}
+
 /* ---------- Demandeurs ---------- */
 function renderDemandeurs(){
-  let rows=DB.demandeurs.map(d=>({...d, _search:`${d.nom} ${d.prenom} ${d.typeSouhaite} ${d.zoneSouhaitee}`, _filterVal:d.statut}));
+  let rows=DB.demandeurs.map(d=>({...d, _search:`${d.nom} ${d.prenom} ${d.typeSouhaite} ${d.zoneSouhaitee} ${d.typeDemande||""}`, _filterVal:d.statut}));
   rows=filterRows(rows).sort((a,b)=>(b.dateDepot||"").localeCompare(a.dateDepot||""));
-  const cols=[{h:"Demandeur"},{h:"Souhaits"},{h:"Dépôt"},{h:"Statut"},{h:""}];
+  const cols=[{h:"Demandeur"},{h:"Type"},{h:"Souhaits"},{h:"Dépôt"},{h:"Statut"},{h:""}];
   const body=rows.map(d=>`<tr data-open="${d.id}" style="cursor:pointer">
       <td><div class="cell-name">${esc(d.civ)} ${esc(d.prenom)} ${esc(d.nom)}</div><div class="cell-sub">${esc(d.nbPersonnes)} pers. · ${fmtMoney(d.ressourcesMensuelles)}/mois</div></td>
+      <td>${badge(d.typeDemande||"Logement")}</td>
       <td>${esc(d.typeSouhaite)} · ${esc(d.zoneSouhaitee)}</td>
       <td>${fmtDate(d.dateDepot)}</td>
       <td>${badge(d.statut)}</td>
@@ -744,22 +920,33 @@ function bindDemandeurs(){
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); delRecord("demandeurs", el.dataset.del); });
 }
 function pushHistorique(d, action, commentaire){ if(!d.historique) d.historique=[]; d.historique.push({action, date:nowStamp(), commentaire:commentaire||""}); }
+function actionsForDemandeur(d){
+  const type = d.typeDemande||"Logement";
+  if(d.statut==="Déposée") return [{l:"Passer en instruction", to:"Instruction"}];
+  if(d.statut==="Instruction") return [{l:"Marquer éligible", to:"Éligible"},{l:"Refuser", to:"Refusée", danger:true}];
+  if(d.statut==="Éligible"){
+    if(type==="AAHI") return [{l:"Attribuer l'aide AAHI", action:"attribuerAahi"},{l:"Refuser", to:"Refusée", danger:true}];
+    if(type==="FARE") return [{l:"Attribuer un Fare", action:"attribuerFare"},{l:"Refuser", to:"Refusée", danger:true}];
+    if(type==="CHE") return [{l:"Proposer un hébergement CHE", action:"proposeChe"},{l:"Refuser", to:"Refusée", danger:true}];
+    return [{l:"Proposer un logement", action:"propose"},{l:"Refuser", to:"Refusée", danger:true}];
+  }
+  if(d.statut==="Proposée") return [{l:"Confirmer l'attribution", action: type==="CHE"?"attribuerChe":"attribuer"},{l:"Refuser la proposition", to:"Éligible"}];
+  if(d.statut==="Attribuée") return [];
+  if(d.statut==="Refusée") return [{l:"Radier", to:"Radiée"}];
+  return [];
+}
 function openDemandeurDetail(id){
   const d=DB.demandeurs.find(x=>x.id===id); if(!d) return;
-  const actionsByStatut = {
-    "Déposée": [{l:"Passer en instruction", to:"Instruction"}],
-    "Instruction": [{l:"Marquer éligible", to:"Éligible"},{l:"Refuser", to:"Refusée", danger:true}],
-    "Éligible": [{l:"Proposer un logement", action:"propose"},{l:"Refuser", to:"Refusée", danger:true}],
-    "Proposée": [{l:"Confirmer l'attribution", action:"attribuer"},{l:"Refuser la proposition", to:"Éligible"}],
-    "Attribuée": [], "Refusée": [{l:"Radier", to:"Radiée"}], "Radiée": []
-  };
-  const actions=(actionsByStatut[d.statut]||[]).map(a=>`<button class="btn ${a.danger?'danger':'primary'} sm" data-act="${a.action||a.to}">${esc(a.l)}</button>`).join(" ");
+  const actions=actionsForDemandeur(d).map(a=>`<button class="btn ${a.danger?'danger':'primary'} sm" data-act="${a.action||a.to}">${esc(a.l)}</button>`).join(" ");
   const histHtml=(d.historique||[]).slice().reverse().map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("");
+  const aahiRow = d.aahi ? `<div class="row"><span class="l">Aide AAHI accordée</span><span class="v">${fmtMoney(d.aahi.montant)} — ${esc(d.aahi.objetTravaux)}</span></div>` : "";
+  const fareRow = d.fare ? `<div class="row"><span class="l">Fare attribué</span><span class="v">${esc(d.fare.typeFare)} — ${esc(d.fare.adresseTerrain)}</span></div>` : "";
   const mr=document.getElementById("modalRoot");
   mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:720px">
     <div class="modal-head"><h3>${esc(d.civ)} ${esc(d.prenom)} ${esc(d.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
     <div class="modal-body">
       <div class="info-list">
+        <div class="row"><span class="l">Type de demande</span><span class="v">${badge(d.typeDemande||"Logement")}</span></div>
         <div class="row"><span class="l">Statut</span><span class="v">${badge(d.statut)}</span></div>
         <div class="row"><span class="l">Composition du foyer</span><span class="v">${esc(d.nbPersonnes)} personne(s)</span></div>
         <div class="row"><span class="l">Ressources mensuelles</span><span class="v">${fmtMoney(d.ressourcesMensuelles)}</span></div>
@@ -768,6 +955,7 @@ function openDemandeurDetail(id){
         <div class="row"><span class="l">Téléphone</span><span class="v">${esc(d.tel||"—")}</span></div>
         <div class="row"><span class="l">Email</span><span class="v">${esc(d.email||"—")}</span></div>
         ${d.commentaire?`<div class="row"><span class="l">Commentaire</span><span class="v">${esc(d.commentaire)}</span></div>`:""}
+        ${aahiRow}${fareRow}
       </div>
       <div style="margin-top:14px">${actions}</div>
       <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Historique</h4>
@@ -783,9 +971,94 @@ function openDemandeurDetail(id){
     const act=btn.dataset.act;
     if(act==="propose"){ close(); openProposerLogement(d.id); return; }
     if(act==="attribuer"){ close(); attribuerLogement(d.id); return; }
+    if(act==="proposeChe"){ close(); openProposerChe(d.id); return; }
+    if(act==="attribuerChe"){ close(); attribuerChe(d.id); return; }
+    if(act==="attribuerAahi"){ close(); openAttribuerAahi(d.id); return; }
+    if(act==="attribuerFare"){ close(); openAttribuerFare(d.id); return; }
     d.statut=act; pushHistorique(d, `Statut → ${act}`);
     save(); close(); toast(`Statut mis à jour : ${act}`); render();
   });
+}
+function openAttribuerAahi(demandeurId){
+  const d=DB.demandeurs.find(x=>x.id===demandeurId);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Attribuer l'aide AAHI</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="field full"><label>Objet des travaux<span class="req"> *</span></label><input id="objetInp" type="text" value="${esc(d.commentaire||"")}"></div>
+      <div class="field full"><label>Montant de l'aide (XPF)<span class="req"> *</span></label><input id="montantInp" type="number" value="500000"></div>
+    </div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">Attribuer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const objetTravaux=document.getElementById("objetInp").value;
+    const montant=Number(document.getElementById("montantInp").value)||0;
+    if(!objetTravaux){ toast("Champ requis : Objet des travaux"); return; }
+    d.statut="Attribuée"; d.aahi={montant, objetTravaux, dateAttribution:todayISO()};
+    pushHistorique(d, "Aide AAHI attribuée", `${fmtMoney(montant)} — ${objetTravaux}`);
+    save(); close(); toast("Aide AAHI attribuée"); render();
+  };
+}
+function openAttribuerFare(demandeurId){
+  const d=DB.demandeurs.find(x=>x.id===demandeurId);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Attribuer un Fare OPH</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="field"><label>Type de fare<span class="req"> *</span></label><select id="typeInp"><option value="F3">F3</option><option value="F4">F4</option><option value="F5">F5</option></select></div>
+      <div class="field full"><label>Adresse du terrain (fourni par le demandeur)<span class="req"> *</span></label><input id="terrainInp" type="text" value="${esc(d.adresseActuelle||"")}"></div>
+    </div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">Attribuer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const typeFare=document.getElementById("typeInp").value;
+    const adresseTerrain=document.getElementById("terrainInp").value;
+    if(!adresseTerrain){ toast("Champ requis : Adresse du terrain"); return; }
+    d.statut="Attribuée"; d.fare={typeFare, adresseTerrain, dateAttribution:todayISO()};
+    pushHistorique(d, "Fare attribué", `${typeFare} — ${adresseTerrain}`);
+    save(); close(); toast("Fare attribué"); render();
+  };
+}
+function openProposerChe(demandeurId){
+  const d=DB.demandeurs.find(x=>x.id===demandeurId);
+  const dispo=DB.logements.filter(l=>l.categorie==="CHE" && l.statut!=="Travaux" && occupantsCount(l.id) < (l.capacite||1));
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Proposer un hébergement CHE</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="field"><label>Hébergement disponible</label><select id="logSelect">${dispo.length?dispo.map(l=>`<option value="${l.id}">${esc(lotissementName(l.lotissementId))} ${esc(l.numero)} · ${esc(l.type)} (${occupantsCount(l.id)}/${l.capacite||1} places)</option>`).join(""):'<option value="">Aucune place disponible</option>'}</select></div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn" ${dispo.length?"":"disabled"}>Proposer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const logId=document.getElementById("logSelect").value;
+    d.statut="Proposée"; d.logementProposeId=logId;
+    pushHistorique(d, "Hébergement CHE proposé", logementLabel(logId));
+    save(); close(); toast("Hébergement CHE proposé au demandeur"); render();
+  };
+}
+function attribuerChe(demandeurId){
+  const d=DB.demandeurs.find(x=>x.id===demandeurId);
+  const logement=DB.logements.find(l=>l.id===d.logementProposeId);
+  if(!logement){ toast("Hébergement proposé introuvable"); return; }
+  const locataire={ id:uid("lo_"), civ:d.civ, nom:d.nom, prenom:d.prenom, dateNaissance:d.dateNaissance, tel:d.tel, email:d.email, estEtudiant:true };
+  DB.locataires.push(locataire);
+  const bail={ id:uid("bx_"), locataireId:locataire.id, logementId:logement.id, dateEffet:todayISO(), loyer:logement.loyerBase, charges:logement.chargesBase||0, depotGarantie:logement.loyerBase, statut:"Actif", modeOccupation:"CHE", anneeAcademique:academicYearLabel(), aideType:"Aucune", aideMontant:0 };
+  DB.baux.push(bail);
+  logement.statut = occupantsCount(logement.id)+1 >= (logement.capacite||1) ? "Occupé" : "Vacant";
+  d.statut="Attribuée"; d.locataireId=locataire.id;
+  pushHistorique(d, "Attribution confirmée", `${logementLabel(logement.id)} — bail CHE créé (${bail.anneeAcademique})`);
+  save(); toast("Hébergement CHE attribué : locataire et bail créés"); render();
 }
 function openProposerLogement(demandeurId){
   const d=DB.demandeurs.find(x=>x.id===demandeurId);
@@ -850,7 +1123,7 @@ function renderBaux(){
   const cols=[{h:"Locataire"},{h:"Logement"},{h:"Effet"},{h:"Loyer + charges",num:true},{h:"Statut"},{h:""}];
   const body=rows.map(b=>`<tr>
       <td class="cell-name">${esc(locataireName(b.locataireId))}</td>
-      <td>${esc(logementLabel(b.logementId))}${b.modeOccupation==="Accession à la propriété"?'<div class="cell-sub">Accession à la propriété</div>':""}</td>
+      <td>${esc(logementLabel(b.logementId))}${b.modeOccupation==="Accession à la propriété"?'<div class="cell-sub">Accession à la propriété</div>':""}${b.modeOccupation==="CHE"?`<div class="cell-sub">CHE · ${esc(b.anneeAcademique||"")}</div>`:""}</td>
       <td>${fmtDate(b.dateEffet)}</td>
       <td class="num">${fmtMoney(b.loyer+b.charges)}</td>
       <td>${badge(b.statut)}</td>
@@ -965,6 +1238,7 @@ function renderMonBail(){
   if(!bail) return `<div class="empty">Aucun bail actif associé à ce compte.</div>`;
   const logement=DB.logements.find(x=>x.id===bail.logementId);
   const loyerLabel = bail.modeOccupation==="Accession à la propriété" ? "Mensualité" : "Loyer";
+  const colocataires = bail.modeOccupation==="CHE" ? DB.baux.filter(b=>b.logementId===bail.logementId && b.statut!=="Résilié" && b.id!==bail.id).map(b=>locataireName(b.locataireId)) : [];
   return `<div class="detail-cols"><div class="panel"><div class="panel-head"><h3>Logement</h3></div><div class="panel-body"><div class="info-list">
       <div class="row"><span class="l">Lotissement</span><span class="v">${esc(lotissementName(logement.lotissementId))}</span></div>
       <div class="row"><span class="l">Porte</span><span class="v">${esc(logement.numero)}</span></div>
@@ -980,6 +1254,8 @@ function renderMonBail(){
       <div class="row"><span class="l">Dépôt de garantie</span><span class="v">${fmtMoney(bail.depotGarantie)}</span></div>
       ${bail.aideType && bail.aideType!=="Aucune"?`<div class="row"><span class="l">Aide au logement</span><span class="v">${esc(bail.aideType)} — ${fmtMoney(bail.aideMontant)}</span></div>`:""}
       ${bail.modeOccupation==="Accession à la propriété" && bail.prixVente?`<div class="row"><span class="l">Prix de vente</span><span class="v">${fmtMoney(bail.prixVente)}</span></div>`:""}
+      ${bail.modeOccupation==="CHE"?`<div class="row"><span class="l">Année académique</span><span class="v">${esc(bail.anneeAcademique||"—")}</span></div>`:""}
+      ${colocataires.length?`<div class="row"><span class="l">Colocataire(s)</span><span class="v">${esc(colocataires.join(", "))}</span></div>`:""}
       ${bail.dateResiliation?`<div class="row"><span class="l">Fin de préavis</span><span class="v">${fmtDate(bail.dateResiliation)}</span></div>`:""}
     </div></div></div></div>`;
 }
