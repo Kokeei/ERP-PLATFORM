@@ -474,8 +474,10 @@ function migrate(){
   if(!DB.rappelsConfig) DB.rappelsConfig=defaultRappelsConfig();
   DB.agents.forEach(a=>{
     if(a.superieurId===undefined) a.superieurId=null;
-    if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+    if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0, CPP:0};
+    if(a.soldes.CPP===undefined) a.soldes.CPP=0;
     if(!a.horaire) a.horaire=defaultHoraire();
+    if(a.mandatActif===undefined) a.mandatActif=false;
   });
   DB.conges.forEach(c=>{ if(!c.workflow) startWorkflow("conges", c); });
   DB.formations.forEach(f=>{ if(!f.workflow && f.statut==="Demandée") startWorkflow("formations", f); });
@@ -489,14 +491,14 @@ function migrate(){
 function seed(){
   const DIRS = ["Direction Générale","DSI","Direction des Ressources Humaines","Direction de la Maîtrise d'Ouvrage","Direction de la Gestion Locative","Direction Financière","Direction du Patrimoine"];
   const agents = [
-    {nom:"TEHEIURA",prenom:"Manea",civ:"M.",dob:"1985-03-12",statut:"Titulaire",grade:"Attaché principal",echelon:"5",direction:"Direction Générale",fonction:"Directeur adjoint",entree:"2012-09-01",quotite:100,email:"m.teheiura@oph.pf",tel:"87 12 34 56",famille:"Marié(e)",enfants:2,solde:24,actif:true},
+    {nom:"TEHEIURA",prenom:"Manea",civ:"M.",dob:"1985-03-12",statut:"Titulaire",grade:"Attaché principal",echelon:"5",prochainAvancement:"2027-09-01",direction:"Direction Générale",fonction:"Directeur adjoint",entree:"2012-09-01",quotite:100,email:"m.teheiura@oph.pf",tel:"87 12 34 56",famille:"Marié(e)",enfants:2,solde:24,actif:true},
     {nom:"WONG",prenom:"Hina",civ:"Mme",dob:"1990-07-22",statut:"Titulaire",grade:"Ingénieur",echelon:"3",direction:"DSI",fonction:"Administrateur systèmes",entree:"2016-01-15",quotite:100,email:"h.wong@oph.pf",tel:"87 22 44 66",famille:"Marié(e)",enfants:1,solde:18,actif:true},
     {nom:"TAMA",prenom:"Teiva",civ:"M.",dob:"1993-11-05",statut:"Contractuel (CDD)",grade:"Technicien",echelon:"2",direction:"DSI",fonction:"Support informatique",entree:"2023-03-01",finContrat:"2026-02-28",quotite:100,email:"t.tama@oph.pf",tel:"87 33 55 77",famille:"Célibataire",enfants:0,solde:12,actif:true},
     {nom:"MARURAI",prenom:"Vaea",civ:"Mme",dob:"1988-01-30",statut:"Titulaire",grade:"Rédacteur",echelon:"6",direction:"Direction des Ressources Humaines",fonction:"Gestionnaire carrières",entree:"2011-05-02",quotite:100,email:"v.marurai@oph.pf",tel:"87 44 66 88",famille:"Divorcé(e)",enfants:2,solde:9,actif:true},
     {nom:"FAATAU",prenom:"Rai",civ:"M.",dob:"1979-09-18",statut:"Titulaire",grade:"Ingénieur en chef",echelon:"4",direction:"Direction de la Maîtrise d'Ouvrage",fonction:"Chef de projet travaux",entree:"2008-02-11",quotite:100,email:"r.faatau@oph.pf",tel:"87 55 77 99",famille:"Marié(e)",enfants:3,solde:27,actif:true},
     {nom:"TERIItAHI",prenom:"Poema",civ:"Mme",dob:"1995-05-14",statut:"Stagiaire",grade:"Adjoint administratif",echelon:"1",direction:"Direction de la Gestion Locative",fonction:"Chargée de clientèle",entree:"2025-09-01",quotite:100,email:"p.teriitahi@oph.pf",tel:"87 66 88 00",famille:"Célibataire",enfants:0,solde:6,actif:true},
     {nom:"LI FUNG",prenom:"Kevin",civ:"M.",dob:"1991-12-02",statut:"Contractuel (CDI)",grade:"Comptable",echelon:"3",direction:"Direction Financière",fonction:"Comptable fournisseurs",entree:"2019-06-17",quotite:80,email:"k.lifung@oph.pf",tel:"87 77 99 11",famille:"Concubinage",enfants:1,solde:15,actif:true},
-    {nom:"TETUANUI",prenom:"Moana",civ:"M.",dob:"1983-04-27",statut:"Titulaire",grade:"Agent de maîtrise",echelon:"7",direction:"Direction du Patrimoine",fonction:"Responsable maintenance",entree:"2010-10-01",quotite:100,email:"m.tetuanui@oph.pf",tel:"87 88 00 22",famille:"Marié(e)",enfants:4,solde:21,actif:true},
+    {nom:"TETUANUI",prenom:"Moana",civ:"M.",dob:"1983-04-27",statut:"Titulaire",grade:"Agent de maîtrise",echelon:"7",direction:"Direction du Patrimoine",fonction:"Responsable maintenance",entree:"2010-10-01",quotite:100,email:"m.tetuanui@oph.pf",tel:"87 88 00 22",famille:"Marié(e)",enfants:4,solde:21,actif:true,mandatActif:true,mandatType:"DP",heuresDelegationMensuelles:15},
     {nom:"AH SCHA",prenom:"Léa",civ:"Mme",dob:"1997-08-08",statut:"Contractuel (CDD)",grade:"Adjoint administratif",echelon:"1",direction:"Direction des Ressources Humaines",fonction:"Assistante RH",entree:"2024-11-04",finContrat:"2025-11-03",quotite:100,email:"l.ahscha@oph.pf",tel:"87 99 11 33",famille:"Célibataire",enfants:0,solde:3,actif:false}
   ].map((a,i)=>({id:uid("a_"), matricule:"AG-"+String(1001+i), ...a}));
 
@@ -506,7 +508,7 @@ function seed(){
 
   // Rémunération de base (utilisée par le moteur de génération des bulletins de paie)
   const REM=[[550000,60000],[420000,35000],[260000,10000],[380000,25000],[480000,40000],[180000,0],[300000,15000],[420000,30000],[210000,5000]];
-  agents.forEach((a,i)=>{ a.salaireBrutMensuel=REM[i][0]; a.primeEmploi=REM[i][1]; a.soldes={CP:a.solde??0, CPA:0, CPMF:0}; });
+  agents.forEach((a,i)=>{ a.salaireBrutMensuel=REM[i][0]; a.primeEmploi=REM[i][1]; a.soldes={CP:a.solde??0, CPA:0, CPMF:0, CPP:0}; });
 
   // Situation familiale détaillée (démo sur quelques agents)
   agents[0].conjoint={nom:"TEHEIURA",prenom:"Vaihere",dateNaissance:"1986-02-10"};
@@ -854,7 +856,8 @@ function defaultPaieConfig(){
     congesTypes:[
       {code:"CP", libelle:"Congés Payés", acquisParMois:2.5},
       {code:"CPA", libelle:"CP Ancienneté", acquisParMois:0, bonusAnciennete:{seuilAns:10, joursParAn:1}},
-      {code:"CPMF", libelle:"CP Mère de Famille", acquisParMois:0, bonusParEnfant:{joursParAnParEnfant:0.5}}
+      {code:"CPMF", libelle:"CP Mère de Famille", acquisParMois:0, bonusParEnfant:{joursParAnParEnfant:0.5}},
+      {code:"CPP", libelle:"Congé Parental", acquisParMois:0}
     ]
   };
 }
@@ -868,7 +871,7 @@ function anneesAnciennete(entree){
 // Calcule, pour chaque type de congé suivi, le solde M-1, l'acquis du mois, le pris du mois et le
 // nouveau solde. « Pris » n'est pour l'instant rapproché que des congés annuels validés (type "CP").
 function computeCongesRecap(agent, periode, config){
-  const soldes = agent.soldes || {CP:agent.solde||0, CPA:0, CPMF:0};
+  const soldes = agent.soldes || {CP:agent.solde||0, CPA:0, CPMF:0, CPP:0};
   const anciennete = anneesAnciennete(agent.entree);
   return (config.congesTypes||[]).map(ct=>{
     let acquis = ct.acquisParMois||0;
@@ -980,11 +983,16 @@ const FORMS = {
       {k:"fonction",l:"Fonction / Poste",t:"text"},
       {k:"grade",l:"Grade / Cadre d'emploi",t:"text"},
       {k:"echelon",l:"Échelon",t:"text"},
+      {k:"prochainAvancement",l:"Date de prochain avancement",t:"date",hint:"Prochain changement d'échelon prévu"},
       {k:"superieurId",l:"Supérieur hiérarchique (N+1)",t:"ref",excludeId:true,hint:"Valideur principal des demandes de congés de cet agent"},
       {k:"entree",l:"Date d'entrée",t:"date"},
       {k:"finContrat",l:"Fin de contrat (CDD)",t:"date"},
       {k:"quotite",l:"Quotité de travail (%)",t:"number"},
       {k:"solde",l:"Solde congés (jours)",t:"number"},
+      {s:"Représentation du personnel"},
+      {k:"mandatActif",l:"Mandat de représentation (CE, DP, CHSCT…)",t:"bool"},
+      {k:"mandatType",l:"Instance",t:"select",o:["CE","DP","CHSCT","Délégué syndical","Autre"]},
+      {k:"heuresDelegationMensuelles",l:"Heures de délégation (par mois)",t:"number"},
       {s:"Rémunération"},
       {k:"salaireBrutMensuel",l:"Traitement de base mensuel (XPF)",t:"number",hint:"Utilisé pour générer le bulletin de paie"},
       {k:"primeEmploi",l:"Prime à l'emploi (XPF/mois)",t:"number"},
@@ -993,7 +1001,7 @@ const FORMS = {
       {k:"tel",l:"Téléphone",t:"tel"},
       {k:"actif",l:"Agent actif",t:"bool"}
     ],
-    defaults:()=>({civ:"M.",statut:"Titulaire",actif:true,quotite:100,enfants:0,solde:0,entree:todayISO(),salaireBrutMensuel:0,primeEmploi:0})
+    defaults:()=>({civ:"M.",statut:"Titulaire",actif:true,quotite:100,enfants:0,solde:0,entree:todayISO(),salaireBrutMensuel:0,primeEmploi:0,mandatActif:false,heuresDelegationMensuelles:0})
   },
   conges:{ title:"congé",
     fields:[
@@ -1236,7 +1244,7 @@ function render(){
   const c=document.getElementById("content");
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
-  if(view.module==="mon-dashboard"){ t.textContent="Accueil"; s.textContent="Ma situation personnelle"; c.innerHTML=renderMonEspace(); bindMonEspace(); return; }
+  if(view.module==="mon-dashboard"){ t.textContent="Accueil"; s.textContent="Ma situation personnelle"; c.innerHTML=(typeof renderAgentDashboard==="function")?renderAgentDashboard():renderMonEspace(); if(typeof renderAgentDashboard!=="function") bindMonEspace(); return; }
   if(view.module==="mon-profil"){ t.textContent="Mon profil"; s.textContent="Mes informations"; c.innerHTML=renderAgentProfile(); return; }
   if(view.module==="mes-demandes"){ t.textContent="Mes demandes"; s.textContent="Toutes mes demandes RH"; c.innerHTML=renderAgentRequests(); return; }
   if(view.module==="mes-taches"){ t.textContent="Mes tâches"; s.textContent="Actions et échéances"; c.innerHTML=renderAgentTasks(); return; }
@@ -2541,7 +2549,7 @@ function openGenerateBulletins(){
         workflow:{history:[{action:"Génération du bulletin", actorLabel:agentName(SESSION.asAgentId)||"RH", date:nowStamp(), commentaire:""}]}
       });
       // Fait progresser les compteurs de congés de l'agent (solde M-1 + acquis - pris = nouveau solde).
-      if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0};
+      if(!a.soldes) a.soldes={CP:a.solde??0, CPA:0, CPMF:0, CPP:0};
       calc.congesRecap.forEach(r=>{ a.soldes[r.code]=r.solde; });
       a.solde=a.soldes.CP;
       created++;
