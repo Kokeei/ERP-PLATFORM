@@ -247,14 +247,11 @@ function badge(s){
 const DIRECTIONS = ["SG","DFC","DCL","DCP"];
 const DIRECTIONS_LABEL = {SG:"Secrétariat Général", DFC:"Direction Financière et Comptable", DCL:"Direction de la Clientèle Locative", DCP:"Direction de la Construction et du Patrimoine"};
 function directionCode(direction){ return String(DIRECTIONS.indexOf(direction)+1).padStart(3,"0"); }
-const COMPTES = [
-  {code:"606", libelle:"Fournitures non stockables"},
-  {code:"604", libelle:"Achats d'études et prestations de services"},
-  {code:"615", libelle:"Entretien et réparations"},
-  {code:"2183", libelle:"Matériel informatique"},
-  {code:"2313", libelle:"Constructions en cours"}
-];
-function compteDirection(compteBase, direction){ return `${compteBase}${directionCode(direction)}`; }
+// Un compte parent (ex. 2183) porte son propre plafond ; chaque direction dépense sur son
+// compte enfant (compte parent + code direction, ex. 2183001 pour le SG), dont le total est
+// toujours recalculé en direct (jamais stocké) pour rester comparable au plafond du parent.
+function compteEnfantCode(compteParentId, direction){ const p=DB.comptesParents.find(x=>x.id===compteParentId); return p?`${p.code}${directionCode(direction)}`:"—"; }
+function totalEnfants(compteParentId, exercice){ return DB.budgetLignes.filter(l=>l.compteParentId===compteParentId && l.exercice===exercice).reduce((s,l)=>s+l.alloue,0); }
 
 /* ---------- Numérotation automatique (AAMMJJ + index sur 2 chiffres = 8 chiffres), non modifiable ---------- */
 function numeroAuto(list){
@@ -291,11 +288,19 @@ function seed(){
   const tid=n=>tiers[n].id;
 
   const exercice=String(new Date().getFullYear());
+  const comptesParents = [
+    {exercice, code:"615", libelle:"Entretien et réparations", montantLimite:15000000},
+    {exercice, code:"2183", libelle:"Matériel informatique", montantLimite:4000000},
+    {exercice, code:"606", libelle:"Fournitures non stockables", montantLimite:1200000},
+    {exercice, code:"604", libelle:"Achats d'études et prestations de services", montantLimite:8000000}
+  ].map(p=>({id:uid("cp_"), ...p}));
+  const cpid=n=>comptesParents[n].id;
+
   const budgetLignes = [
-    {exercice, direction:"DCP", compteBase:"615", nature:"Travaux d'entretien du parc locatif", alloue:15000000},
-    {exercice, direction:"SG", compteBase:"2183", nature:"Matériel et logiciels informatiques", alloue:4000000},
-    {exercice, direction:"SG", compteBase:"606", nature:"Fournitures de bureau", alloue:1200000},
-    {exercice, direction:"DCP", compteBase:"604", nature:"Études et maîtrise d'œuvre", alloue:8000000}
+    {exercice, compteParentId:cpid(0), direction:"DCP", libelle:"Travaux d'entretien du parc locatif", alloue:15000000},
+    {exercice, compteParentId:cpid(1), direction:"SG", libelle:"Matériel et logiciels informatiques", alloue:4000000},
+    {exercice, compteParentId:cpid(2), direction:"SG", libelle:"Fournitures de bureau", alloue:1200000},
+    {exercice, compteParentId:cpid(3), direction:"DCP", libelle:"Études et maîtrise d'œuvre", alloue:8000000}
   ].map(b=>({id:uid("bl_"), ...b}));
   const blid=n=>budgetLignes[n].id;
 
@@ -344,12 +349,24 @@ function seed(){
   ].map(c=>({id:uid("ca_"), ...c}));
   factures[1].certificatAdministratifId = certificatsAdministratifs[1].id;
 
-  return { tiers, budgetLignes, marches, commandes, factures, virements, certificatsAdministratifs };
+  return { tiers, comptesParents, budgetLignes, marches, commandes, factures, virements, certificatsAdministratifs };
 }
 function migrate(db){
   if(!db.tiers) db.tiers=[];
+  if(!db.comptesParents) db.comptesParents=[];
   if(!db.budgetLignes) db.budgetLignes=[];
-  db.budgetLignes.forEach(l=>{ if(!l.compteBase) l.compteBase=COMPTES[0].code; if(!DIRECTIONS.includes(l.direction)) l.direction=DIRECTIONS[0]; });
+  // Compatibilité avec l'ancien modèle à plat (compteBase en toutes lettres sur la ligne) :
+  // reconstitue un compte parent par code+exercice rencontré, une seule fois.
+  db.budgetLignes.forEach(l=>{
+    if(l.compteParentId) return;
+    const code=l.compteBase||"606";
+    let p=db.comptesParents.find(x=>x.code===code && x.exercice===l.exercice);
+    if(!p){ p={id:uid("cp_"), exercice:l.exercice, code, libelle:l.nature||code, montantLimite:l.alloue||0}; db.comptesParents.push(p); }
+    l.compteParentId=p.id;
+    if(!l.libelle) l.libelle=l.nature||"";
+    delete l.compteBase; delete l.nature;
+    if(!DIRECTIONS.includes(l.direction)) l.direction=DIRECTIONS[0];
+  });
   if(!db.marches) db.marches=[];
   if(!db.commandes) db.commandes=[];
   db.commandes.forEach(c=>{ if(!c.lignes) c.lignes=[]; if(c.montant==null) c.montant=calcLignesTotal(c.lignes).ttc; });
@@ -377,22 +394,24 @@ function renderSessionBar(){
 function roleHome(){ return ROLE_MODULES[SESSION.role][0]; }
 
 function tiersName(id){ const t=DB.tiers.find(x=>x.id===id); return t?t.raisonSociale:"—"; }
-function ligneLabel(id){ const l=DB.budgetLignes.find(x=>x.id===id); return l?`${compteDirection(l.compteBase,l.direction)} · ${l.direction} — ${l.nature}`:"—"; }
+function ligneLabel(id){ const l=DB.budgetLignes.find(x=>x.id===id); return l?`${compteEnfantCode(l.compteParentId,l.direction)} · ${l.direction} — ${l.libelle}`:"—"; }
 function commandeLabel(id){ const c=DB.commandes.find(x=>x.id===id); return c?`${c.numero} · ${esc(c.objet)}`:"—"; }
 function marcheLabel(id){ const m=DB.marches.find(x=>x.id===id); return m?m.objet:"—"; }
-// Chaque ligne de BC/facture peut être imputée sur un compte budgétaire différent : l'engagé/le
-// consommé d'une ligne budgétaire se calculent donc en sommant les lignes de commandes/factures
-// qui la référencent, jamais au niveau de l'en-tête du BC ou de la facture.
+// Chaque ligne de BC/facture peut être imputée sur un compte budgétaire différent : l'engagé (BC
+// ou marché) et le liquidé (facturé) d'un compte enfant se calculent donc en sommant les lignes
+// des commandes/factures et le montant des marchés qui le référencent, jamais au niveau de
+// l'en-tête du document, ni stockés.
 function ligneEngage(ligneId){
   let total=0;
   DB.commandes.filter(c=>c.statut!=="Clôturée").forEach(c=>{
     (c.lignes||[]).forEach(l=>{ if(l.ligneBudgetId===ligneId) total+=calcLigne(l).ttc; });
   });
+  DB.marches.filter(m=>m.statut!=="Soldé" && m.ligneBudgetId===ligneId).forEach(m=>{ total+=m.montant; });
   return total;
 }
-function ligneConsomme(ligneId){
+function ligneLiquide(ligneId){
   let total=0;
-  DB.factures.filter(f=>f.statut==="Payée").forEach(f=>{
+  DB.factures.filter(f=>f.statut!=="Rejetée").forEach(f=>{
     (f.lignes||[]).forEach(l=>{ if(l.ligneBudgetId===ligneId) total+=calcLigne(l).ttc; });
   });
   return total;
@@ -417,6 +436,9 @@ const ROLE_MODULES = {achats:NAV_ACHATS.map(n=>n.id), df:NAV_DF.map(n=>n.id)};
 
 let view = {module:"dashboard", search:"", filter:""};
 function go(module){ view={...view, module, search:"", filter:""}; render(); }
+// Exercice budgétaire actif : filtre l'écran Budget, le virement de crédits et les comptes
+// proposés lors de la saisie des lignes de BC/facture. Les budgets sont gérés annuellement.
+let budgetExercice = String(new Date().getFullYear());
 function renderNav(){
   const items=ROLE_NAV[SESSION.role]||NAV_ACHATS;
   let html="", lastGroup="__";
@@ -472,15 +494,22 @@ const FORMS = {
     ],
     defaults:()=>({type:["Fournisseur"],formeJuridique:"SARL",statut:"Actif"})
   },
-  budgetLignes:{ title:"ligne budgétaire",
+  comptesParents:{ title:"compte parent",
     fields:[
-      {k:"exercice",l:"Exercice",t:"text",req:true},
-      {k:"direction",l:"Direction",t:"select",o:DIRECTIONS,req:true},
-      {k:"compteBase",l:"Compte budgétaire",t:"select",o:COMPTES.map(c=>c.code),req:true,hint:"Chaque direction dépense sur son propre sous-compte (ex : 2183001 pour la 1ère direction, 2183002 pour la 2e…)."},
-      {k:"nature",l:"Nature de la dépense",t:"text",req:true,full:true},
+      {k:"code",l:"Compte comptable",t:"text",req:true,hint:"Ex : 2183"},
+      {k:"libelle",l:"Libellé",t:"text",req:true,full:true},
+      {k:"montantLimite",l:"Plafond global (XPF)",t:"number",req:true,hint:"Enveloppe maximale du compte, tous comptes enfants confondus."}
+    ],
+    defaults:()=>({montantLimite:1000000})
+  },
+  budgetLignes:{ title:"compte enfant",
+    fields:[
+      {k:"compteParentId",l:"Compte parent",t:"ref",coll:"comptesParents",labelFn:p=>`${p.code} — ${p.libelle}`,req:true},
+      {k:"direction",l:"Direction",t:"select",o:DIRECTIONS,req:true,hint:"Chaque direction dépense sur son propre sous-compte (ex : 2183001 pour le SG, 2183002 pour la DFC…)."},
+      {k:"libelle",l:"Libellé",t:"text",req:true,full:true},
       {k:"alloue",l:"Montant alloué (XPF)",t:"number",req:true}
     ],
-    defaults:()=>({exercice:String(new Date().getFullYear()),direction:DIRECTIONS[0],compteBase:COMPTES[0].code,alloue:1000000})
+    defaults:()=>({compteParentId:(DB.comptesParents.find(p=>p.exercice===budgetExercice)||{}).id,direction:DIRECTIONS[0],alloue:1000000})
   },
   marches:{ title:"marché",
     fields:[
@@ -505,7 +534,7 @@ const FORMS = {
     defaults:()=>({serviceEmetteur:DIRECTIONS[0],dateCreation:todayISO(),numero:numeroAuto(DB.certificatsAdministratifs),statut:"Créé",factureId:null})
   }
 };
-function ligneLabel_(l){ return `${compteDirection(l.compteBase,l.direction)} · ${l.direction} — ${l.nature} (${l.exercice})`; }
+function ligneLabel_(l){ return `${compteEnfantCode(l.compteParentId,l.direction)} · ${l.direction} — ${l.libelle} (${l.exercice})`; }
 
 function openForm(module, id=null, preset={}){
   const cfg=FORMS[module]; const coll=DB[module];
@@ -566,12 +595,25 @@ function render(){
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble budgétaire et de la chaîne d'achat"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
   if(view.module==="tiers"){ t.textContent="Tiers"; s.textContent="Clients et fournisseurs"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau tiers</button>`; c.innerHTML=renderTiers(); wireToolbar(renderTiers, bindTiers); bindTiers(); document.getElementById("addBtn").onclick=()=>openForm("tiers"); return; }
   if(view.module==="budget"){
-    t.textContent = SESSION.role==="df"?"Suivi budgétaire":"Budget"; s.textContent="Alloué, engagé, consommé par ligne, par compte et par direction";
-    if(SESSION.role!=="df") act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle ligne</button>`;
-    else act.innerHTML=`<button class="btn primary" id="virementBtn">${svg(I.budget,'ic')} Virement de crédits</button>`;
+    t.textContent = SESSION.role==="df"?"Suivi budgétaire":"Budget";
+    s.textContent="Comptes parents et comptes enfants par direction — alloué, engagé (BC ou marché), liquidé (facturé)";
+    if(SESSION.role!=="df"){
+      act.innerHTML=`<button class="btn ghost sm" id="importBtn">${svg(I.plus,'ic')} Importer des comptes</button>
+        <button class="btn ghost sm" id="addParentBtn">${svg(I.plus,'ic')} Compte parent</button>
+        <button class="btn ghost sm" id="addEnfantBtn">${svg(I.plus,'ic')} Compte enfant</button>
+        <button class="btn ghost sm" id="nouvelExerciceBtn">${svg(I.budget,'ic')} Nouvel exercice</button>`;
+    } else {
+      act.innerHTML=`<button class="btn primary" id="virementBtn">${svg(I.budget,'ic')} Virement de crédits</button>`;
+    }
     c.innerHTML=renderBudget(); bindBudget();
-    if(SESSION.role!=="df") document.getElementById("addBtn").onclick=()=>openForm("budgetLignes");
-    else document.getElementById("virementBtn").onclick=()=>openVirementModal();
+    if(SESSION.role!=="df"){
+      document.getElementById("importBtn").onclick=()=>openImporterComptesModal();
+      document.getElementById("addParentBtn").onclick=()=>openForm("comptesParents", null, {exercice:budgetExercice});
+      document.getElementById("addEnfantBtn").onclick=()=>openForm("budgetLignes", null, {exercice:budgetExercice});
+      document.getElementById("nouvelExerciceBtn").onclick=()=>openNouvelExerciceModal();
+    } else {
+      document.getElementById("virementBtn").onclick=()=>openVirementModal();
+    }
     return;
   }
   if(view.module==="marches"){ t.textContent="Marchés publics"; s.textContent="CCTP, BPU et suivi de l'exécution"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau marché</button>`; c.innerHTML=renderMarches(); wireToolbar(renderMarches, bindMarches); bindMarches(); document.getElementById("addBtn").onclick=()=>openForm("marches"); return; }
@@ -583,23 +625,23 @@ function render(){
 
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
-  const alloueTotal=DB.budgetLignes.reduce((s,l)=>s+l.alloue,0);
-  const engageTotal=DB.budgetLignes.reduce((s,l)=>s+ligneEngage(l.id),0);
-  const consommeTotal=DB.budgetLignes.reduce((s,l)=>s+ligneConsomme(l.id),0);
+  const lignesExercice=DB.budgetLignes.filter(l=>l.exercice===budgetExercice);
+  const alloueTotal=lignesExercice.reduce((s,l)=>s+l.alloue,0);
+  const engageTotal=lignesExercice.reduce((s,l)=>s+ligneEngage(l.id),0);
   const facturesAttente=DB.factures.filter(f=>f.statut==="À contrôler"||f.statut==="Bon à payer");
   const marchesEnCours=DB.marches.filter(m=>m.statut==="En exécution"||m.statut==="Notifié").length;
   const pct = alloueTotal? Math.round((engageTotal/alloueTotal)*100) : 0;
   const recentesFactures=DB.factures.slice().sort((a,b)=>(b.dateReception||"").localeCompare(a.dateReception||"")).slice(0,5);
   return `
     <div class="kpi-grid">
-      <div class="kpi" data-goto="budget"><div class="k-lbl">Budget alloué (${DB.budgetLignes[0]?.exercice||""})</div><div class="k-val" style="font-size:22px">${fmtMoney(alloueTotal)}</div></div>
+      <div class="kpi" data-goto="budget"><div class="k-lbl">Budget alloué (${esc(budgetExercice)})</div><div class="k-val" style="font-size:22px">${fmtMoney(alloueTotal)}</div></div>
       <div class="kpi" data-goto="budget"><div class="k-lbl">Engagé</div><div class="k-val" style="font-size:22px">${fmtMoney(engageTotal)}</div><div class="k-meta ${pct>90?'bad':pct>70?'warn':'ok'}">${pct}% du budget</div></div>
       <div class="kpi" data-goto="factures"><div class="k-lbl">Factures en attente</div><div class="k-val">${facturesAttente.length}</div><div class="k-meta ${facturesAttente.length?'warn':'ok'}">${facturesAttente.length?fmtMoney(facturesAttente.reduce((s,f)=>s+f.montant,0)):"À jour"}</div></div>
       <div class="kpi" data-goto="marches"><div class="k-lbl">Marchés en cours</div><div class="k-val">${marchesEnCours}</div></div>
     </div>
     <div class="panels">
       <div class="panel"><div class="panel-head"><h3>Dernières factures reçues</h3></div><div class="panel-body">${recentesFactures.map(f=>`<div class="mini-row"><div><div class="who">${esc(tiersName(f.tiersId))}</div><div class="det">${esc(f.numero)} · ${fmtMoney(f.montant)} · ${fmtDate(f.dateReception)}</div></div><div class="spacer"></div>${badge(f.statut)}</div>`).join("")||'<div class="empty">Aucune facture.</div>'}</div></div>
-      <div class="panel"><div class="panel-head"><h3>Lignes budgétaires les plus engagées</h3></div><div class="panel-body">${DB.budgetLignes.slice().sort((a,b)=>ligneEngage(b.id)-ligneEngage(a.id)).slice(0,5).map(l=>{const e=ligneEngage(l.id),p=l.alloue?Math.min(100,Math.round(e/l.alloue*100)):0;return `<div class="mini-row" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;justify-content:space-between"><span class="who">${esc(l.nature)}</span><span class="det">${p}%</span></div><div class="bar ${p>=100?'over':''}"><span style="width:${p}%"></span></div></div>`;}).join("")||'<div class="empty">Aucune ligne.</div>'}</div></div>
+      <div class="panel"><div class="panel-head"><h3>Comptes les plus engagés</h3></div><div class="panel-body">${lignesExercice.slice().sort((a,b)=>ligneEngage(b.id)-ligneEngage(a.id)).slice(0,5).map(l=>{const e=ligneEngage(l.id),p=l.alloue?Math.min(100,Math.round(e/l.alloue*100)):0;return `<div class="mini-row" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;justify-content:space-between"><span class="who">${esc(compteEnfantCode(l.compteParentId,l.direction))} — ${esc(l.libelle)}</span><span class="det">${p}%</span></div><div class="bar ${p>=100?'over':''}"><span style="width:${p}%"></span></div></div>`;}).join("")||'<div class="empty">Aucune ligne.</div>'}</div></div>
     </div>`;
 }
 function bindDashboard(){ document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto)); }
@@ -624,33 +666,67 @@ function bindTiers(){
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("tiers", el.dataset.del));
 }
 
-/* ---------- Budget ---------- */
+/* ---------- Budget (comptes parents / comptes enfants par direction) ---------- */
 function renderBudget(){
-  const cols=[{h:"Compte"},{h:"Direction"},{h:"Nature"},{h:"Alloué",num:true},{h:"Engagé",num:true},{h:"Consommé",num:true},{h:"Disponible",num:true},{h:""}];
-  const body=DB.budgetLignes.map(l=>{
-    const engage=ligneEngage(l.id), consomme=ligneConsomme(l.id), dispo=l.alloue-engage;
-    const pct=l.alloue?Math.min(100,Math.round(engage/l.alloue*100)):0;
-    return `<tr>
-      <td class="cell-name">${esc(compteDirection(l.compteBase,l.direction))}</td>
-      <td>${esc(l.direction)}<div class="cell-sub">${esc(DIRECTIONS_LABEL[l.direction]||"")}</div></td>
-      <td>${esc(l.nature)}<div class="bar ${pct>=100?'over':''}" style="margin-top:6px;width:140px"><span style="width:${pct}%"></span></div></td>
-      <td class="num">${fmtMoney(l.alloue)}</td>
-      <td class="num">${fmtMoney(engage)}</td>
-      <td class="num">${fmtMoney(consomme)}</td>
-      <td class="num" style="font-weight:700;color:${dispo<0?'var(--bad)':'inherit'}">${fmtMoney(dispo)}</td>
-      <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button></div>`:""}</td>
+  const exercices=Array.from(new Set(DB.comptesParents.map(p=>p.exercice).concat(DB.budgetLignes.map(l=>l.exercice)).concat([budgetExercice]))).sort().reverse();
+  const selector=`<div class="toolbar"><div class="field" style="max-width:160px;margin:0"><label>Exercice budgétaire</label><select id="exerciceSelect">${exercices.map(e=>`<option value="${esc(e)}" ${e===budgetExercice?"selected":""}>${esc(e)}</option>`).join("")}</select></div></div>`;
+  const parents=DB.comptesParents.filter(p=>p.exercice===budgetExercice).sort((a,b)=>a.code.localeCompare(b.code));
+  const cols=[{h:"Compte"},{h:"Direction / Libellé"},{h:"Total budget",num:true},{h:"Total par enfant",num:true},{h:"Engagé",num:true},{h:"Liquidé",num:true},{h:"Disponible",num:true},{h:""}];
+  let body="";
+  parents.forEach(p=>{
+    const enfants=DB.budgetLignes.filter(l=>l.compteParentId===p.id && l.exercice===budgetExercice);
+    const totalEnfants=enfants.reduce((s,l)=>s+l.alloue,0);
+    const engageParent=enfants.reduce((s,l)=>s+ligneEngage(l.id),0);
+    const liquideParent=enfants.reduce((s,l)=>s+ligneLiquide(l.id),0);
+    const dispoParent=p.montantLimite-engageParent;
+    const depasse = totalEnfants>p.montantLimite;
+    body+=`<tr style="background:var(--surface-2)">
+      <td class="cell-name">${esc(p.code)}</td>
+      <td class="cell-name">${esc(p.libelle)}</td>
+      <td class="num" style="font-weight:800">${fmtMoney(p.montantLimite)}</td>
+      <td class="num" style="font-weight:800;color:${depasse?'var(--bad)':'inherit'}">${fmtMoney(totalEnfants)}</td>
+      <td class="num" style="font-weight:800">${fmtMoney(engageParent)}</td>
+      <td class="num" style="font-weight:800">${fmtMoney(liquideParent)}</td>
+      <td class="num" style="font-weight:800;color:${dispoParent<0?'var(--bad)':'inherit'}">${fmtMoney(dispoParent)}</td>
+      <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-editparent="${p.id}" title="Modifier le plafond">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-delparent="${p.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}</td>
     </tr>`;
-  }).join("");
-  return tableShell(cols, body);
+    enfants.forEach(l=>{
+      const engage=ligneEngage(l.id), liquide=ligneLiquide(l.id), dispo=l.alloue-engage;
+      const pct=l.alloue?Math.min(100,Math.round(engage/l.alloue*100)):0;
+      body+=`<tr>
+        <td class="cell-sub" style="padding-left:26px">${esc(compteEnfantCode(l.compteParentId,l.direction))}</td>
+        <td>${esc(l.direction)} — ${esc(l.libelle)}<div class="cell-sub">${esc(DIRECTIONS_LABEL[l.direction]||"")}</div><div class="bar ${pct>=100?'over':''}" style="margin-top:6px;width:140px"><span style="width:${pct}%"></span></div></td>
+        <td class="num">—</td>
+        <td class="num">${fmtMoney(l.alloue)}</td>
+        <td class="num">${fmtMoney(engage)}</td>
+        <td class="num">${fmtMoney(liquide)}</td>
+        <td class="num" style="color:${dispo<0?'var(--bad)':'inherit'}">${fmtMoney(dispo)}</td>
+        <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}</td>
+      </tr>`;
+    });
+  });
+  return selector + tableShell(cols, body);
+}
+function bindBudget(){
+  const sel=document.getElementById("exerciceSelect");
+  if(sel) sel.onchange=()=>{ budgetExercice=sel.value; render(); };
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("budgetLignes", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("budgetLignes", el.dataset.del));
+  document.querySelectorAll("[data-editparent]").forEach(el=>el.onclick=()=>openForm("comptesParents", el.dataset.editparent));
+  document.querySelectorAll("[data-delparent]").forEach(el=>el.onclick=()=>{
+    if(DB.budgetLignes.some(l=>l.compteParentId===el.dataset.delparent)){ toast("Impossible de supprimer un compte parent tant qu'il a des comptes enfants"); return; }
+    delRecord("comptesParents", el.dataset.delparent);
+  });
 }
 function openVirementModal(){
   const mr=document.getElementById("modalRoot");
-  const opts=l=>`<option value="${l.id}">${esc(compteDirection(l.compteBase,l.direction))} · ${esc(l.direction)} — ${esc(l.nature)}</option>`;
+  const lignesExercice=DB.budgetLignes.filter(l=>l.exercice===budgetExercice);
+  const opts=l=>`<option value="${l.id}">${esc(compteEnfantCode(l.compteParentId,l.direction))} · ${esc(l.direction)} — ${esc(l.libelle)}</option>`;
   mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
-    <div class="modal-head"><h3>Virement de crédits entre comptes</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-head"><h3>Virement de crédits entre comptes (${esc(budgetExercice)})</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
     <div class="modal-body"><div class="form-grid">
-      <div class="field"><label>Compte source</label><select id="srcSelect">${DB.budgetLignes.map(opts).join("")}</select></div>
-      <div class="field"><label>Compte destination</label><select id="dstSelect">${DB.budgetLignes.map(opts).join("")}</select></div>
+      <div class="field"><label>Compte source</label><select id="srcSelect">${lignesExercice.map(opts).join("")}</select></div>
+      <div class="field"><label>Compte destination</label><select id="dstSelect">${lignesExercice.map(opts).join("")}</select></div>
       <div class="field full"><label>Montant à déplacer (XPF)<span class="req"> *</span></label><input id="montantInp" type="number" value="0"></div>
       <div class="field full"><label>Motif<span class="req"> *</span></label><input id="motifInp" type="text"></div>
     </div></div>
@@ -675,7 +751,81 @@ function openVirementModal(){
     save(); close(); toast("Virement de crédits effectué"); render();
   };
 }
-function bindBudget(){ document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("budgetLignes", el.dataset.edit)); }
+function openImporterComptesModal(){
+  const mr=document.getElementById("modalRoot");
+  const exemple=`2183;Matériel informatique;500000;300000;200000;400000`;
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:740px">
+    <div class="modal-head"><h3>Importer des comptes budgétaires (${esc(budgetExercice)})</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <p class="hint" style="display:block;margin-bottom:10px">Une ligne par compte, valeurs séparées par des points-virgules : <code>code;libellé;montant ${DIRECTIONS.join(";montant ")}</code>. Le plafond du compte parent est égal à la somme des ${DIRECTIONS.length} montants. Un compte déjà existant pour cet exercice est mis à jour plutôt que dupliqué.<br>Exemple : <code>${esc(exemple)}</code></p>
+      <div class="field full"><textarea id="importText" rows="8" style="min-height:180px;font-family:monospace" placeholder="${esc(exemple)}"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">${svg(I.check,'ic')} Importer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const lines=document.getElementById("importText").value.split("\n").map(l=>l.trim()).filter(Boolean);
+    let ok=0, ko=0;
+    lines.forEach(line=>{
+      const parts=line.split(";").map(s=>s.trim());
+      if(parts.length!==2+DIRECTIONS.length){ ko++; return; }
+      const [code, libelle, ...montants]=parts;
+      const montantsNum=montants.map(Number);
+      if(!code || !libelle || montantsNum.some(m=>isNaN(m))){ ko++; return; }
+      let parent=DB.comptesParents.find(p=>p.code===code && p.exercice===budgetExercice);
+      const montantLimite=montantsNum.reduce((s,m)=>s+m,0);
+      if(!parent){ parent={id:uid("cp_"), exercice:budgetExercice, code, libelle, montantLimite}; DB.comptesParents.push(parent); }
+      else { parent.libelle=libelle; parent.montantLimite=montantLimite; }
+      DIRECTIONS.forEach((direction,i)=>{
+        let enfant=DB.budgetLignes.find(l=>l.compteParentId===parent.id && l.direction===direction && l.exercice===budgetExercice);
+        if(!enfant){ DB.budgetLignes.push({id:uid("bl_"), exercice:budgetExercice, compteParentId:parent.id, direction, libelle, alloue:montantsNum[i]}); }
+        else { enfant.alloue=montantsNum[i]; enfant.libelle=libelle; }
+      });
+      ok++;
+    });
+    if(ok===0){ toast("Aucun compte importé : vérifiez le format de chaque ligne"); return; }
+    save(); close();
+    toast(ko ? `${ok} compte(s) importé(s), ${ko} ligne(s) ignorée(s) (format invalide)` : `${ok} compte(s) importé(s)`);
+    render();
+  };
+}
+function openNouvelExerciceModal(){
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Créer un nouvel exercice budgétaire</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="field"><label>Exercice source</label><input type="text" value="${esc(budgetExercice)}" disabled></div>
+      <div class="field"><label>Nouvel exercice<span class="req"> *</span></label><input id="exerciceInp" type="text" value="${Number(budgetExercice)+1}"></div>
+    </div>
+    <p class="hint" style="display:block;margin-top:10px">Duplique tous les comptes parents (plafonds compris) et comptes enfants de l'exercice source vers le nouvel exercice, avec les mêmes montants — à ajuster ensuite pour la préparation budgétaire de l'année.</p></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">Créer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const nouvel=document.getElementById("exerciceInp").value.trim();
+    if(!nouvel){ toast("Champ requis : Nouvel exercice"); return; }
+    if(nouvel===budgetExercice){ toast("Le nouvel exercice doit être différent de l'exercice source"); return; }
+    if(DB.comptesParents.some(p=>p.exercice===nouvel)){ toast(`L'exercice ${nouvel} existe déjà`); return; }
+    const mapping={};
+    DB.comptesParents.filter(p=>p.exercice===budgetExercice).forEach(p=>{
+      const copy={id:uid("cp_"), exercice:nouvel, code:p.code, libelle:p.libelle, montantLimite:p.montantLimite};
+      DB.comptesParents.push(copy);
+      mapping[p.id]=copy.id;
+    });
+    DB.budgetLignes.filter(l=>l.exercice===budgetExercice).forEach(l=>{
+      DB.budgetLignes.push({id:uid("bl_"), exercice:nouvel, compteParentId:mapping[l.compteParentId], direction:l.direction, libelle:l.libelle, alloue:l.alloue});
+    });
+    save(); close();
+    toast(`Exercice ${nouvel} créé à partir de ${budgetExercice}`);
+    budgetExercice=nouvel; render();
+  };
+}
 
 /* ---------- Marchés ---------- */
 function renderMarches(){
@@ -729,7 +879,7 @@ function bindCommandes(){
 
 /* ---------- Éditeur de lignes partagé (BC et factures) : compte par ligne, garantie, TVA, remise ---------- */
 let _lignesWorking=[];
-function newLigneDefault(){ return { id:uid("li_"), designation:"", type:"Produit", quantite:1, puHT:0, remisePct:0, garantieMois:0, ligneBudgetId:(DB.budgetLignes[0]||{}).id }; }
+function newLigneDefault(){ return { id:uid("li_"), designation:"", type:"Produit", quantite:1, puHT:0, remisePct:0, garantieMois:0, ligneBudgetId:(DB.budgetLignes.find(bl=>bl.exercice===budgetExercice)||{}).id }; }
 function ligneRowHTML(l,i){
   return `<tr>
     <td><input type="checkbox" class="li-check" data-i="${i}"></td>
@@ -742,7 +892,7 @@ function ligneRowHTML(l,i){
     <td><input type="number" class="li-field" data-i="${i}" data-f="puHT" value="${l.puHT}" style="width:100px"></td>
     <td><input type="number" class="li-field" data-i="${i}" data-f="remisePct" value="${l.remisePct||0}" style="width:60px"></td>
     <td><input type="number" class="li-field" data-i="${i}" data-f="garantieMois" value="${l.garantieMois||0}" style="width:60px"></td>
-    <td><select class="li-field" data-i="${i}" data-f="ligneBudgetId">${DB.budgetLignes.map(bl=>`<option value="${bl.id}" ${l.ligneBudgetId===bl.id?"selected":""}>${esc(compteDirection(bl.compteBase,bl.direction))} · ${esc(bl.nature)}</option>`).join("")}</select></td>
+    <td><select class="li-field" data-i="${i}" data-f="ligneBudgetId">${DB.budgetLignes.filter(bl=>bl.exercice===budgetExercice).map(bl=>`<option value="${bl.id}" ${l.ligneBudgetId===bl.id?"selected":""}>${esc(compteEnfantCode(bl.compteParentId,bl.direction))} · ${esc(bl.libelle)}</option>`).join("")}</select></td>
     <td class="num li-total" data-i="${i}">${fmtMoney(calcLigne(l).ttc)}</td>
     <td><button type="button" class="btn ghost sm li-del" data-i="${i}">${svg(I.trash,'ic')}</button></td>
   </tr>`;
