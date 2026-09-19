@@ -55,6 +55,32 @@ test.describe("Espace Agent RH", () => {
     await page.locator("#nav a", { hasText: "Mes documents" }).click();
     await expect(page.locator("#pageTitle")).toHaveText("Mes documents");
     await page.locator("#nav a", { hasText: "Recherche RH" }).click();
-    await expect(page.locator("#agentSearch")).toBeVisible();
+    await expect(page.locator("#agentSearchInput")).toBeVisible();
   });
+});
+
+
+test("permet d'envoyer une demande RH", async ({ page }) => {
+  await selectAgent(page);
+  await page.locator("#nav a", { hasText: "Mes demandes" }).click();
+  await page.getByRole("button", { name: "Nouvelle demande" }).click();
+  await page.locator("#apSubject").fill("Demande de test");
+  await page.locator("#apDetails").fill("Test fonctionnel de l'espace agent.");
+  await page.locator("#apSend").click();
+  await expect(page.locator("#pageTitle")).toHaveText("Mes demandes");
+  await expect(page.locator(".panel-body")).toContainText("Demande de test");
+});
+
+test("permet de demander une modification du profil", async ({ page }) => {
+  await selectAgent(page);
+  await page.locator("#nav a", { hasText: "Mon profil" }).click();
+  await page.getByRole("button", { name: /Demander une modification/ }).click();
+  await expect(page.locator("#apSubject")).toBeVisible();
+  await expect(page.locator("#apDetails")).toBeVisible();
+});
+
+test("permet de marquer une notification comme lue", async ({ page }) => {
+  await selectAgent(page);
+  await page.locator("#nav a", { hasText: "Notifications" }).click();
+  await expect(page.getByRole("button", { name: "Tout marquer comme lu" })).toBeVisible();
 });
