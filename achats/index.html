@@ -238,7 +238,7 @@ function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg
 function badge(s){
   const tone={"Actif":"ok","Inactif":"mut",
     "En préparation":"mut","Publié":"info","Attribué":"info","Notifié":"info","En exécution":"ok","Soldé":"ok",
-    "Brouillon":"mut","En attente de visa":"warn","Signée DG":"info","Envoyée":"info","Livrée":"ok","Clôturée":"ok",
+    "Brouillon":"mut","En attente de visa":"warn","Visée":"info","Signée DG":"info","Envoyée":"info","Livrée":"ok","Clôturée":"ok",
     "À contrôler":"info","Bon à payer":"warn","Mandatement":"info","Rejetée":"bad","Payée":"ok",
     "Créé":"mut","Contrôlé N+1":"warn","Signé DG":"info","Rattaché":"ok"}[s]||"mut";
   return `<span class="badge ${tone}">${esc(s||"—")}</span>`;
@@ -709,18 +709,20 @@ function renderCommandes(){
       <td>${badge(c.statut)}${c.serviceFait?' <span class="tag">Service fait</span>':""}</td>
       <td><div class="row-actions">
         ${c.statut==="Brouillon"?`<button class="btn ghost sm" data-soumettre="${c.id}" title="Soumettre au visa SML">${svg(I.check,'ic')}</button>`:""}
-        ${c.statut==="En attente de visa"?`<button class="btn ghost sm" data-signer="${c.id}" title="Signer électroniquement (DG)">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="En attente de visa"?`<button class="btn ghost sm" data-viser="${c.id}" title="Viser (contrôle du service SML)">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="Visée"?`<button class="btn ghost sm" data-signer="${c.id}" title="Signer électroniquement (DG)">${svg(I.check,'ic')}</button>`:""}
         ${c.statut==="Signée DG"?`<button class="btn ghost sm" data-envoyer="${c.id}" title="Envoyer par mail au fournisseur">${svg(I.commandes,'ic')}</button>`:""}
         ${c.statut==="Envoyée"?`<button class="btn ghost sm" data-livrer="${c.id}" title="Marquer livrée (service fait)">${svg(I.check,'ic')}</button>`:""}
         <button class="btn ghost sm" data-edit="${c.id}" title="Modifier">${svg(I.edit,'ic')}</button>
       </div></td>
     </tr>`).join("");
-  return toolbar("statut", ["Brouillon","En attente de visa","Signée DG","Envoyée","Livrée","Clôturée"]) + tableShell(cols, body);
+  return toolbar("statut", ["Brouillon","En attente de visa","Visée","Signée DG","Envoyée","Livrée","Clôturée"]) + tableShell(cols, body);
 }
 function bindCommandes(){
   document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openCommandeModal(el.dataset.edit));
   document.querySelectorAll("[data-soumettre]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.soumettre); c.statut="En attente de visa"; save(); toast("Commande soumise au visa du service SML"); render(); });
-  document.querySelectorAll("[data-signer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.signer); c.statut="Signée DG"; save(); toast("Commande visée puis signée électroniquement par le DG"); render(); });
+  document.querySelectorAll("[data-viser]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.viser); c.statut="Visée"; save(); toast("Commande vérifiée et visée par le service SML"); render(); });
+  document.querySelectorAll("[data-signer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.signer); c.statut="Signée DG"; save(); toast("Commande signée électroniquement par le DG"); render(); });
   document.querySelectorAll("[data-envoyer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.envoyer); c.statut="Envoyée"; save(); toast("Commande envoyée par mail au fournisseur"); render(); });
   document.querySelectorAll("[data-livrer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.livrer); c.statut="Livrée"; c.serviceFait=true; save(); toast("Commande marquée livrée, service fait constaté"); render(); });
 }

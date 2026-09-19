@@ -191,7 +191,7 @@ test.describe("Achats — lignes de commande : comptes multiples, TVA, garantie,
 });
 
 test.describe("Achats — cycle de vie du bon de commande", () => {
-  test("brouillon → en attente de visa (SML) → signée (DG) → envoyée (cycle complet)", async ({ page }) => {
+  test("brouillon → en attente de visa → visée (SML) → signée (DG) → envoyée (cycle complet)", async ({ page }) => {
     await page.goto("/achats/");
     await page.locator("[data-nav='commandes']").click();
     await page.click("#addBtn");
@@ -208,8 +208,12 @@ test.describe("Achats — cycle de vie du bon de commande", () => {
     await expect(page.locator("#toast")).toHaveText("Commande soumise au visa du service SML");
     await expect(row.locator(".badge")).toHaveText("En attente de visa");
 
+    await row.locator("[data-viser]").click();
+    await expect(page.locator("#toast")).toHaveText("Commande vérifiée et visée par le service SML");
+    await expect(row.locator(".badge")).toHaveText("Visée");
+
     await row.locator("[data-signer]").click();
-    await expect(page.locator("#toast")).toHaveText("Commande visée puis signée électroniquement par le DG");
+    await expect(page.locator("#toast")).toHaveText("Commande signée électroniquement par le DG");
     await expect(row.locator(".badge")).toHaveText("Signée DG");
 
     await row.locator("[data-envoyer]").click();
