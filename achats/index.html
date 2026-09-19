@@ -189,7 +189,7 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
       <a class="btn ghost sm" href="../">← Portail</a>
       <select id="sessRole" title="Profil de test">
         <option value="achats">Service Achats</option>
-        <option value="df">Direction Financière</option>
+        <option value="df">DFC</option>
       </select>
     </div>
   </aside>
@@ -238,12 +238,41 @@ function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg
 function badge(s){
   const tone={"Actif":"ok","Inactif":"mut",
     "En préparation":"mut","Publié":"info","Attribué":"info","Notifié":"info","En exécution":"ok","Soldé":"ok",
-    "Brouillon":"mut","Validée":"info","Envoyée":"info","Livrée":"ok","Clôturée":"ok",
-    "Reçue":"info","Contrôlée":"warn","Rejetée":"bad","Payée":"ok"}[s]||"mut";
+    "Brouillon":"mut","En attente de visa":"warn","Visée":"info","Signée DG":"info","Envoyée":"info","Livrée":"ok","Clôturée":"ok",
+    "À contrôler":"info","Bon à payer":"warn","Mandatement":"info","Rejetée":"bad","Payée":"ok",
+    "Créé":"mut","Contrôlé N+1":"warn","Signé DG":"info","Rattaché":"ok"}[s]||"mut";
   return `<span class="badge ${tone}">${esc(s||"—")}</span>`;
 }
 
-const DIRECTIONS = ["Direction Générale","DSI","Direction des Ressources Humaines","Direction de la Maîtrise d'Ouvrage","Direction de la Gestion Locative","Direction Financière","Direction du Patrimoine"];
+const DIRECTIONS = ["SG","DFC","DCL","DCP"];
+const DIRECTIONS_LABEL = {SG:"Secrétariat Général", DFC:"Direction Financière et Comptable", DCL:"Direction de la Clientèle Locative", DCP:"Direction de la Construction et du Patrimoine"};
+function directionCode(direction){ return String(DIRECTIONS.indexOf(direction)+1).padStart(3,"0"); }
+// Un compte parent (ex. 2183) porte son propre plafond ; chaque direction dépense sur son
+// compte enfant (compte parent + code direction, ex. 2183001 pour le SG), dont le total est
+// toujours recalculé en direct (jamais stocké) pour rester comparable au plafond du parent.
+function compteEnfantCode(compteParentId, direction){ const p=DB.comptesParents.find(x=>x.id===compteParentId); return p?`${p.code}${directionCode(direction)}`:"—"; }
+function totalEnfants(compteParentId, exercice){ return DB.budgetLignes.filter(l=>l.compteParentId===compteParentId && l.exercice===exercice).reduce((s,l)=>s+l.alloue,0); }
+
+/* ---------- Numérotation automatique (AAMMJJ + index sur 2 chiffres = 8 chiffres), non modifiable ---------- */
+function numeroAuto(list){
+  const d=new Date();
+  const prefix = String(d.getFullYear()).slice(-2) + String(d.getMonth()+1).padStart(2,"0") + String(d.getDate()).padStart(2,"0");
+  const duJour = (list||[]).filter(x=>(x.numero||"").startsWith(prefix));
+  return prefix + String(duJour.length+1).padStart(2,"0");
+}
+
+/* ---------- Lignes (produits/prestations) : garantie, TVA, remise ---------- */
+function tauxTVAFor(type){ return type==="Prestation" ? 13 : 16; }
+function calcLigne(l){
+  const brut=(Number(l.quantite)||0)*(Number(l.puHT)||0);
+  const remise=brut*(Number(l.remisePct)||0)/100;
+  const ht=brut-remise;
+  const tva=ht*tauxTVAFor(l.type)/100;
+  return { brut, remise, ht, tva, ttc: ht+tva };
+}
+function calcLignesTotal(lignes){
+  return (lignes||[]).reduce((acc,l)=>{ const c=calcLigne(l); acc.brut+=c.brut; acc.remise+=c.remise; acc.ht+=c.ht; acc.tva+=c.tva; acc.ttc+=c.ttc; return acc; }, {brut:0,remise:0,ht:0,tva:0,ttc:0});
+}
 
 /* ---------- Données de démonstration ---------- */
 function seed(){
@@ -259,11 +288,19 @@ function seed(){
   const tid=n=>tiers[n].id;
 
   const exercice=String(new Date().getFullYear());
+  const comptesParents = [
+    {exercice, code:"615", libelle:"Entretien et réparations", montantLimite:15000000},
+    {exercice, code:"2183", libelle:"Matériel informatique", montantLimite:4000000},
+    {exercice, code:"606", libelle:"Fournitures non stockables", montantLimite:1200000},
+    {exercice, code:"604", libelle:"Achats d'études et prestations de services", montantLimite:8000000}
+  ].map(p=>({id:uid("cp_"), ...p}));
+  const cpid=n=>comptesParents[n].id;
+
   const budgetLignes = [
-    {exercice, direction:"Direction du Patrimoine", nature:"Travaux d'entretien du parc locatif", alloue:15000000},
-    {exercice, direction:"DSI", nature:"Matériel et logiciels informatiques", alloue:4000000},
-    {exercice, direction:"Direction Générale", nature:"Fournitures de bureau", alloue:1200000},
-    {exercice, direction:"Direction de la Maîtrise d'Ouvrage", nature:"Études et maîtrise d'œuvre", alloue:8000000}
+    {exercice, compteParentId:cpid(0), direction:"DCP", libelle:"Travaux d'entretien du parc locatif", alloue:15000000},
+    {exercice, compteParentId:cpid(1), direction:"SG", libelle:"Matériel et logiciels informatiques", alloue:4000000},
+    {exercice, compteParentId:cpid(2), direction:"SG", libelle:"Fournitures de bureau", alloue:1200000},
+    {exercice, compteParentId:cpid(3), direction:"DCP", libelle:"Études et maîtrise d'œuvre", alloue:8000000}
   ].map(b=>({id:uid("bl_"), ...b}));
   const blid=n=>budgetLignes[n].id;
 
@@ -273,30 +310,70 @@ function seed(){
   ].map(m=>({id:uid("mp_"), ...m}));
   const mid=n=>marches[n].id;
 
+  // Numérotation auto AAMMJJ + index du jour sur 2 chiffres (8 chiffres au total), non modifiable.
+  const jour = String(exercice).slice(-2) + String(new Date().getMonth()+1).padStart(2,"0") + String(new Date().getDate()).padStart(2,"0");
+  const numBc = n => jour + String(n+1).padStart(2,"0");
+  const numFa = n => jour + String(n+1).padStart(2,"0");
+
   const commandes = [
-    {numero:"BC-2026-001", tiersId:tid(0), marcheId:null, ligneBudgetId:blid(2), objet:"Fournitures de bureau — 3ème trimestre", montant:180000, dateCommande:"2026-07-05", statut:"Livrée", serviceFait:true},
-    {numero:"BC-2026-002", tiersId:tid(2), marcheId:null, ligneBudgetId:blid(1), objet:"Renouvellement 5 postes informatiques", montant:950000, dateCommande:"2026-07-20", statut:"Livrée", serviceFait:true},
-    {numero:"BC-2026-003", tiersId:tid(1), marcheId:mid(0), ligneBudgetId:blid(0), objet:"Acompte travaux toiture Teavaraa", montant:3000000, dateCommande:"2026-08-01", statut:"Validée", serviceFait:false},
-    {numero:"BC-2026-004", tiersId:tid(3), marcheId:null, ligneBudgetId:blid(2), objet:"Mobilier de bureau", montant:320000, dateCommande:"2026-09-02", statut:"Envoyée", serviceFait:false}
-  ].map(c=>({id:uid("cm_"), ...c}));
+    {numero:numBc(0), tiersId:tid(0), marcheId:null, objet:"Fournitures de bureau — 3ème trimestre", dateCommande:"2026-07-05", statut:"Livrée", serviceFait:true,
+      lignes:[{id:uid("li_"), designation:"Fournitures de bureau T3", type:"Produit", quantite:1, puHT:150000, remisePct:0, garantieMois:0, ligneBudgetId:blid(2)}]},
+    {numero:numBc(1), tiersId:tid(2), marcheId:null, objet:"Renouvellement 5 postes informatiques", dateCommande:"2026-07-20", statut:"Livrée", serviceFait:true,
+      lignes:[{id:uid("li_"), designation:"Poste informatique complet", type:"Produit", quantite:5, puHT:150000, remisePct:0, garantieMois:24, ligneBudgetId:blid(1)}]},
+    {numero:numBc(2), tiersId:tid(1), marcheId:mid(0), objet:"Acompte travaux toiture Teavaraa", dateCommande:"2026-08-01", statut:"Signée DG", serviceFait:false,
+      lignes:[{id:uid("li_"), designation:"Acompte travaux toiture Teavaraa", type:"Prestation", quantite:1, puHT:2500000, remisePct:0, garantieMois:0, ligneBudgetId:blid(0)}]},
+    {numero:numBc(3), tiersId:tid(3), marcheId:null, objet:"Mobilier de bureau", dateCommande:"2026-09-02", statut:"Envoyée", serviceFait:false,
+      lignes:[{id:uid("li_"), designation:"Bureau + caisson de rangement", type:"Produit", quantite:4, puHT:69000, remisePct:0, garantieMois:12, ligneBudgetId:blid(2)}]}
+  ].map(c=>({id:uid("cm_"), ...c, montant:calcLignesTotal(c.lignes).ttc}));
   const cid=n=>commandes[n].id;
 
   const factures = [
-    {numero:"FA-8841", tiersId:tid(0), commandeId:cid(0), montant:180000, dateReception:"2026-07-18", dateEcheance:"2026-08-18", statut:"Payée", datePaiement:"2026-08-10"},
-    {numero:"FA-2201", tiersId:tid(2), commandeId:cid(1), montant:950000, dateReception:"2026-08-02", dateEcheance:"2026-09-02", statut:"Validée", datePaiement:null},
-    {numero:"FA-5567", tiersId:tid(1), commandeId:cid(2), montant:3000000, dateReception:"2026-09-10", dateEcheance:"2026-10-10", statut:"Contrôlée", datePaiement:null},
-    {numero:"FA-9012", tiersId:tid(3), commandeId:cid(3), montant:320000, dateReception:"2026-09-15", dateEcheance:"2026-10-15", statut:"Reçue", datePaiement:null}
-  ].map(f=>({id:uid("fa_"), ...f, historique:[{action:"Facture reçue", date:f.dateReception, commentaire:""}]}));
+    {numero:numFa(0), numeroFournisseur:"FA-8841", tiersId:tid(0), commandeId:cid(0), marcheId:null, dateReception:"2026-07-18", dateEcheance:"2026-08-18", statut:"Payée", datePaiement:"2026-08-10", penaliteMontant:0, penaliteMotif:"",
+      lignes:[{id:uid("li_"), designation:"Fournitures de bureau T3", type:"Produit", quantite:1, puHT:150000, remisePct:0, garantieMois:0, ligneBudgetId:blid(2)}]},
+    {numero:numFa(1), numeroFournisseur:"FA-2201", tiersId:tid(2), commandeId:cid(1), marcheId:null, dateReception:"2026-08-02", dateEcheance:"2026-09-02", statut:"Mandatement", datePaiement:null, penaliteMontant:0, penaliteMotif:"",
+      lignes:[{id:uid("li_"), designation:"Poste informatique complet", type:"Produit", quantite:5, puHT:150000, remisePct:0, garantieMois:24, ligneBudgetId:blid(1)}]},
+    {numero:numFa(2), numeroFournisseur:"FA-5567", tiersId:tid(1), commandeId:cid(2), marcheId:null, dateReception:"2026-09-10", dateEcheance:"2026-10-10", statut:"Bon à payer", datePaiement:null, penaliteMontant:0, penaliteMotif:"",
+      lignes:[{id:uid("li_"), designation:"Acompte travaux toiture Teavaraa", type:"Prestation", quantite:1, puHT:2500000, remisePct:0, garantieMois:0, ligneBudgetId:blid(0)}]},
+    {numero:numFa(3), numeroFournisseur:"FA-9012", tiersId:tid(3), commandeId:cid(3), marcheId:null, dateReception:"2026-09-15", dateEcheance:"2026-10-15", statut:"À contrôler", datePaiement:null, penaliteMontant:0, penaliteMotif:"",
+      lignes:[{id:uid("li_"), designation:"Bureau + caisson de rangement", type:"Produit", quantite:4, puHT:69000, remisePct:0, garantieMois:12, ligneBudgetId:blid(2)}]},
+    {numero:numFa(4), numeroFournisseur:"FA-6630", tiersId:tid(4), commandeId:null, marcheId:mid(1), dateReception:"2026-09-05", dateEcheance:"2026-10-05", statut:"À contrôler", datePaiement:null, penaliteMontant:0, penaliteMotif:"",
+      lignes:[{id:uid("li_"), designation:"Prestation de maîtrise d'œuvre — phase esquisse", type:"Prestation", quantite:1, puHT:800000, remisePct:0, garantieMois:0, ligneBudgetId:blid(3)}]}
+  ].map(f=>({id:uid("fa_"), ...f, montant:calcLignesTotal(f.lignes).ttc, historique:[{action:"Facture reçue", date:f.dateReception, commentaire:""}]}));
+  const fid=n=>factures[n].id;
 
-  return { tiers, budgetLignes, marches, commandes, factures };
+  const virements = [];
+
+  const certificatsAdministratifs = [
+    {numero:jour+"90", serviceEmetteur:"DCP", objet:"Réparation urgente d'une fuite de toiture non prévue au marché", montant:450000, dateCreation:"2026-09-08", statut:"Créé", factureId:null},
+    {numero:jour+"91", serviceEmetteur:"SG", objet:"Remplacement d'un onduleur hors service", montant:180000, dateCreation:"2026-07-22", statut:"Rattaché", factureId:fid(1)}
+  ].map(c=>({id:uid("ca_"), ...c}));
+  factures[1].certificatAdministratifId = certificatsAdministratifs[1].id;
+
+  return { tiers, comptesParents, budgetLignes, marches, commandes, factures, virements, certificatsAdministratifs };
 }
 function migrate(db){
   if(!db.tiers) db.tiers=[];
+  if(!db.comptesParents) db.comptesParents=[];
   if(!db.budgetLignes) db.budgetLignes=[];
+  // Compatibilité avec l'ancien modèle à plat (compteBase en toutes lettres sur la ligne) :
+  // reconstitue un compte parent par code+exercice rencontré, une seule fois.
+  db.budgetLignes.forEach(l=>{
+    if(l.compteParentId) return;
+    const code=l.compteBase||"606";
+    let p=db.comptesParents.find(x=>x.code===code && x.exercice===l.exercice);
+    if(!p){ p={id:uid("cp_"), exercice:l.exercice, code, libelle:l.nature||code, montantLimite:l.alloue||0}; db.comptesParents.push(p); }
+    l.compteParentId=p.id;
+    if(!l.libelle) l.libelle=l.nature||"";
+    delete l.compteBase; delete l.nature;
+    if(!DIRECTIONS.includes(l.direction)) l.direction=DIRECTIONS[0];
+  });
   if(!db.marches) db.marches=[];
   if(!db.commandes) db.commandes=[];
+  db.commandes.forEach(c=>{ if(!c.lignes) c.lignes=[]; if(c.montant==null) c.montant=calcLignesTotal(c.lignes).ttc; });
   if(!db.factures) db.factures=[];
-  db.factures.forEach(f=>{ if(!f.historique) f.historique=[]; });
+  db.factures.forEach(f=>{ if(!f.historique) f.historique=[]; if(!f.lignes) f.lignes=[]; if(f.montant==null) f.montant=calcLignesTotal(f.lignes).ttc; if(f.penaliteMontant==null) f.penaliteMontant=0; if(!f.numeroFournisseur) f.numeroFournisseur=f.numero||""; });
+  if(!db.virements) db.virements=[];
+  if(!db.certificatsAdministratifs) db.certificatsAdministratifs=[];
   return db;
 }
 let DB=null;
@@ -317,12 +394,27 @@ function renderSessionBar(){
 function roleHome(){ return ROLE_MODULES[SESSION.role][0]; }
 
 function tiersName(id){ const t=DB.tiers.find(x=>x.id===id); return t?t.raisonSociale:"—"; }
-function ligneLabel(id){ const l=DB.budgetLignes.find(x=>x.id===id); return l?`${l.direction} — ${l.nature}`:"—"; }
+function ligneLabel(id){ const l=DB.budgetLignes.find(x=>x.id===id); return l?`${compteEnfantCode(l.compteParentId,l.direction)} · ${l.direction} — ${l.libelle}`:"—"; }
 function commandeLabel(id){ const c=DB.commandes.find(x=>x.id===id); return c?`${c.numero} · ${esc(c.objet)}`:"—"; }
-function ligneEngage(ligneId){ return DB.commandes.filter(c=>c.ligneBudgetId===ligneId && c.statut!=="Clôturée").reduce((s,c)=>s+c.montant,0); }
-function ligneConsomme(ligneId){
-  const cmdIds=new Set(DB.commandes.filter(c=>c.ligneBudgetId===ligneId).map(c=>c.id));
-  return DB.factures.filter(f=>f.commandeId && cmdIds.has(f.commandeId) && f.statut==="Payée").reduce((s,f)=>s+f.montant,0);
+function marcheLabel(id){ const m=DB.marches.find(x=>x.id===id); return m?m.objet:"—"; }
+// Chaque ligne de BC/facture peut être imputée sur un compte budgétaire différent : l'engagé (BC
+// ou marché) et le liquidé (facturé) d'un compte enfant se calculent donc en sommant les lignes
+// des commandes/factures et le montant des marchés qui le référencent, jamais au niveau de
+// l'en-tête du document, ni stockés.
+function ligneEngage(ligneId){
+  let total=0;
+  DB.commandes.filter(c=>c.statut!=="Clôturée").forEach(c=>{
+    (c.lignes||[]).forEach(l=>{ if(l.ligneBudgetId===ligneId) total+=calcLigne(l).ttc; });
+  });
+  DB.marches.filter(m=>m.statut!=="Soldé" && m.ligneBudgetId===ligneId).forEach(m=>{ total+=m.montant; });
+  return total;
+}
+function ligneLiquide(ligneId){
+  let total=0;
+  DB.factures.filter(f=>f.statut!=="Rejetée").forEach(f=>{
+    (f.lignes||[]).forEach(l=>{ if(l.ligneBudgetId===ligneId) total+=calcLigne(l).ttc; });
+  });
+  return total;
 }
 
 /* ---------- Navigation ---------- */
@@ -332,7 +424,8 @@ const NAV_ACHATS = [
   {id:"budget", label:"Budget", icon:I.budget, group:"Référentiels"},
   {id:"marches", label:"Marchés publics", icon:I.marches, group:"Chaîne d'achat"},
   {id:"commandes", label:"Commandes", icon:I.commandes, group:"Chaîne d'achat"},
-  {id:"factures", label:"Factures", icon:I.factures, group:"Chaîne d'achat"}
+  {id:"factures", label:"Factures", icon:I.factures, group:"Chaîne d'achat"},
+  {id:"certificats", label:"Certificats administratifs", icon:I.factures, group:"Chaîne d'achat"}
 ];
 const NAV_DF = [
   {id:"factures-controle", label:"Factures à valider", icon:I.factures},
@@ -343,6 +436,9 @@ const ROLE_MODULES = {achats:NAV_ACHATS.map(n=>n.id), df:NAV_DF.map(n=>n.id)};
 
 let view = {module:"dashboard", search:"", filter:""};
 function go(module){ view={...view, module, search:"", filter:""}; render(); }
+// Exercice budgétaire actif : filtre l'écran Budget, le virement de crédits et les comptes
+// proposés lors de la saisie des lignes de BC/facture. Les budgets sont gérés annuellement.
+let budgetExercice = String(new Date().getFullYear());
 function renderNav(){
   const items=ROLE_NAV[SESSION.role]||NAV_ACHATS;
   let html="", lastGroup="__";
@@ -350,7 +446,8 @@ function renderNav(){
     if(n.group!==lastGroup){ if(n.group) html+=`<div class="nav-group">${n.group}</div>`; lastGroup=n.group; }
     const active=view.module===n.id?"active":"";
     let cnt="";
-    if(n.id==="factures"||n.id==="factures-controle"){ const c=DB.factures.filter(f=>f.statut==="Contrôlée"||f.statut==="Reçue").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    if(n.id==="factures"||n.id==="factures-controle"){ const c=DB.factures.filter(f=>f.statut==="Bon à payer"||f.statut==="À contrôler").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    if(n.id==="certificats"){ const c=DB.certificatsAdministratifs.filter(x=>x.statut!=="Rattaché").length; if(c) cnt=`<span class="count">${c}</span>`; }
     html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${esc(n.label)}</span>${cnt}</a>`;
   });
   document.getElementById("nav").innerHTML=html;
@@ -397,14 +494,22 @@ const FORMS = {
     ],
     defaults:()=>({type:["Fournisseur"],formeJuridique:"SARL",statut:"Actif"})
   },
-  budgetLignes:{ title:"ligne budgétaire",
+  comptesParents:{ title:"compte parent",
     fields:[
-      {k:"exercice",l:"Exercice",t:"text",req:true},
-      {k:"direction",l:"Direction",t:"select",o:DIRECTIONS,req:true},
-      {k:"nature",l:"Nature de la dépense",t:"text",req:true,full:true},
+      {k:"code",l:"Compte comptable",t:"text",req:true,hint:"Ex : 2183"},
+      {k:"libelle",l:"Libellé",t:"text",req:true,full:true},
+      {k:"montantLimite",l:"Plafond global (XPF)",t:"number",req:true,hint:"Enveloppe maximale du compte, tous comptes enfants confondus."}
+    ],
+    defaults:()=>({montantLimite:1000000})
+  },
+  budgetLignes:{ title:"compte enfant",
+    fields:[
+      {k:"compteParentId",l:"Compte parent",t:"ref",coll:"comptesParents",labelFn:p=>`${p.code} — ${p.libelle}`,req:true},
+      {k:"direction",l:"Direction",t:"select",o:DIRECTIONS,req:true,hint:"Chaque direction dépense sur son propre sous-compte (ex : 2183001 pour le SG, 2183002 pour la DFC…)."},
+      {k:"libelle",l:"Libellé",t:"text",req:true,full:true},
       {k:"alloue",l:"Montant alloué (XPF)",t:"number",req:true}
     ],
-    defaults:()=>({exercice:String(new Date().getFullYear()),direction:DIRECTIONS[0],alloue:1000000})
+    defaults:()=>({compteParentId:(DB.comptesParents.find(p=>p.exercice===budgetExercice)||{}).id,direction:DIRECTIONS[0],alloue:1000000})
   },
   marches:{ title:"marché",
     fields:[
@@ -419,33 +524,17 @@ const FORMS = {
     ],
     defaults:()=>({typeProcedure:"Consultation simplifiée",dateNotification:todayISO(),dureeMois:6,statut:"En préparation"})
   },
-  commandes:{ title:"commande",
+  certificatsAdministratifs:{ title:"certificat administratif",
     fields:[
-      {k:"numero",l:"Numéro",t:"text",req:true},
-      {k:"tiersId",l:"Fournisseur",t:"ref",coll:"tiers",labelFn:t=>t.raisonSociale,req:true},
-      {k:"marcheId",l:"Marché lié (optionnel)",t:"ref",coll:"marches",labelFn:m=>m.objet},
-      {k:"ligneBudgetId",l:"Ligne budgétaire",t:"ref",coll:"budgetLignes",labelFn:ligneLabel_,req:true},
-      {k:"objet",l:"Objet",t:"text",req:true,full:true},
+      {k:"serviceEmetteur",l:"Service émetteur",t:"select",o:DIRECTIONS,req:true},
+      {k:"objet",l:"Objet (anomalie ou dépense imprévue)",t:"textarea",full:true,req:true},
       {k:"montant",l:"Montant (XPF)",t:"number",req:true},
-      {k:"dateCommande",l:"Date de commande",t:"date",req:true},
-      {k:"statut",l:"Statut",t:"select",o:["Brouillon","Validée","Envoyée","Livrée","Clôturée"]},
-      {k:"serviceFait",l:"Service fait constaté",t:"bool"}
+      {k:"dateCreation",l:"Date",t:"date",req:true}
     ],
-    defaults:()=>({numero:"BC-"+new Date().getFullYear()+"-"+String(DB.commandes.length+1).padStart(3,"0"),dateCommande:todayISO(),statut:"Brouillon",serviceFait:false})
-  },
-  factures:{ title:"facture",
-    fields:[
-      {k:"numero",l:"N° de facture fournisseur",t:"text",req:true},
-      {k:"tiersId",l:"Fournisseur",t:"ref",coll:"tiers",labelFn:t=>t.raisonSociale,req:true},
-      {k:"commandeId",l:"Commande liée",t:"ref",coll:"commandes",labelFn:c=>c.numero+" — "+c.objet},
-      {k:"montant",l:"Montant (XPF)",t:"number",req:true},
-      {k:"dateReception",l:"Date de réception",t:"date",req:true},
-      {k:"dateEcheance",l:"Date d'échéance",t:"date"}
-    ],
-    defaults:()=>({dateReception:todayISO()})
+    defaults:()=>({serviceEmetteur:DIRECTIONS[0],dateCreation:todayISO(),numero:numeroAuto(DB.certificatsAdministratifs),statut:"Créé",factureId:null})
   }
 };
-function ligneLabel_(l){ return `${l.direction} — ${l.nature} (${l.exercice})`; }
+function ligneLabel_(l){ return `${compteEnfantCode(l.compteParentId,l.direction)} · ${l.direction} — ${l.libelle} (${l.exercice})`; }
 
 function openForm(module, id=null, preset={}){
   const cfg=FORMS[module]; const coll=DB[module];
@@ -505,32 +594,54 @@ function render(){
   act.innerHTML="";
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble budgétaire et de la chaîne d'achat"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
   if(view.module==="tiers"){ t.textContent="Tiers"; s.textContent="Clients et fournisseurs"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau tiers</button>`; c.innerHTML=renderTiers(); wireToolbar(renderTiers, bindTiers); bindTiers(); document.getElementById("addBtn").onclick=()=>openForm("tiers"); return; }
-  if(view.module==="budget"){ t.textContent = SESSION.role==="df"?"Suivi budgétaire":"Budget"; s.textContent="Alloué, engagé, consommé par ligne"; if(SESSION.role!=="df") act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle ligne</button>`; c.innerHTML=renderBudget(); bindBudget(); if(SESSION.role!=="df") document.getElementById("addBtn").onclick=()=>openForm("budgetLignes"); return; }
+  if(view.module==="budget"){
+    t.textContent = SESSION.role==="df"?"Suivi budgétaire":"Budget";
+    s.textContent="Comptes parents et comptes enfants par direction — alloué, engagé (BC ou marché), liquidé (facturé)";
+    if(SESSION.role!=="df"){
+      act.innerHTML=`<button class="btn ghost sm" id="importBtn">${svg(I.plus,'ic')} Importer des comptes</button>
+        <button class="btn ghost sm" id="addParentBtn">${svg(I.plus,'ic')} Compte parent</button>
+        <button class="btn ghost sm" id="addEnfantBtn">${svg(I.plus,'ic')} Compte enfant</button>
+        <button class="btn ghost sm" id="nouvelExerciceBtn">${svg(I.budget,'ic')} Nouvel exercice</button>`;
+    } else {
+      act.innerHTML=`<button class="btn primary" id="virementBtn">${svg(I.budget,'ic')} Virement de crédits</button>`;
+    }
+    c.innerHTML=renderBudget(); bindBudget();
+    if(SESSION.role!=="df"){
+      document.getElementById("importBtn").onclick=()=>openImporterComptesModal();
+      document.getElementById("addParentBtn").onclick=()=>openForm("comptesParents", null, {exercice:budgetExercice});
+      document.getElementById("addEnfantBtn").onclick=()=>openForm("budgetLignes", null, {exercice:budgetExercice});
+      document.getElementById("nouvelExerciceBtn").onclick=()=>openNouvelExerciceModal();
+    } else {
+      document.getElementById("virementBtn").onclick=()=>openVirementModal();
+    }
+    return;
+  }
   if(view.module==="marches"){ t.textContent="Marchés publics"; s.textContent="CCTP, BPU et suivi de l'exécution"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau marché</button>`; c.innerHTML=renderMarches(); wireToolbar(renderMarches, bindMarches); bindMarches(); document.getElementById("addBtn").onclick=()=>openForm("marches"); return; }
-  if(view.module==="commandes"){ t.textContent="Commandes"; s.textContent="Bons de commande et engagements"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle commande</button>`; c.innerHTML=renderCommandes(); wireToolbar(renderCommandes, bindCommandes); bindCommandes(); document.getElementById("addBtn").onclick=()=>openForm("commandes"); return; }
-  if(view.module==="factures"){ t.textContent="Factures"; s.textContent="Réception, contrôle et règlement"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle facture</button>`; c.innerHTML=renderFactures(); wireToolbar(renderFactures, bindFactures); bindFactures(); document.getElementById("addBtn").onclick=()=>openForm("factures"); return; }
+  if(view.module==="commandes"){ t.textContent="Commandes"; s.textContent="Bons de commande et engagements"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle commande</button>`; c.innerHTML=renderCommandes(); wireToolbar(renderCommandes, bindCommandes); bindCommandes(); document.getElementById("addBtn").onclick=()=>openCommandeModal(); return; }
+  if(view.module==="factures"){ t.textContent="Factures"; s.textContent="Réception, contrôle et règlement"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle facture</button>`; c.innerHTML=renderFactures(); wireToolbar(renderFactures, bindFactures); bindFactures(); document.getElementById("addBtn").onclick=()=>openFactureModal(); return; }
   if(view.module==="factures-controle"){ t.textContent="Factures à valider"; s.textContent="Toutes les factures non payées, tous fournisseurs confondus"; c.innerHTML=renderFacturesControle(); bindFacturesControle(); return; }
+  if(view.module==="certificats"){ t.textContent="Certificats administratifs"; s.textContent="Justification d'une anomalie ou d'une dépense imprévue"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau certificat</button>`; c.innerHTML=renderCertificats(); wireToolbar(renderCertificats, bindCertificats); bindCertificats(); document.getElementById("addBtn").onclick=()=>openForm("certificatsAdministratifs"); return; }
 }
 
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
-  const alloueTotal=DB.budgetLignes.reduce((s,l)=>s+l.alloue,0);
-  const engageTotal=DB.budgetLignes.reduce((s,l)=>s+ligneEngage(l.id),0);
-  const consommeTotal=DB.budgetLignes.reduce((s,l)=>s+ligneConsomme(l.id),0);
-  const facturesAttente=DB.factures.filter(f=>f.statut==="Reçue"||f.statut==="Contrôlée");
+  const lignesExercice=DB.budgetLignes.filter(l=>l.exercice===budgetExercice);
+  const alloueTotal=lignesExercice.reduce((s,l)=>s+l.alloue,0);
+  const engageTotal=lignesExercice.reduce((s,l)=>s+ligneEngage(l.id),0);
+  const facturesAttente=DB.factures.filter(f=>f.statut==="À contrôler"||f.statut==="Bon à payer");
   const marchesEnCours=DB.marches.filter(m=>m.statut==="En exécution"||m.statut==="Notifié").length;
   const pct = alloueTotal? Math.round((engageTotal/alloueTotal)*100) : 0;
   const recentesFactures=DB.factures.slice().sort((a,b)=>(b.dateReception||"").localeCompare(a.dateReception||"")).slice(0,5);
   return `
     <div class="kpi-grid">
-      <div class="kpi" data-goto="budget"><div class="k-lbl">Budget alloué (${DB.budgetLignes[0]?.exercice||""})</div><div class="k-val" style="font-size:22px">${fmtMoney(alloueTotal)}</div></div>
+      <div class="kpi" data-goto="budget"><div class="k-lbl">Budget alloué (${esc(budgetExercice)})</div><div class="k-val" style="font-size:22px">${fmtMoney(alloueTotal)}</div></div>
       <div class="kpi" data-goto="budget"><div class="k-lbl">Engagé</div><div class="k-val" style="font-size:22px">${fmtMoney(engageTotal)}</div><div class="k-meta ${pct>90?'bad':pct>70?'warn':'ok'}">${pct}% du budget</div></div>
       <div class="kpi" data-goto="factures"><div class="k-lbl">Factures en attente</div><div class="k-val">${facturesAttente.length}</div><div class="k-meta ${facturesAttente.length?'warn':'ok'}">${facturesAttente.length?fmtMoney(facturesAttente.reduce((s,f)=>s+f.montant,0)):"À jour"}</div></div>
       <div class="kpi" data-goto="marches"><div class="k-lbl">Marchés en cours</div><div class="k-val">${marchesEnCours}</div></div>
     </div>
     <div class="panels">
       <div class="panel"><div class="panel-head"><h3>Dernières factures reçues</h3></div><div class="panel-body">${recentesFactures.map(f=>`<div class="mini-row"><div><div class="who">${esc(tiersName(f.tiersId))}</div><div class="det">${esc(f.numero)} · ${fmtMoney(f.montant)} · ${fmtDate(f.dateReception)}</div></div><div class="spacer"></div>${badge(f.statut)}</div>`).join("")||'<div class="empty">Aucune facture.</div>'}</div></div>
-      <div class="panel"><div class="panel-head"><h3>Lignes budgétaires les plus engagées</h3></div><div class="panel-body">${DB.budgetLignes.slice().sort((a,b)=>ligneEngage(b.id)-ligneEngage(a.id)).slice(0,5).map(l=>{const e=ligneEngage(l.id),p=l.alloue?Math.min(100,Math.round(e/l.alloue*100)):0;return `<div class="mini-row" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;justify-content:space-between"><span class="who">${esc(l.nature)}</span><span class="det">${p}%</span></div><div class="bar ${p>=100?'over':''}"><span style="width:${p}%"></span></div></div>`;}).join("")||'<div class="empty">Aucune ligne.</div>'}</div></div>
+      <div class="panel"><div class="panel-head"><h3>Comptes les plus engagés</h3></div><div class="panel-body">${lignesExercice.slice().sort((a,b)=>ligneEngage(b.id)-ligneEngage(a.id)).slice(0,5).map(l=>{const e=ligneEngage(l.id),p=l.alloue?Math.min(100,Math.round(e/l.alloue*100)):0;return `<div class="mini-row" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;justify-content:space-between"><span class="who">${esc(compteEnfantCode(l.compteParentId,l.direction))} — ${esc(l.libelle)}</span><span class="det">${p}%</span></div><div class="bar ${p>=100?'over':''}"><span style="width:${p}%"></span></div></div>`;}).join("")||'<div class="empty">Aucune ligne.</div>'}</div></div>
     </div>`;
 }
 function bindDashboard(){ document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto)); }
@@ -555,25 +666,166 @@ function bindTiers(){
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("tiers", el.dataset.del));
 }
 
-/* ---------- Budget ---------- */
+/* ---------- Budget (comptes parents / comptes enfants par direction) ---------- */
 function renderBudget(){
-  const cols=[{h:"Direction"},{h:"Nature"},{h:"Alloué",num:true},{h:"Engagé",num:true},{h:"Consommé",num:true},{h:"Disponible",num:true},{h:""}];
-  const body=DB.budgetLignes.map(l=>{
-    const engage=ligneEngage(l.id), consomme=ligneConsomme(l.id), dispo=l.alloue-engage;
-    const pct=l.alloue?Math.min(100,Math.round(engage/l.alloue*100)):0;
-    return `<tr>
-      <td class="cell-name">${esc(l.direction)}</td>
-      <td>${esc(l.nature)}<div class="bar ${pct>=100?'over':''}" style="margin-top:6px;width:140px"><span style="width:${pct}%"></span></div></td>
-      <td class="num">${fmtMoney(l.alloue)}</td>
-      <td class="num">${fmtMoney(engage)}</td>
-      <td class="num">${fmtMoney(consomme)}</td>
-      <td class="num" style="font-weight:700;color:${dispo<0?'var(--bad)':'inherit'}">${fmtMoney(dispo)}</td>
-      <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button></div>`:""}</td>
+  const exercices=Array.from(new Set(DB.comptesParents.map(p=>p.exercice).concat(DB.budgetLignes.map(l=>l.exercice)).concat([budgetExercice]))).sort().reverse();
+  const selector=`<div class="toolbar"><div class="field" style="max-width:160px;margin:0"><label>Exercice budgétaire</label><select id="exerciceSelect">${exercices.map(e=>`<option value="${esc(e)}" ${e===budgetExercice?"selected":""}>${esc(e)}</option>`).join("")}</select></div></div>`;
+  const parents=DB.comptesParents.filter(p=>p.exercice===budgetExercice).sort((a,b)=>a.code.localeCompare(b.code));
+  const cols=[{h:"Compte"},{h:"Direction / Libellé"},{h:"Total budget",num:true},{h:"Total par enfant",num:true},{h:"Engagé",num:true},{h:"Liquidé",num:true},{h:"Disponible",num:true},{h:""}];
+  let body="";
+  parents.forEach(p=>{
+    const enfants=DB.budgetLignes.filter(l=>l.compteParentId===p.id && l.exercice===budgetExercice);
+    const totalEnfants=enfants.reduce((s,l)=>s+l.alloue,0);
+    const engageParent=enfants.reduce((s,l)=>s+ligneEngage(l.id),0);
+    const liquideParent=enfants.reduce((s,l)=>s+ligneLiquide(l.id),0);
+    const dispoParent=p.montantLimite-engageParent;
+    const depasse = totalEnfants>p.montantLimite;
+    body+=`<tr style="background:var(--surface-2)">
+      <td class="cell-name">${esc(p.code)}</td>
+      <td class="cell-name">${esc(p.libelle)}</td>
+      <td class="num" style="font-weight:800">${fmtMoney(p.montantLimite)}</td>
+      <td class="num" style="font-weight:800;color:${depasse?'var(--bad)':'inherit'}">${fmtMoney(totalEnfants)}</td>
+      <td class="num" style="font-weight:800">${fmtMoney(engageParent)}</td>
+      <td class="num" style="font-weight:800">${fmtMoney(liquideParent)}</td>
+      <td class="num" style="font-weight:800;color:${dispoParent<0?'var(--bad)':'inherit'}">${fmtMoney(dispoParent)}</td>
+      <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-editparent="${p.id}" title="Modifier le plafond">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-delparent="${p.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}</td>
     </tr>`;
-  }).join("");
-  return tableShell(cols, body);
+    enfants.forEach(l=>{
+      const engage=ligneEngage(l.id), liquide=ligneLiquide(l.id), dispo=l.alloue-engage;
+      const pct=l.alloue?Math.min(100,Math.round(engage/l.alloue*100)):0;
+      body+=`<tr>
+        <td class="cell-sub" style="padding-left:26px">${esc(compteEnfantCode(l.compteParentId,l.direction))}</td>
+        <td>${esc(l.direction)} — ${esc(l.libelle)}<div class="cell-sub">${esc(DIRECTIONS_LABEL[l.direction]||"")}</div><div class="bar ${pct>=100?'over':''}" style="margin-top:6px;width:140px"><span style="width:${pct}%"></span></div></td>
+        <td class="num">—</td>
+        <td class="num">${fmtMoney(l.alloue)}</td>
+        <td class="num">${fmtMoney(engage)}</td>
+        <td class="num">${fmtMoney(liquide)}</td>
+        <td class="num" style="color:${dispo<0?'var(--bad)':'inherit'}">${fmtMoney(dispo)}</td>
+        <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}</td>
+      </tr>`;
+    });
+  });
+  return selector + tableShell(cols, body);
 }
-function bindBudget(){ document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("budgetLignes", el.dataset.edit)); }
+function bindBudget(){
+  const sel=document.getElementById("exerciceSelect");
+  if(sel) sel.onchange=()=>{ budgetExercice=sel.value; render(); };
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("budgetLignes", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("budgetLignes", el.dataset.del));
+  document.querySelectorAll("[data-editparent]").forEach(el=>el.onclick=()=>openForm("comptesParents", el.dataset.editparent));
+  document.querySelectorAll("[data-delparent]").forEach(el=>el.onclick=()=>{
+    if(DB.budgetLignes.some(l=>l.compteParentId===el.dataset.delparent)){ toast("Impossible de supprimer un compte parent tant qu'il a des comptes enfants"); return; }
+    delRecord("comptesParents", el.dataset.delparent);
+  });
+}
+function openVirementModal(){
+  const mr=document.getElementById("modalRoot");
+  const lignesExercice=DB.budgetLignes.filter(l=>l.exercice===budgetExercice);
+  const opts=l=>`<option value="${l.id}">${esc(compteEnfantCode(l.compteParentId,l.direction))} · ${esc(l.direction)} — ${esc(l.libelle)}</option>`;
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Virement de crédits entre comptes (${esc(budgetExercice)})</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="field"><label>Compte source</label><select id="srcSelect">${lignesExercice.map(opts).join("")}</select></div>
+      <div class="field"><label>Compte destination</label><select id="dstSelect">${lignesExercice.map(opts).join("")}</select></div>
+      <div class="field full"><label>Montant à déplacer (XPF)<span class="req"> *</span></label><input id="montantInp" type="number" value="0"></div>
+      <div class="field full"><label>Motif<span class="req"> *</span></label><input id="motifInp" type="text"></div>
+    </div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">Effectuer le virement</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const srcId=document.getElementById("srcSelect").value, dstId=document.getElementById("dstSelect").value;
+    const montant=Number(document.getElementById("montantInp").value)||0;
+    const motif=document.getElementById("motifInp").value;
+    const src=DB.budgetLignes.find(x=>x.id===srcId), dst=DB.budgetLignes.find(x=>x.id===dstId);
+    if(srcId===dstId){ toast("Le compte source et le compte destination doivent être différents"); return; }
+    if(!motif.trim()){ toast("Champ requis : Motif"); return; }
+    if(montant<=0){ toast("Le montant doit être supérieur à zéro"); return; }
+    const disponibleSrc = src.alloue - ligneEngage(src.id);
+    if(montant>disponibleSrc){ toast(`Virement impossible : seulement ${fmtMoney(disponibleSrc)} disponible sur le compte source`); return; }
+    src.alloue -= montant; dst.alloue += montant;
+    DB.virements.push({id:uid("vi_"), date:todayISO(), ligneSourceId:src.id, ligneDestId:dst.id, montant, motif:motif.trim()});
+    save(); close(); toast("Virement de crédits effectué"); render();
+  };
+}
+function openImporterComptesModal(){
+  const mr=document.getElementById("modalRoot");
+  const exemple=`2183;Matériel informatique;500000;300000;200000;400000`;
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:740px">
+    <div class="modal-head"><h3>Importer des comptes budgétaires (${esc(budgetExercice)})</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <p class="hint" style="display:block;margin-bottom:10px">Une ligne par compte, valeurs séparées par des points-virgules : <code>code;libellé;montant ${DIRECTIONS.join(";montant ")}</code>. Le plafond du compte parent est égal à la somme des ${DIRECTIONS.length} montants. Un compte déjà existant pour cet exercice est mis à jour plutôt que dupliqué.<br>Exemple : <code>${esc(exemple)}</code></p>
+      <div class="field full"><textarea id="importText" rows="8" style="min-height:180px;font-family:monospace" placeholder="${esc(exemple)}"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">${svg(I.check,'ic')} Importer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const lines=document.getElementById("importText").value.split("\n").map(l=>l.trim()).filter(Boolean);
+    let ok=0, ko=0;
+    lines.forEach(line=>{
+      const parts=line.split(";").map(s=>s.trim());
+      if(parts.length!==2+DIRECTIONS.length){ ko++; return; }
+      const [code, libelle, ...montants]=parts;
+      const montantsNum=montants.map(Number);
+      if(!code || !libelle || montantsNum.some(m=>isNaN(m))){ ko++; return; }
+      let parent=DB.comptesParents.find(p=>p.code===code && p.exercice===budgetExercice);
+      const montantLimite=montantsNum.reduce((s,m)=>s+m,0);
+      if(!parent){ parent={id:uid("cp_"), exercice:budgetExercice, code, libelle, montantLimite}; DB.comptesParents.push(parent); }
+      else { parent.libelle=libelle; parent.montantLimite=montantLimite; }
+      DIRECTIONS.forEach((direction,i)=>{
+        let enfant=DB.budgetLignes.find(l=>l.compteParentId===parent.id && l.direction===direction && l.exercice===budgetExercice);
+        if(!enfant){ DB.budgetLignes.push({id:uid("bl_"), exercice:budgetExercice, compteParentId:parent.id, direction, libelle, alloue:montantsNum[i]}); }
+        else { enfant.alloue=montantsNum[i]; enfant.libelle=libelle; }
+      });
+      ok++;
+    });
+    if(ok===0){ toast("Aucun compte importé : vérifiez le format de chaque ligne"); return; }
+    save(); close();
+    toast(ko ? `${ok} compte(s) importé(s), ${ko} ligne(s) ignorée(s) (format invalide)` : `${ok} compte(s) importé(s)`);
+    render();
+  };
+}
+function openNouvelExerciceModal(){
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Créer un nouvel exercice budgétaire</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="field"><label>Exercice source</label><input type="text" value="${esc(budgetExercice)}" disabled></div>
+      <div class="field"><label>Nouvel exercice<span class="req"> *</span></label><input id="exerciceInp" type="text" value="${Number(budgetExercice)+1}"></div>
+    </div>
+    <p class="hint" style="display:block;margin-top:10px">Duplique tous les comptes parents (plafonds compris) et comptes enfants de l'exercice source vers le nouvel exercice, avec les mêmes montants — à ajuster ensuite pour la préparation budgétaire de l'année.</p></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">Créer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const nouvel=document.getElementById("exerciceInp").value.trim();
+    if(!nouvel){ toast("Champ requis : Nouvel exercice"); return; }
+    if(nouvel===budgetExercice){ toast("Le nouvel exercice doit être différent de l'exercice source"); return; }
+    if(DB.comptesParents.some(p=>p.exercice===nouvel)){ toast(`L'exercice ${nouvel} existe déjà`); return; }
+    const mapping={};
+    DB.comptesParents.filter(p=>p.exercice===budgetExercice).forEach(p=>{
+      const copy={id:uid("cp_"), exercice:nouvel, code:p.code, libelle:p.libelle, montantLimite:p.montantLimite};
+      DB.comptesParents.push(copy);
+      mapping[p.id]=copy.id;
+    });
+    DB.budgetLignes.filter(l=>l.exercice===budgetExercice).forEach(l=>{
+      DB.budgetLignes.push({id:uid("bl_"), exercice:nouvel, compteParentId:mapping[l.compteParentId], direction:l.direction, libelle:l.libelle, alloue:l.alloue});
+    });
+    save(); close();
+    toast(`Exercice ${nouvel} créé à partir de ${budgetExercice}`);
+    budgetExercice=nouvel; render();
+  };
+}
 
 /* ---------- Marchés ---------- */
 function renderMarches(){
@@ -598,81 +850,209 @@ function bindMarches(){
 function renderCommandes(){
   let rows=DB.commandes.map(c=>({...c, _search:`${c.numero} ${c.objet} ${tiersName(c.tiersId)}`, _filterVal:c.statut}));
   rows=filterRows(rows).sort((a,b)=>(b.dateCommande||"").localeCompare(a.dateCommande||""));
-  const cols=[{h:"N°"},{h:"Fournisseur"},{h:"Objet"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
+  const cols=[{h:"N°"},{h:"Fournisseur"},{h:"Objet"},{h:"Montant TTC",num:true},{h:"Statut"},{h:""}];
   const body=rows.map(c=>`<tr>
       <td class="cell-name">${esc(c.numero)}</td>
       <td>${esc(tiersName(c.tiersId))}</td>
-      <td>${esc(c.objet)}<div class="cell-sub">${esc(ligneLabel(c.ligneBudgetId))}</div></td>
+      <td>${esc(c.objet)}<div class="cell-sub">${(c.lignes||[]).length} ligne(s)${c.marcheId?` · ${esc(marcheLabel(c.marcheId))}`:""}</div></td>
       <td class="num">${fmtMoney(c.montant)}</td>
       <td>${badge(c.statut)}${c.serviceFait?' <span class="tag">Service fait</span>':""}</td>
       <td><div class="row-actions">
-        ${c.statut==="Brouillon"?`<button class="btn ghost sm" data-valider="${c.id}" title="Valider">${svg(I.check,'ic')}</button>`:""}
-        ${c.statut==="Validée"?`<button class="btn ghost sm" data-envoyer="${c.id}" title="Marquer envoyée">${svg(I.commandes,'ic')}</button>`:""}
+        ${c.statut==="Brouillon"?`<button class="btn ghost sm" data-soumettre="${c.id}" title="Soumettre au visa SML">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="En attente de visa"?`<button class="btn ghost sm" data-viser="${c.id}" title="Viser (contrôle du service SML)">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="Visée"?`<button class="btn ghost sm" data-signer="${c.id}" title="Signer électroniquement (DG)">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="Signée DG"?`<button class="btn ghost sm" data-envoyer="${c.id}" title="Envoyer par mail au fournisseur">${svg(I.commandes,'ic')}</button>`:""}
         ${c.statut==="Envoyée"?`<button class="btn ghost sm" data-livrer="${c.id}" title="Marquer livrée (service fait)">${svg(I.check,'ic')}</button>`:""}
         <button class="btn ghost sm" data-edit="${c.id}" title="Modifier">${svg(I.edit,'ic')}</button>
       </div></td>
     </tr>`).join("");
-  return toolbar("statut", ["Brouillon","Validée","Envoyée","Livrée","Clôturée"]) + tableShell(cols, body);
+  return toolbar("statut", ["Brouillon","En attente de visa","Visée","Signée DG","Envoyée","Livrée","Clôturée"]) + tableShell(cols, body);
 }
 function bindCommandes(){
-  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("commandes", el.dataset.edit));
-  document.querySelectorAll("[data-valider]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.valider); c.statut="Validée"; save(); toast("Commande validée"); render(); });
-  document.querySelectorAll("[data-envoyer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.envoyer); c.statut="Envoyée"; save(); toast("Commande envoyée au fournisseur"); render(); });
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openCommandeModal(el.dataset.edit));
+  document.querySelectorAll("[data-soumettre]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.soumettre); c.statut="En attente de visa"; save(); toast("Commande soumise au visa du service SML"); render(); });
+  document.querySelectorAll("[data-viser]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.viser); c.statut="Visée"; save(); toast("Commande vérifiée et visée par le service SML"); render(); });
+  document.querySelectorAll("[data-signer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.signer); c.statut="Signée DG"; save(); toast("Commande signée électroniquement par le DG"); render(); });
+  document.querySelectorAll("[data-envoyer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.envoyer); c.statut="Envoyée"; save(); toast("Commande envoyée par mail au fournisseur"); render(); });
   document.querySelectorAll("[data-livrer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.livrer); c.statut="Livrée"; c.serviceFait=true; save(); toast("Commande marquée livrée, service fait constaté"); render(); });
+}
+
+/* ---------- Éditeur de lignes partagé (BC et factures) : compte par ligne, garantie, TVA, remise ---------- */
+let _lignesWorking=[];
+function newLigneDefault(){ return { id:uid("li_"), designation:"", type:"Produit", quantite:1, puHT:0, remisePct:0, garantieMois:0, ligneBudgetId:(DB.budgetLignes.find(bl=>bl.exercice===budgetExercice)||{}).id }; }
+function ligneRowHTML(l,i){
+  return `<tr>
+    <td><input type="checkbox" class="li-check" data-i="${i}"></td>
+    <td><input type="text" class="li-field" data-i="${i}" data-f="designation" value="${esc(l.designation)}" style="min-width:170px"></td>
+    <td><select class="li-field" data-i="${i}" data-f="type">
+      <option value="Produit" ${l.type==="Produit"?"selected":""}>Produit (TVA 16%)</option>
+      <option value="Prestation" ${l.type==="Prestation"?"selected":""}>Prestation (TVA 13%)</option>
+    </select></td>
+    <td><input type="number" class="li-field" data-i="${i}" data-f="quantite" value="${l.quantite}" style="width:60px"></td>
+    <td><input type="number" class="li-field" data-i="${i}" data-f="puHT" value="${l.puHT}" style="width:100px"></td>
+    <td><input type="number" class="li-field" data-i="${i}" data-f="remisePct" value="${l.remisePct||0}" style="width:60px"></td>
+    <td><input type="number" class="li-field" data-i="${i}" data-f="garantieMois" value="${l.garantieMois||0}" style="width:60px"></td>
+    <td><select class="li-field" data-i="${i}" data-f="ligneBudgetId">${DB.budgetLignes.filter(bl=>bl.exercice===budgetExercice).map(bl=>`<option value="${bl.id}" ${l.ligneBudgetId===bl.id?"selected":""}>${esc(compteEnfantCode(bl.compteParentId,bl.direction))} · ${esc(bl.libelle)}</option>`).join("")}</select></td>
+    <td class="num li-total" data-i="${i}">${fmtMoney(calcLigne(l).ttc)}</td>
+    <td><button type="button" class="btn ghost sm li-del" data-i="${i}">${svg(I.trash,'ic')}</button></td>
+  </tr>`;
+}
+function renderLignesEditor(){
+  const t=calcLignesTotal(_lignesWorking);
+  return `<div class="table-wrap"><table><thead><tr>
+      <th></th><th>Désignation</th><th>Type</th><th>Qté</th><th>PU HT</th><th>Remise %</th><th>Garantie (mois)</th><th>Compte budgétaire</th><th style="text-align:right">Total TTC</th><th></th>
+    </tr></thead><tbody id="lignesBody">${_lignesWorking.map(ligneRowHTML).join("")||`<tr><td colspan="10"><div class="empty">Aucune ligne. Ajoutez-en au moins une.</div></td></tr>`}</tbody></table></div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      <button type="button" class="btn ghost sm" id="addLigneBtn">${svg(I.plus,'ic')} Ligne</button>
+      <div class="spacer"></div>
+      <input id="remiseMasseInput" type="number" placeholder="Remise % en masse" style="width:170px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)">
+      <button type="button" class="btn ghost sm" id="applyRemiseMasseBtn">Appliquer aux lignes cochées</button>
+    </div>
+    <div class="info-list" style="margin-top:10px;max-width:340px;margin-left:auto">
+      <div class="row"><span class="l">Total HT</span><span class="v" id="totalHtDisplay">${fmtMoney(t.ht)}</span></div>
+      <div class="row"><span class="l">Dont remises</span><span class="v" id="totalRemiseDisplay">${fmtMoney(t.remise)}</span></div>
+      <div class="row"><span class="l">TVA</span><span class="v" id="totalTvaDisplay">${fmtMoney(t.tva)}</span></div>
+      <div class="row"><span class="l">Total TTC</span><span class="v" id="totalTtcDisplay" style="font-size:16px">${fmtMoney(t.ttc)}</span></div>
+    </div>`;
+}
+function updateLignesFooter(){
+  const t=calcLignesTotal(_lignesWorking);
+  document.getElementById("totalHtDisplay").textContent=fmtMoney(t.ht);
+  document.getElementById("totalRemiseDisplay").textContent=fmtMoney(t.remise);
+  document.getElementById("totalTvaDisplay").textContent=fmtMoney(t.tva);
+  document.getElementById("totalTtcDisplay").textContent=fmtMoney(t.ttc);
+}
+function wireLignesEditor(rerender){
+  document.getElementById("addLigneBtn").onclick=()=>{ _lignesWorking.push(newLigneDefault()); rerender(); };
+  document.querySelectorAll(".li-del").forEach(el=>el.onclick=()=>{ _lignesWorking.splice(Number(el.dataset.i),1); rerender(); });
+  document.querySelectorAll(".li-field").forEach(el=>{
+    const handler=()=>{
+      const i=Number(el.dataset.i), f=el.dataset.f;
+      let v=el.value;
+      if(f==="quantite"||f==="puHT"||f==="remisePct"||f==="garantieMois") v=v===""?0:Number(v);
+      _lignesWorking[i][f]=v;
+      const totCell=document.querySelector(`.li-total[data-i="${i}"]`); if(totCell) totCell.textContent=fmtMoney(calcLigne(_lignesWorking[i]).ttc);
+      updateLignesFooter();
+    };
+    if(el.tagName==="SELECT") el.onchange=handler; else el.oninput=handler;
+  });
+  document.getElementById("applyRemiseMasseBtn").onclick=()=>{
+    const pct=Number(document.getElementById("remiseMasseInput").value)||0;
+    const checked=Array.from(document.querySelectorAll(".li-check:checked")).map(el=>Number(el.dataset.i));
+    if(!checked.length){ toast("Cochez au moins une ligne pour appliquer une remise en masse"); return; }
+    checked.forEach(i=>{ _lignesWorking[i].remisePct=pct; });
+    rerender();
+    toast(`Remise de ${pct}% appliquée à ${checked.length} ligne(s)`);
+  };
+}
+function openCommandeModal(id){
+  const isEdit=!!id;
+  const rec=isEdit?DB.commandes.find(x=>x.id===id):null;
+  _lignesWorking = isEdit ? rec.lignes.map(l=>({...l})) : [newLigneDefault()];
+  const numero = isEdit ? rec.numero : numeroAuto(DB.commandes);
+  const mr=document.getElementById("modalRoot");
+  const rerenderLignes=()=>{ document.getElementById("lignesEditorContainer").innerHTML=renderLignesEditor(); wireLignesEditor(rerenderLignes); };
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:940px">
+    <div class="modal-head"><h3>${isEdit?"Modifier la commande":"Nouvelle commande"}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Numéro</label><input type="text" value="${esc(numero)}" disabled><span class="hint">Généré automatiquement (AAMMJJ + index du jour), non modifiable.</span></div>
+        <div class="field"><label>Fournisseur<span class="req"> *</span></label><select id="tiersSelect">${DB.tiers.map(t=>`<option value="${t.id}" ${(rec&&rec.tiersId===t.id)?"selected":""}>${esc(t.raisonSociale)}</option>`).join("")}</select></div>
+        <div class="field"><label>Marché lié (optionnel)</label><select id="marcheSelect"><option value="">—</option>${DB.marches.map(m=>`<option value="${m.id}" ${(rec&&rec.marcheId===m.id)?"selected":""}>${esc(m.objet)}</option>`).join("")}</select></div>
+        <div class="field"><label>Date de commande<span class="req"> *</span></label><input id="dateInp" type="date" value="${rec?rec.dateCommande:todayISO()}"></div>
+        <div class="field full"><label>Objet<span class="req"> *</span></label><input id="objetInp" type="text" value="${esc(rec?rec.objet:"")}"></div>
+      </div>
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Lignes</h4>
+      <div id="lignesEditorContainer">${renderLignesEditor()}</div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check,'ic')} Enregistrer</button></div>
+  </div></div>`;
+  wireLignesEditor(rerenderLignes);
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    const tiersId=document.getElementById("tiersSelect").value;
+    const marcheId=document.getElementById("marcheSelect").value||null;
+    const dateCommande=document.getElementById("dateInp").value;
+    const objet=document.getElementById("objetInp").value;
+    if(!tiersId){ toast("Champ requis : Fournisseur"); return; }
+    if(!objet.trim()){ toast("Champ requis : Objet"); return; }
+    if(!_lignesWorking.length || _lignesWorking.some(l=>!l.designation.trim())){ toast("Chaque ligne doit avoir une désignation"); return; }
+    const montant=calcLignesTotal(_lignesWorking).ttc;
+    if(isEdit){ Object.assign(rec, { tiersId, marcheId, dateCommande, objet, lignes:_lignesWorking, montant }); }
+    else { DB.commandes.push({ id:uid("cm_"), numero, tiersId, marcheId, objet, dateCommande, statut:"Brouillon", serviceFait:false, lignes:_lignesWorking, montant }); }
+    save(); close(); toast("Enregistrement créé"); render();
+  };
 }
 
 /* ---------- Factures (service Achats) ---------- */
 function pushHistoriqueFacture(f, action, commentaire){ if(!f.historique) f.historique=[]; f.historique.push({action, date:nowStamp(), commentaire:commentaire||""}); }
+function factureRattachementLabel(f){
+  if(f.commandeId) return commandeLabel(f.commandeId);
+  if(f.marcheId) return marcheLabel(f.marcheId);
+  return "—";
+}
 function renderFactures(){
-  let rows=DB.factures.map(f=>({...f, _search:`${f.numero} ${tiersName(f.tiersId)}`, _filterVal:f.statut}));
+  let rows=DB.factures.map(f=>({...f, _search:`${f.numero} ${f.numeroFournisseur||""} ${tiersName(f.tiersId)}`, _filterVal:f.statut}));
   rows=filterRows(rows).sort((a,b)=>(b.dateReception||"").localeCompare(a.dateReception||""));
-  const cols=[{h:"N°"},{h:"Fournisseur"},{h:"Commande"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
-  const body=rows.map(f=>{ const cmd=DB.commandes.find(c=>c.id===f.commandeId); return `<tr>
+  const cols=[{h:"N° OPH"},{h:"N° fournisseur"},{h:"Fournisseur"},{h:"Rattachement"},{h:"Montant TTC",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(f=>`<tr>
       <td class="cell-name">${esc(f.numero)}</td>
+      <td>${esc(f.numeroFournisseur||"—")}</td>
       <td>${esc(tiersName(f.tiersId))}</td>
-      <td>${cmd?esc(cmd.numero):"—"}</td>
+      <td>${esc(factureRattachementLabel(f))}</td>
       <td class="num">${fmtMoney(f.montant)}</td>
       <td>${badge(f.statut)}</td>
       <td><div class="row-actions">
-        ${f.statut==="Reçue"?`<button class="btn ghost sm" data-controler="${f.id}" title="Contrôler (service fait)">${svg(I.check,'ic')}</button>`:""}
+        ${f.statut==="À contrôler"?`<button class="btn ghost sm" data-controler="${f.id}" title="Marquer bon à payer (service fait)">${svg(I.check,'ic')}</button>`:""}
         <button class="btn ghost sm" data-view="${f.id}" title="Voir le détail">${svg(I.eye,'ic')}</button>
+        <button class="btn ghost sm" data-edit="${f.id}" title="Modifier">${svg(I.edit,'ic')}</button>
       </div></td>
-    </tr>`;}).join("");
-  return toolbar("statut", ["Reçue","Contrôlée","Validée","Rejetée","Payée"]) + tableShell(cols, body);
+    </tr>`).join("");
+  return toolbar("statut", ["À contrôler","Bon à payer","Mandatement","Rejetée","Payée"]) + tableShell(cols, body);
 }
 function controlerFacture(id){
   const f=DB.factures.find(x=>x.id===id);
   const cmd=DB.commandes.find(c=>c.id===f.commandeId);
   if(cmd && !cmd.serviceFait){ toast("Service fait non constaté sur la commande liée : contrôle impossible"); return; }
-  f.statut="Contrôlée"; pushHistoriqueFacture(f, "Contrôle service fait effectué", "Agent Achats");
-  save(); toast("Facture contrôlée, transmise à la Direction Financière"); render();
+  f.statut="Bon à payer"; pushHistoriqueFacture(f, "Marquée bon à payer par le service émetteur", "Service Achats");
+  save(); toast("Facture bon à payer, transmise à la Direction Financière"); render();
 }
 function bindFactures(){
   document.querySelectorAll("[data-controler]").forEach(el=>el.onclick=()=>controlerFacture(el.dataset.controler));
   document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openFactureDetail(el.dataset.view));
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openFactureModal(el.dataset.edit));
 }
 function openFactureDetail(id){
   const f=DB.factures.find(x=>x.id===id); if(!f) return;
   const cmd=DB.commandes.find(c=>c.id===f.commandeId);
+  const ca=f.certificatAdministratifId?DB.certificatsAdministratifs.find(x=>x.id===f.certificatAdministratifId):null;
   const isDF = SESSION.role==="df";
+  const netAPayer = f.montant - (f.penaliteMontant||0);
   const actions=[];
-  if(f.statut==="Contrôlée" && isDF) actions.push(`<button class="btn primary sm" id="validerBtn">${svg(I.check,'ic')} Valider pour paiement</button> <button class="btn danger sm" id="rejeterBtn">${svg(I.x,'ic')} Rejeter</button>`);
-  if(f.statut==="Validée" && isDF) actions.push(`<button class="btn primary sm" id="payerBtn">${svg(I.check,'ic')} Marquer payée</button>`);
+  if(f.statut==="Bon à payer" && isDF) actions.push(`<button class="btn primary sm" id="mandaterBtn">${svg(I.check,'ic')} Mandater</button> <button class="btn danger sm" id="rejeterBtn">${svg(I.x,'ic')} Rejeter</button>`);
+  if(f.statut==="Mandatement" && isDF) actions.push(`<button class="btn primary sm" id="payerBtn">${svg(I.check,'ic')} Marquer payée</button> <button class="btn danger sm" id="rejeterBtn">${svg(I.x,'ic')} Rejeter</button>`);
+  const lignesHtml = (f.lignes||[]).map(l=>{ const c=calcLigne(l); return `<tr><td>${esc(l.designation)}</td><td>${esc(l.type)}</td><td class="num">${l.quantite}</td><td class="num">${fmtMoney(l.puHT)}</td><td class="num">${l.remisePct||0}%</td><td class="num">${l.garantieMois||0} mois</td><td class="num">${fmtMoney(c.ttc)}</td></tr>`; }).join("");
   const histHtml=(f.historique||[]).slice().reverse().map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("");
   const mr=document.getElementById("modalRoot");
-  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:700px">
-    <div class="modal-head"><h3>Facture ${esc(f.numero)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:820px">
+    <div class="modal-head"><h3>Facture ${esc(f.numero)} <span class="cell-sub">(${esc(f.numeroFournisseur||"—")})</span></h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
     <div class="modal-body">
       <div class="info-list">
         <div class="row"><span class="l">Fournisseur</span><span class="v">${esc(tiersName(f.tiersId))}</span></div>
-        <div class="row"><span class="l">Commande liée</span><span class="v">${cmd?esc(cmd.numero+" — "+cmd.objet):"—"}</span></div>
+        <div class="row"><span class="l">Rattachement</span><span class="v">${esc(factureRattachementLabel(f))}</span></div>
         <div class="row"><span class="l">Service fait</span><span class="v">${cmd?(cmd.serviceFait?"Constaté":"Non constaté"):"—"}</span></div>
-        <div class="row"><span class="l">Montant</span><span class="v">${fmtMoney(f.montant)}</span></div>
+        <div class="row"><span class="l">Montant TTC</span><span class="v">${fmtMoney(f.montant)}</span></div>
+        ${f.penaliteMontant?`<div class="row"><span class="l">Pénalité</span><span class="v">− ${fmtMoney(f.penaliteMontant)} (${esc(f.penaliteMotif||"")})</span></div><div class="row"><span class="l">Net à payer</span><span class="v" style="font-weight:800">${fmtMoney(netAPayer)}</span></div>`:""}
         <div class="row"><span class="l">Réception</span><span class="v">${fmtDate(f.dateReception)}</span></div>
         <div class="row"><span class="l">Échéance</span><span class="v">${fmtDate(f.dateEcheance)}</span></div>
+        <div class="row"><span class="l">Certificat administratif</span><span class="v">${ca?esc(ca.numero+" — "+ca.objet):"—"}</span></div>
         <div class="row"><span class="l">Statut</span><span class="v">${badge(f.statut)}</span></div>
       </div>
-      <div style="margin-top:14px">${actions.join(" ")}</div>
+      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Désignation</th><th>Type</th><th style="text-align:right">Qté</th><th style="text-align:right">PU HT</th><th style="text-align:right">Remise</th><th style="text-align:right">Garantie</th><th style="text-align:right">TTC</th></tr></thead><tbody>${lignesHtml||`<tr><td colspan="7"><div class="empty">Aucune ligne.</div></td></tr>`}</tbody></table></div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">${actions.join(" ")}${f.statut!=="Payée"&&f.statut!=="Rejetée"?`<button class="btn ghost sm" id="penaliteBtn">${svg(I.edit,'ic')} Appliquer une pénalité</button>`:""}</div>
       <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Historique</h4>
       ${histHtml||'<div class="empty">Aucun historique.</div>'}
     </div>
@@ -682,29 +1062,150 @@ function openFactureDetail(id){
   document.getElementById("closeModal").onclick=close;
   document.getElementById("cancelModal").onclick=close;
   document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
-  const vb=document.getElementById("validerBtn"); if(vb) vb.onclick=()=>{ f.statut="Validée"; pushHistoriqueFacture(f,"Validée pour paiement","Direction Financière"); save(); close(); toast("Facture validée pour paiement"); render(); };
+  const mb=document.getElementById("mandaterBtn"); if(mb) mb.onclick=()=>{ f.statut="Mandatement"; pushHistoriqueFacture(f,"Mandatée","Direction Financière"); save(); close(); toast("Facture mandatée"); render(); };
   const rb=document.getElementById("rejeterBtn"); if(rb) rb.onclick=()=>{
     const motif=prompt("Motif du rejet :",""); if(motif===null) return; if(!motif.trim()){ toast("Merci de préciser un motif"); return; }
     f.statut="Rejetée"; pushHistoriqueFacture(f,"Rejetée par la Direction Financière",motif.trim()); save(); close(); toast("Facture rejetée"); render();
   };
   const pb=document.getElementById("payerBtn"); if(pb) pb.onclick=()=>{ f.statut="Payée"; f.datePaiement=todayISO(); pushHistoriqueFacture(f,"Marquée payée","Direction Financière"); save(); close(); toast("Facture marquée payée"); render(); };
+  const penb=document.getElementById("penaliteBtn"); if(penb) penb.onclick=()=>{ close(); openPenaliteModal(id); };
+}
+function openPenaliteModal(id){
+  const f=DB.factures.find(x=>x.id===id);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Appliquer une pénalité au tiers</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="field"><label>Montant de la pénalité (XPF)<span class="req"> *</span></label><input id="montantInp" type="number" value="${f.penaliteMontant||0}"></div>
+      <div class="field full"><label>Motif<span class="req"> *</span></label><input id="motifInp" type="text" value="${esc(f.penaliteMotif||"")}"></div>
+    </div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn">Appliquer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const montant=Number(document.getElementById("montantInp").value)||0;
+    const motif=document.getElementById("motifInp").value;
+    if(!motif.trim()){ toast("Champ requis : Motif"); return; }
+    f.penaliteMontant=montant; f.penaliteMotif=motif.trim();
+    pushHistoriqueFacture(f, "Pénalité appliquée au tiers", `${fmtMoney(montant)} — ${motif.trim()}`);
+    save(); close(); toast("Pénalité appliquée"); render();
+  };
+}
+function openFactureModal(id){
+  const isEdit=!!id;
+  const rec=isEdit?DB.factures.find(x=>x.id===id):null;
+  _lignesWorking = isEdit ? rec.lignes.map(l=>({...l})) : [newLigneDefault()];
+  const numero = isEdit ? rec.numero : numeroAuto(DB.factures);
+  const mr=document.getElementById("modalRoot");
+  const rerenderLignes=()=>{ document.getElementById("lignesEditorContainer").innerHTML=renderLignesEditor(); wireLignesEditor(rerenderLignes); };
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:940px">
+    <div class="modal-head"><h3>${isEdit?"Modifier la facture":"Nouvelle facture"}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>N° interne OPH</label><input type="text" value="${esc(numero)}" disabled><span class="hint">Généré automatiquement (AAMMJJ + index du jour), non modifiable.</span></div>
+        <div class="field"><label>N° de facture fournisseur<span class="req"> *</span></label><input id="numFournInp" type="text" value="${esc(rec?rec.numeroFournisseur||"":"")}"></div>
+        <div class="field"><label>Fournisseur<span class="req"> *</span></label><select id="tiersSelect">${DB.tiers.map(t=>`<option value="${t.id}" ${(rec&&rec.tiersId===t.id)?"selected":""}>${esc(t.raisonSociale)}</option>`).join("")}</select></div>
+        <div class="field"><label>Date de réception<span class="req"> *</span></label><input id="receptionInp" type="date" value="${rec?rec.dateReception:todayISO()}"></div>
+        <div class="field"><label>Commande liée (BC)</label><select id="commandeSelect"><option value="">—</option>${DB.commandes.map(c=>`<option value="${c.id}" ${(rec&&rec.commandeId===c.id)?"selected":""}>${esc(c.numero)} — ${esc(c.objet)}</option>`).join("")}</select></div>
+        <div class="field"><label>Marché lié</label><select id="marcheSelect"><option value="">—</option>${DB.marches.map(m=>`<option value="${m.id}" ${(rec&&rec.marcheId===m.id)?"selected":""}>${esc(m.objet)}</option>`).join("")}</select><span class="hint">Une facture est rattachée à un BC ou à un marché, jamais les deux.</span></div>
+        <div class="field"><label>Date d'échéance</label><input id="echeanceInp" type="date" value="${rec&&rec.dateEcheance?rec.dateEcheance:""}"></div>
+      </div>
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Lignes</h4>
+      <div id="lignesEditorContainer">${renderLignesEditor()}</div>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check,'ic')} Enregistrer</button></div>
+  </div></div>`;
+  wireLignesEditor(rerenderLignes);
+  const commandeSelect=document.getElementById("commandeSelect"), marcheSelect=document.getElementById("marcheSelect");
+  commandeSelect.onchange=()=>{ if(commandeSelect.value) marcheSelect.value=""; };
+  marcheSelect.onchange=()=>{ if(marcheSelect.value) commandeSelect.value=""; };
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    const numeroFournisseur=document.getElementById("numFournInp").value;
+    const tiersId=document.getElementById("tiersSelect").value;
+    const commandeId=commandeSelect.value||null;
+    const marcheId=marcheSelect.value||null;
+    const dateReception=document.getElementById("receptionInp").value;
+    const dateEcheance=document.getElementById("echeanceInp").value;
+    if(!numeroFournisseur.trim()){ toast("Champ requis : N° de facture fournisseur"); return; }
+    if(!tiersId){ toast("Champ requis : Fournisseur"); return; }
+    if(!commandeId && !marcheId){ toast("La facture doit être rattachée à une commande ou à un marché"); return; }
+    if(!_lignesWorking.length || _lignesWorking.some(l=>!l.designation.trim())){ toast("Chaque ligne doit avoir une désignation"); return; }
+    const montant=calcLignesTotal(_lignesWorking).ttc;
+    if(isEdit){ Object.assign(rec, { numeroFournisseur, tiersId, commandeId, marcheId, dateReception, dateEcheance, lignes:_lignesWorking, montant }); }
+    else { DB.factures.push({ id:uid("fa_"), numero, numeroFournisseur, tiersId, commandeId, marcheId, dateReception, dateEcheance, statut:"À contrôler", datePaiement:null, penaliteMontant:0, penaliteMotif:"", lignes:_lignesWorking, montant, historique:[{action:"Facture reçue", date:dateReception, commentaire:""}] }); }
+    save(); close(); toast("Enregistrement créé"); render();
+  };
 }
 
 /* ---------- Contrôle global DF ---------- */
 function renderFacturesControle(){
-  const pending=DB.factures.filter(f=>f.statut==="Contrôlée"||f.statut==="Validée");
-  const cols=[{h:"Fournisseur"},{h:"N°"},{h:"Montant",num:true},{h:"Échéance"},{h:"Statut"},{h:""}];
+  const pending=DB.factures.filter(f=>f.statut==="Bon à payer"||f.statut==="Mandatement");
+  const cols=[{h:"Fournisseur"},{h:"N° fournisseur"},{h:"Montant",num:true},{h:"Échéance"},{h:"Statut"},{h:""}];
   const body=pending.map(f=>`<tr>
       <td class="cell-name">${esc(tiersName(f.tiersId))}</td>
-      <td>${esc(f.numero)}</td>
+      <td>${esc(f.numeroFournisseur||f.numero)}</td>
       <td class="num">${fmtMoney(f.montant)}</td>
       <td>${fmtDate(f.dateEcheance)}</td>
       <td>${badge(f.statut)}</td>
       <td><div class="row-actions"><button class="btn ghost sm" data-view="${f.id}" title="Traiter">${svg(I.eye,'ic')}</button></div></td>
     </tr>`).join("");
-  return `<p class="hint" style="margin-bottom:12px;display:block">Toutes les factures contrôlées par le service Achats en attente de validation ou de paiement, tous fournisseurs confondus.</p>` + tableShell(cols, body);
+  return `<p class="hint" style="margin-bottom:12px;display:block">Toutes les factures bon à payer ou en mandatement, tous fournisseurs confondus.</p>` + tableShell(cols, body);
 }
 function bindFacturesControle(){ document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openFactureDetail(el.dataset.view)); }
+
+/* ---------- Certificats administratifs ---------- */
+function renderCertificats(){
+  let rows=DB.certificatsAdministratifs.map(c=>({...c, _search:`${c.numero} ${c.objet} ${c.serviceEmetteur}`, _filterVal:c.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.dateCreation||"").localeCompare(a.dateCreation||""));
+  const cols=[{h:"N°"},{h:"Service émetteur"},{h:"Objet"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(c=>`<tr>
+      <td class="cell-name">${esc(c.numero)}</td>
+      <td>${esc(c.serviceEmetteur)}</td>
+      <td>${esc(c.objet)}${c.factureId?`<div class="cell-sub">Facture ${esc((DB.factures.find(f=>f.id===c.factureId)||{}).numero||"")}</div>`:""}</td>
+      <td class="num">${fmtMoney(c.montant)}</td>
+      <td>${badge(c.statut)}</td>
+      <td><div class="row-actions">
+        ${c.statut==="Créé"?`<button class="btn ghost sm" data-n1="${c.id}" title="Contrôler (N+1)">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="Contrôlé N+1"?`<button class="btn ghost sm" data-dg="${c.id}" title="Signer (DG)">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="Signé DG"?`<button class="btn ghost sm" data-rattacher="${c.id}" title="Rattacher à une facture">${svg(I.factures,'ic')}</button>`:""}
+      </div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Créé","Contrôlé N+1","Signé DG","Rattaché"]) + tableShell(cols, body);
+}
+function bindCertificats(){
+  document.querySelectorAll("[data-n1]").forEach(el=>el.onclick=()=>{ const c=DB.certificatsAdministratifs.find(x=>x.id===el.dataset.n1); c.statut="Contrôlé N+1"; save(); toast("Certificat contrôlé par le N+1"); render(); });
+  document.querySelectorAll("[data-dg]").forEach(el=>el.onclick=()=>{ const c=DB.certificatsAdministratifs.find(x=>x.id===el.dataset.dg); c.statut="Signé DG"; save(); toast("Certificat signé électroniquement par le DG"); render(); });
+  document.querySelectorAll("[data-rattacher]").forEach(el=>el.onclick=()=>openRattacherCertificat(el.dataset.rattacher));
+}
+function openRattacherCertificat(caId){
+  const ca=DB.certificatsAdministratifs.find(x=>x.id===caId);
+  const dispo=DB.factures.filter(f=>!f.certificatAdministratifId);
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Rattacher le certificat ${esc(ca.numero)} à une facture</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="field"><label>Facture</label><select id="factureSelect">${dispo.length?dispo.map(f=>`<option value="${f.id}">${esc(f.numero)} · ${esc(tiersName(f.tiersId))} · ${fmtMoney(f.montant)}</option>`).join(""):'<option value="">Aucune facture disponible</option>'}</select></div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn" ${dispo.length?"":"disabled"}>Rattacher</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const factureId=document.getElementById("factureSelect").value;
+    const f=DB.factures.find(x=>x.id===factureId);
+    ca.statut="Rattaché"; ca.factureId=factureId;
+    f.certificatAdministratifId=ca.id;
+    pushHistoriqueFacture(f, "Certificat administratif rattaché", `${ca.numero} — ${ca.objet}`);
+    save(); close(); toast("Certificat rattaché à la facture"); render();
+  };
+}
 
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElementById("modalRoot").innerHTML=""; });
 (function initTheme(){ try{ const t=localStorage.getItem(KEY+"_theme"); if(t) document.documentElement.setAttribute("data-theme",t); }catch(e){} })();
