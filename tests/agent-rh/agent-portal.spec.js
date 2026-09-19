@@ -13,6 +13,17 @@ test.describe("Espace Agent RH", () => {
     for (const label of labels) await expect(page.locator("#nav a", { hasText: label })).toBeVisible();
   });
 
+  test("accueil agent affiche les informations RH utiles", async ({ page }) => {
+    await selectAgent(page);
+    await expect(page.locator(".agent-dash")).toBeVisible();
+    await expect(page.locator(".ad-contact")).toContainText("Avancement");
+    await expect(page.locator(".ad-card-head h3", { hasText: "Mes prochaines demandes de congés" })).toBeVisible();
+    await expect(page.locator(".ad-card-head h3", { hasText: "Mes demandes" })).toHaveCount(0);
+    await expect(page.locator(".ad-balance-grid")).toBeVisible();
+    await expect(page.locator(".ad-balance-grid")).toContainText("Congés d’ancienneté");
+    await expect(page.locator(".ad-balance-grid")).toContainText("Congés parentaux");
+  });
+
   test("affiche uniquement les données de l'agent courant", async ({ page }) => {
     await selectAgent(page);
     await page.locator("#nav a", { hasText: "Mon profil" }).click();
