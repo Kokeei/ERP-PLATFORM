@@ -462,6 +462,8 @@ function load(){
 function migrate(){
   if(!DB.carriere) DB.carriere=[];
   if(!DB.documents) DB.documents=[];
+  if(!DB.agentTasks) DB.agentTasks=[];
+  if(!DB.agentNotifications) DB.agentNotifications=[];
   if(!DB.allaitement) DB.allaitement=[];
   if(!DB.notations) DB.notations=[];
   if(!DB.maternite) DB.maternite=[];
@@ -1145,9 +1147,21 @@ const NAV = [
 const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents", allaitement:"Allaitement", notations:"Notations", maternite:"Maternité"};
 // Menus restreints affichés selon le profil de test (chacun n'a accès qu'à son propre périmètre).
 const AGENT_NAV = [
-  {id:"mon-dashboard", label:"Mon espace", icon:I.dash},
-  {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
-  {id:"mes-conges", label:"Mes congés & absences", icon:I.conges}
+  {id:"mon-dashboard", label:"Accueil", icon:I.dash},
+  {id:"mon-profil", label:"Mon profil", icon:I.agents},
+  {id:"mes-conges", label:"Mes absences", icon:I.conges},
+  {id:"mes-demandes", label:"Mes demandes", icon:I.checklist},
+  {id:"mes-taches", label:"Mes tâches", icon:I.clock},
+  {id:"mes-documents", label:"Mes documents", icon:I.eye},
+  {id:"ma-remuneration", label:"Ma rémunération", icon:I.paie},
+  {id:"ma-carriere", label:"Ma carrière", icon:I.star},
+  {id:"mes-formations", label:"Mes formations", icon:I.formations},
+  {id:"mes-entretiens", label:"Mes entretiens", icon:I.star},
+  {id:"ma-vie-pro", label:"Ma vie professionnelle", icon:I.agents},
+  {id:"mes-notifications", label:"Notifications", icon:I.checklist},
+  {id:"recherche-rh", label:"Recherche RH", icon:I.search},
+  {id:"maternite-agent", label:"Maternité / parentalité", icon:I.checklist},
+  {id:"aide-agent", label:"Aide & contact", icon:I.agents}
 ];
 const RESP_NAV = [
   {id:"resp-dashboard", label:"Tableau de bord équipe", icon:I.dash},
@@ -1222,7 +1236,20 @@ function render(){
   const c=document.getElementById("content");
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
-  if(view.module==="mon-dashboard"){ t.textContent="Mon espace"; s.textContent="Ma situation personnelle"; c.innerHTML=renderMonEspace(); bindMonEspace(); return; }
+  if(view.module==="mon-dashboard"){ t.textContent="Accueil"; s.textContent="Ma situation personnelle"; c.innerHTML=renderMonEspace(); bindMonEspace(); return; }
+  if(view.module==="mon-profil"){ t.textContent="Mon profil"; s.textContent="Mes informations"; c.innerHTML=renderAgentProfile(); return; }
+  if(view.module==="mes-demandes"){ t.textContent="Mes demandes"; s.textContent="Toutes mes demandes RH"; c.innerHTML=renderAgentRequests(); return; }
+  if(view.module==="mes-taches"){ t.textContent="Mes tâches"; s.textContent="Actions et échéances"; c.innerHTML=renderAgentTasks(); return; }
+  if(view.module==="mes-documents"){ t.textContent="Mes documents"; s.textContent="Ma GED RH personnelle"; c.innerHTML=renderAgentDocuments(); return; }
+  if(view.module==="ma-remuneration"){ t.textContent="Ma rémunération"; s.textContent="Bulletins et rémunération"; c.innerHTML=renderAgentPay(); bindAgentPay(); return; }
+  if(view.module==="ma-carriere"){ t.textContent="Ma carrière"; s.textContent="Parcours professionnel"; c.innerHTML=renderAgentCareer(); return; }
+  if(view.module==="mes-formations"){ t.textContent="Mes formations"; s.textContent="Formations et évaluations"; c.innerHTML=renderAgentTraining(); return; }
+  if(view.module==="mes-entretiens"){ t.textContent="Mes entretiens"; s.textContent="Entretiens et évaluations"; c.innerHTML=renderAgentReviews(); return; }
+  if(view.module==="ma-vie-pro"){ t.textContent="Ma vie professionnelle"; s.textContent="Horaires et dispositifs RH"; c.innerHTML=renderAgentLife(); return; }
+  if(view.module==="mes-notifications"){ t.textContent="Notifications"; s.textContent="Informations importantes"; c.innerHTML=renderAgentNotifications(); bindAgentNotifications(); return; }
+  if(view.module==="recherche-rh"){ t.textContent="Recherche RH"; s.textContent="Contenus accessibles"; c.innerHTML=renderAgentSearch(); bindAgentSearch(); return; }
+  if(view.module==="maternite-agent"){ t.textContent="Maternité / parentalité"; s.textContent="Démarches et échéances"; c.innerHTML=renderAgentMaternity(); return; }
+  if(view.module==="aide-agent"){ t.textContent="Aide & contact"; s.textContent="Assistance RH"; c.innerHTML=renderAgentHelp(); return; }
   if(view.module==="mon-dossier"){ view.agentId=SESSION.asAgentId; renderAgentDetail(); return; }
   if(view.module==="mes-conges"){
     t.textContent="Mes congés & absences"; s.textContent="Solde, historique et demandes";
@@ -1418,6 +1445,51 @@ function bindDFControle(){
   document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
+/* ---------- Portail Agent RH ---------- */
+function currentAgent(){ return DB.agents.find(function(a){return a.id===SESSION.asAgentId;}); }
+function agentDocs(){ var a=currentAgent(); return a ? DB.documents.filter(function(d){return d.agentId===a.id && canViewDocument(d,a);}) : []; }
+function agentPays(){ var a=currentAgent(); return a ? DB.paie.filter(function(p){return p.agentId===a.id;}).sort(function(x,y){return (y.periode||'').localeCompare(x.periode||'');}) : []; }
+function agentForms(){ var a=currentAgent(); return a ? DB.formations.filter(function(f){return f.agentId===a.id;}) : []; }
+function agentCareer(){ var a=currentAgent(); return a ? DB.carriere.filter(function(x){return x.agentId===a.id;}).sort(function(x,y){return (y.date||'').localeCompare(x.date||'');}) : []; }
+function agentReviews(){ var a=currentAgent(); return a ? DB.notations.filter(function(x){return x.agentId===a.id;}) : []; }
+function renderAgentProfile(){
+  var a=currentAgent(); if(!a) return '<div class="empty">Profil introuvable.</div>';
+  function row(l,v){return '<div class="row"><span class="l">'+l+'</span><span class="v">'+esc(v||'—')+'</span></div>';}
+  return '<div class="detail-head"><div class="av">'+initials(a.nom,a.prenom)+'</div><div><h2>'+esc(a.prenom)+' '+esc(a.nom)+'</h2><div class="meta"><span class="tag">'+esc(a.matricule)+'</span> '+esc(a.fonction||'—')+' · '+esc(a.direction||'—')+'</div></div></div>'
+  +'<div class="detail-cols"><div class="panel"><div class="panel-head"><h3>Identité</h3></div><div class="panel-body info-list">'+row('Nom',a.nom)+row('Prénom',a.prenom)+row('Date de naissance',fmtDate(a.dob))+row('Situation familiale',a.famille)+row('Enfants à charge',a.enfants)+'</div></div>'
+  +'<div class="panel"><div class="panel-head"><h3>Situation professionnelle</h3></div><div class="panel-body info-list">'+row('Poste',a.fonction)+row('Direction',a.direction)+row('Statut',a.statut)+row('Grade',a.grade)+row('Échelon',a.echelon)+row('Date d’entrée',fmtDate(a.entree))+row('Quotité',(a.quotite||'—')+' %')+row('Responsable',agentName(a.superieurId))+'</div></div>'
+  +'<div class="panel"><div class="panel-head"><h3>Coordonnées</h3><div class="spacer"></div><button class="btn sm">Demander une modification</button></div><div class="panel-body info-list">'+row('Email professionnel',a.email)+row('Téléphone',a.tel)+row('Adresse','Non renseignée')+row('Email personnel','Non renseigné')+'</div></div>'
+  +'<div class="panel"><div class="panel-head"><h3>Données sensibles</h3></div><div class="panel-body info-list">'+row('Coordonnées bancaires','Donnée protégée')+row('Contact d’urgence','Non renseigné')+'</div></div></div>';
+}
+function renderAgentRequests(){
+ var a=currentAgent(), rows=[]; if(!a)return '<div class="empty">Profil introuvable.</div>';
+ DB.conges.filter(function(x){return x.agentId===a.id;}).forEach(function(x){rows.push(['Absence',x.type,x.debut,x.statut,'mes-conges']);});
+ agentForms().forEach(function(x){rows.push(['Formation',x.intitule,x.debutSouhaite||x.debut,x.statut,'mes-formations']);});
+ return '<div class="table-wrap"><table><thead><tr><th>Type</th><th>Objet</th><th>Date</th><th>Statut</th><th></th></tr></thead><tbody>'+ (rows.length?rows.map(function(x){return '<tr><td>'+x[0]+'</td><td class="cell-name">'+esc(x[1])+'</td><td>'+fmtDate(x[2])+'</td><td>'+badge(x[3])+'</td><td><button class="btn ghost sm" data-agent-request="'+x[4]+'">'+svg(I.eye,'ic')+'</button></td></tr>';}).join(''):'<tr><td colspan="5"><div class="empty">Aucune demande enregistrée.</div></td></tr>')+'</tbody></table></div>';
+}
+function renderAgentTasks(){
+ var a=currentAgent(); if(!a)return '<div class="empty">Profil introuvable.</div>'; var rows=[];
+ (DB.maternite||[]).filter(function(m){return m.agentId===a.id;}).forEach(function(m){(m.taches||[]).filter(function(t){return t.responsable==='Agent';}).forEach(function(t){rows.push(t);});});
+ (DB.agentTasks||[]).filter(function(t){return t.agentId===a.id;}).forEach(function(t){rows.push(t);});
+ return '<div class="tache-list">'+(rows.length?rows.map(function(t){return '<div class="tache-row"><div style="flex:1"><strong>'+esc(t.intitule||t.title||'Tâche')+'</strong><div class="cell-sub">'+esc(t.description||'')+'</div><div style="margin-top:6px">Échéance : '+fmtDate(t.echeance||t.dueDate)+' · '+badge(t.statut||'À faire')+'</div></div></div>';}).join(''):'<div class="empty">Aucune tâche à faire. Tout est à jour.</div>')+'</div>';
+}
+function renderAgentDocuments(){
+ var docs=agentDocs(); return '<div class="toolbar"><div class="search"><input placeholder="Rechercher un document…"></div></div><div class="doc-tree">'+(docs.length?docs.map(function(d){return '<div class="doc-cat"><div class="doc-cat-head open"><span>'+esc(d.type)+'</span><span class="tag">'+esc(d.confidentiel?'Restreint':'Disponible')+'</span></div><div class="doc-cat-body"><div class="doc-row"><div style="flex:1"><strong>'+esc(d.libelle)+'</strong><div class="cell-sub">'+fmtDate(d.dateAjout)+'</div></div><button class="btn ghost sm">'+svg(I.eye,'ic')+'</button></div></div></div>';}).join(''):'<div class="empty">Aucun document disponible.</div>')+'</div>';
+}
+function renderAgentPay(){
+ var rows=agentPays(); return '<div class="table-wrap"><table><thead><tr><th>Période</th><th>Brut</th><th>Net</th><th>Statut</th><th></th></tr></thead><tbody>'+ (rows.length?rows.map(function(p){return '<tr><td class="cell-name">'+esc(p.periode)+'</td><td class="num">'+fmtMoney(p.brut)+'</td><td class="num">'+fmtMoney(p.net)+'</td><td>'+badge(p.statut)+'</td><td><button class="btn ghost sm" data-agent-pay="'+p.id+'">'+svg(I.eye,'ic')+'</button></td></tr>';}).join(''):'<tr><td colspan="5"><div class="empty">Aucun bulletin disponible.</div></td></tr>')+'</tbody></table></div>';
+}
+function bindAgentPay(){document.querySelectorAll('[data-agent-pay]').forEach(function(b){b.onclick=function(){openBulletinDetail(b.dataset.agentPay);};});}
+function renderAgentCareer(){var rows=agentCareer();return '<div class="panel"><div class="panel-head"><h3>Parcours professionnel</h3></div><div class="panel-body"><div class="wf-timeline">'+(rows.length?rows.map(function(x){return '<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>'+esc(x.type)+'</strong><span class="wf-date">'+fmtDate(x.date)+'</span></div><div class="wf-actor">'+esc(x.poste||'')+' · '+esc(x.direction||'')+'</div><div class="wf-comment">'+esc(x.commentaire||'')+'</div></div></div>';}).join(''):'<div class="empty">Aucun événement de carrière.</div>')+'</div></div></div>';}
+function renderAgentTraining(){var rows=agentForms();return '<div class="panels">'+(rows.length?rows.map(function(f){return '<div class="panel"><div class="panel-head"><h3>'+esc(f.intitule)+'</h3><div class="spacer"></div>'+badge(f.statut)+'</div><div class="panel-body info-list"><div class="row"><span class="l">Organisme</span><span class="v">'+esc(f.organisme||'—')+'</span></div><div class="row"><span class="l">Dates</span><span class="v">'+fmtDate(f.debut||f.debutSouhaite)+' → '+fmtDate(f.fin||f.finSouhaite)+'</span></div><div class="row"><span class="l">Attestation</span><span class="v">'+esc(f.justificatif||'—')+'</span></div></div></div>';}).join(''):'<div class="empty">Aucune formation enregistrée.</div>')+'</div>';}
+function renderAgentReviews(){var rows=agentReviews();return '<div class="panels">'+(rows.length?rows.map(function(n){return '<div class="panel"><div class="panel-head"><h3>Entretien '+esc(n.campagne)+'</h3><div class="spacer"></div>'+badge(n.statut||'Brouillon')+'</div><div class="panel-body info-list"><div class="row"><span class="l">Note</span><span class="v">'+(n.note??'—')+'</span></div><div class="row"><span class="l">Responsable</span><span class="v">'+esc(n.commentaireResponsable||'—')+'</span></div><div class="row"><span class="l">Mon commentaire</span><span class="v">'+esc(n.commentaireAgent||'—')+'</span></div><div class="row"><span class="l">Direction</span><span class="v">'+esc(n.commentaireDirecteur||'—')+'</span></div></div></div>';}).join(''):'<div class="empty">Aucun entretien disponible.</div>')+'</div>';}
+function renderAgentLife(){var a=currentAgent();return '<div class="panels"><div class="panel"><div class="panel-head"><h3>Temps de travail</h3></div><div class="panel-body info-list"><div class="row"><span class="l">Quotité</span><span class="v">'+(a.quotite||'—')+' %</span></div><div class="row"><span class="l">Horaires</span><span class="v">'+esc(horaireLabel(a.horaire))+'</span></div><div class="row"><span class="l">Pause déjeuner</span><span class="v">'+((a.horaire&&a.horaire.pauseDejeunerMin)||30)+' min</span></div></div></div><div class="panel"><div class="panel-head"><h3>Dispositifs et procédures</h3></div><div class="panel-body"><div class="empty">Télétravail, mutuelle, prévoyance, action sociale et règlement intérieur sont à publier dans les documents RH.</div></div></div></div>';}
+function renderAgentNotifications(){var a=currentAgent();var rows=(DB.agentNotifications||[]).filter(function(n){return n.agentId===a.id;});return '<div class="panel"><div class="panel-body">'+(rows.length?rows.map(function(n){return '<div class="mini-row"><div class="av">'+svg(I.checklist,'ic')+'</div><div><div class="who">'+esc(n.titre)+'</div><div class="det">'+esc(n.message||'')+' · '+fmtDate(n.date)+'</div></div></div>';}).join(''):'<div class="empty">Aucune notification.</div>')+'</div></div>';}
+function bindAgentNotifications(){}
+function renderAgentSearch(){return '<div class="panel"><div class="panel-body"><div class="search" style="max-width:none"><input id="agentSearch" placeholder="Rechercher dans mes documents, formations et demandes…"></div><div id="agentSearchResults"><div class="empty">Saisissez un terme pour commencer.</div></div></div></div>';}
+function bindAgentSearch(){var i=document.getElementById('agentSearch'),o=document.getElementById('agentSearchResults');i.oninput=function(){var q=i.value.toLowerCase().trim();if(!q){o.innerHTML='<div class="empty">Saisissez un terme pour commencer.</div>';return;}var r=[];agentDocs().forEach(function(d){if((d.libelle+' '+d.type).toLowerCase().indexOf(q)>=0)r.push('Document : '+d.libelle);});agentForms().forEach(function(f){if((f.intitule+' '+(f.organisme||'')).toLowerCase().indexOf(q)>=0)r.push('Formation : '+f.intitule);});o.innerHTML=r.length?r.map(function(x){return '<div class="mini-row"><div class="who">'+esc(x)+'</div></div>';}).join(''):'<div class="empty">Aucun résultat accessible.</div>';};}
+function renderAgentMaternity(){var a=currentAgent();var rows=(DB.maternite||[]).filter(function(m){return m.agentId===a.id;});return rows.length?rows.map(function(m){return '<div class="panel"><div class="panel-head"><h3>Dossier maternité</h3><div class="spacer"></div>'+badge(m.statut||'En cours')+'</div><div class="panel-body tache-list">'+(m.taches||[]).map(function(t){return '<div class="tache-row"><div style="flex:1"><strong>'+esc(t.intitule)+'</strong><div class="cell-sub">'+esc(t.description||'')+'</div><div>Échéance : '+fmtDate(t.echeance)+' · '+badge(t.statut||'À faire')+'</div></div></div>';}).join('')+'</div></div>';}).join(''):'<div class="panel"><div class="panel-body"><div class="empty">Aucun dossier maternité/parentalité ouvert.</div></div></div>';}
+function renderAgentHelp(){return '<div class="panels"><div class="panel"><div class="panel-head"><h3>Questions fréquentes</h3></div><div class="panel-body"><div class="mini-row"><div><div class="who">Comment demander un congé ?</div><div class="det">Ouvrez Mes absences puis Nouvelle demande.</div></div></div><div class="mini-row"><div><div class="who">Où trouver mon bulletin ?</div><div class="det">Rubrique Ma rémunération.</div></div></div></div></div><div class="panel"><div class="panel-head"><h3>Contact RH</h3></div><div class="panel-body"><div class="empty">Utilisez le canal RH interne prévu par l’établissement.</div></div></div></div>';}
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
   const total=DB.agents.length, actifs=DB.agents.filter(a=>a.actif!==false).length;
@@ -2769,6 +2841,7 @@ function printBulletin(p){
   ${p.congesRecap?`<table style="margin-top:18px"><thead><tr><th>Congés</th><th>Solde M-1</th><th>Acquis/Mois</th><th>Pris/Mois</th><th>Solde</th></tr></thead><tbody>${congesRows}</tbody></table>`:""}
   <div class="foot">Document généré par la plateforme ERP OPH — modèle simplifié à des fins de démonstration.</div>
   <script>window.onload=()=>{ window.print(); };<\/script>
+
 </body></html>`;
   const w=window.open("", "_blank");
   if(!w){ toast("Autorisez les pop-ups pour imprimer le bulletin"); return; }
@@ -2801,5 +2874,6 @@ loadSession();
 renderSessionBar();
 render();
 </script>
+<script src="agent-portal.js"></script>
 </body>
 </html>
