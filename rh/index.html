@@ -341,6 +341,11 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 <div id="modalRoot"></div>
 <div class="toast" id="toast"></div>
 
+<!-- GED : brique documentaire transverse (voir ../ged/) réutilisée pour l'onglet
+     "Documents" du dossier agent plutôt que de garder une gestion de documents
+     dupliquée dans le module RH. -->
+<script src="../ged/ged-core.js"></script>
+<script src="../ged/ged-ui.js"></script>
 <script>
 "use strict";
 
@@ -627,34 +632,11 @@ function seed(){
 const DIRECTIONS = ["Direction Générale","DSI","Direction des Ressources Humaines","Direction de la Maîtrise d'Ouvrage","Direction de la Gestion Locative","Direction Financière","Direction du Patrimoine"];
 const agentOptions = ()=> DB.agents.filter(a=>a.actif!==false||true).map(a=>({v:a.id,l:`${a.prenom} ${a.nom} · ${a.matricule}`}));
 
-/* ---------- Classement des documents du dossier (arborescence façon coffre-fort numérique) ---------- */
-const DOC_TYPES = [
-  {cat:"Carrière", type:"Aménagement horaire"},
-  {cat:"Carrière", type:"Attestation diverse"},
-  {cat:"Carrière", type:"CDD - Avenant"},
-  {cat:"Carrière", type:"CDD - Contrat de travail"},
-  {cat:"Carrière", type:"CDI - Avenant"},
-  {cat:"Carrière", type:"CDI - Contrat de travail"},
-  {cat:"Carrière", type:"Correspondances"},
-  {cat:"Carrière", type:"Décès"},
-  {cat:"Carrière", type:"Décision"},
-  {cat:"Carrière", type:"Discipline"},
-  {cat:"Carrière", type:"Fiche de poste"},
-  {cat:"Carrière", type:"Fin de contrat"},
-  {cat:"Carrière", type:"Maternité"},
-  {cat:"Carrière", type:"Notations"},
-  {cat:"Carrière", type:"Réorganisation horaire"},
-  {cat:"Médical", type:"Aptitude médical"},
-  {cat:"Formation", type:"Attestations de formation"},
-  {cat:"Information personnelle", type:"Cartes CPS"},
-  {cat:"Information personnelle", type:"CV"},
-  {cat:"Information personnelle", type:"Diplômes"},
-  {cat:"Information personnelle", type:"Documents administratifs"},
-  {cat:"Information personnelle", type:"Permis de conduire"},
-  {cat:"Information personnelle", type:"Recrutement"}
-];
+/* ---------- Classement des documents du dossier (arborescence façon coffre-fort numérique) ----------
+   Le classement par catégorie et le stockage réel des documents sont désormais délégués à la
+   GED (../ged/) — cf. renderDocumentsPane(). Seul l'ordre d'affichage des catégories reste ici,
+   car il pilote la mise en page du dossier agent. */
 const DOC_CATEGORY_ORDER = ["Carrière","Médical","Formation","Information personnelle","Bulletins de paie"];
-function docCategoryOf(type){ const m=DOC_TYPES.find(d=>d.type===type); return m?m.cat:"Information personnelle"; }
 
 /* ---------- Circuit de validation des congés (N+1 → N+2 → RH) ---------- */
 const RH_DIRECTION = "Direction des Ressources Humaines";
@@ -951,19 +933,6 @@ function dossierAccess(a){
   if(SESSION.role==="responsable" && a.superieurId===SESSION.asAgentId) return "team";
   return "none";
 }
-// Un document du dossier agent est-il visible pour le profil de test actuellement sélectionné ?
-function canViewDocument(doc, agentOfDossier){
-  const access=dossierAccess(agentOfDossier);
-  if(access==="rh") return true;
-  if(access==="none") return false;
-  return access==="self" || !doc.confidentiel;
-}
-// Un document du dossier peut-il être ajouté/modifié/supprimé par le profil de test actuel ?
-function canEditDocuments(agentOfDossier){
-  const access=dossierAccess(agentOfDossier);
-  return access==="rh" || access==="team";
-}
-
 const FORMS = {
   agents:{ title:"agent",
     fields:[
@@ -1093,16 +1062,6 @@ const FORMS = {
       {k:"commentaire",l:"Commentaire",t:"textarea",full:true}
     ],
     defaults:()=>({date:todayISO(),type:"Changement de poste"})
-  },
-  documents:{ title:"document",
-    fields:[
-      {k:"agentId",l:"Agent",t:"ref",req:true},
-      {k:"type",l:"Type de document",t:"select",o:DOC_TYPES.map(d=>d.type),req:true,hint:"Détermine le classement dans l'arborescence du dossier"},
-      {k:"libelle",l:"Libellé / nom du fichier",t:"text",req:true},
-      {k:"dateAjout",l:"Date d'ajout",t:"date",req:true},
-      {k:"confidentiel",l:"Accès restreint (RH uniquement)",t:"bool"}
-    ],
-    defaults:()=>({dateAjout:todayISO(),type:"Documents administratifs",confidentiel:false})
   },
   allaitement:{ title:"autorisation d'allaitement",
     fields:[
@@ -1826,7 +1785,7 @@ function renderAgentDetail(){
     {id:"allaitement",l:"Allaitement",n:rel("allaitement").length},
     {id:"notations",l:"Notations",n:rel("notations").length},
     {id:"maternite",l:"Maternité",n:rel("maternite").length},
-    {id:"documents",l:"Documents",n:rel("documents").filter(d=>canViewDocument(d,a)).length+((dossierAccess(a)==="rh"||dossierAccess(a)==="self")?rel("paie").length:0)}
+    {id:"documents",l:"Documents",n:GED.getDocumentsForEntity("rh","agent",a.id).length+((dossierAccess(a)==="rh"||dossierAccess(a)==="self")?rel("paie").length:0)}
   ];
 
   c.innerHTML=`
@@ -1953,16 +1912,21 @@ function renderDetailPane(a){
 }
 // Onglet Documents : arborescence par catégories (façon coffre-fort numérique), avec les
 // bulletins de paie générés regroupés par année plutôt que dupliqués en documents génériques.
+// Onglet Documents du dossier agent : consomme la GED (../ged/) plutôt qu'un stockage
+// de documents propre au module RH — la GED gère fichier réel, versions, corbeille et
+// droits ; le module RH ne fait qu'attacher ses documents à l'entité "agent" et afficher
+// le même classement par catégorie qu'auparavant pour ne rien changer visuellement.
 function renderDocumentsPane(pane, a, access){
-  const canAdd=canEditDocuments(a);
-  const docs=DB.documents.filter(d=>d.agentId===a.id && canViewDocument(d,a));
+  const canAdd = GED.can("creation", { entite:{type:"agent", id:a.id}, classification:"interne" });
+  const docs = GED.getDocumentsForEntity("rh","agent",a.id);
   const byCat={};
-  docs.forEach(d=>{ const cat=docCategoryOf(d.type); (byCat[cat]=byCat[cat]||[]).push(d); });
+  docs.forEach(d=>{ const cat=(GED.getCategory(d.categorieId)||{}).nom||"Documents administratifs"; (byCat[cat]=byCat[cat]||[]).push(d); });
   const canSeeBulletins = access==="rh" || access==="self";
   const bulletins = canSeeBulletins ? DB.paie.filter(p=>p.agentId===a.id) : [];
   const byYear={};
   bulletins.forEach(p=>{ const y=(p.periode||"").slice(0,4)||"—"; (byYear[y]=byYear[y]||[]).push(p); });
   const years=Object.keys(byYear).sort((x,y)=>y.localeCompare(x));
+  const RH_CATEGORIES=["cat_carriere","cat_medical","cat_formation","cat_info_perso","cat_administratif"];
 
   const addBtn=canAdd?`<button class="btn primary sm" id="detailAdd">${svg(I.plus)} Ajouter</button>`:"";
   let html=`<div class="doc-tree">`;
@@ -1972,11 +1936,10 @@ function renderDocumentsPane(pane, a, access){
     html+=`<div class="doc-cat">
       <button class="doc-cat-head" data-toggle="${cid}">${svg(I.chevron,'chev')}<span>${esc(cat)}</span><span class="tag">${items.length}</span></button>
       <div class="doc-cat-body" id="${cid}" hidden>
-        ${items.length?items.map(d=>`<div class="doc-row">
-            <div><div class="cell-name">${esc(d.type)}</div><div class="cell-sub">${esc(d.libelle)} · ${fmtDate(d.dateAjout)}</div></div>
+        ${items.length?items.map(d=>`<div class="doc-row" data-open-doc="${d.id}" style="cursor:pointer">
+            <div><div class="cell-name">${esc(d.nom)}</div><div class="cell-sub">${fmtDate(d.dateCreation)}${d.sansFichier?" · document historique":""}</div></div>
             <div class="spacer"></div>
-            ${d.confidentiel?'<span class="badge warn">RH uniquement</span>':'<span class="badge ok">Visible équipe</span>'}
-            ${canAdd?`<div class="row-actions"><button class="btn ghost sm" data-edit="${d.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${d.id}" data-mod="documents" title="Supprimer">${svg(I.trash,'ic')}</button></div>`:""}
+            ${d.classification==="confidentiel"||d.classification==="tres_confidentiel"?'<span class="badge warn">RH uniquement</span>':'<span class="badge ok">Visible équipe</span>'}
           </div>`).join(""):`<div class="empty">Aucun document.</div>`}
       </div>
     </div>`;
@@ -1997,14 +1960,19 @@ function renderDocumentsPane(pane, a, access){
   html+=`</div>`;
   pane.innerHTML=`<div class="panel"><div class="panel-head" style="border-radius:10px 10px 0 0"><h3>Documents</h3><div class="spacer"></div>${addBtn}</div><div class="panel-body" style="padding:10px">${html}</div></div>`;
   const detailAdd=document.getElementById("detailAdd");
-  if(detailAdd) detailAdd.onclick=()=>openForm("documents", null, {agentId:a.id});
+  if(detailAdd) detailAdd.onclick=()=>GEDUI.openUploadModal({
+    dossierId: GED.getOrCreateAgentFolder(a.id).id,
+    module:"rh", entite:{type:"agent", id:a.id}, classification:"interne",
+    categoriesFiltre: RH_CATEGORIES,
+    titre: `Déposer un document — ${a.prenom} ${a.nom}`,
+    onUploaded: ()=>renderDetailPane(a)
+  });
   pane.querySelectorAll("[data-toggle]").forEach(btn=>btn.onclick=()=>{
     const body=document.getElementById(btn.dataset.toggle);
     body.hidden=!body.hidden;
     btn.classList.toggle("open", !body.hidden);
   });
-  pane.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("documents", el.dataset.edit));
-  pane.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("documents", el.dataset.del));
+  pane.querySelectorAll("[data-open-doc]").forEach(el=>el.onclick=()=>GEDUI.openDocumentDetail(el.dataset.openDoc, { onChange: ()=>renderDetailPane(a) }));
   pane.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openBulletinDetail(el.dataset.view));
 }
 
@@ -2870,6 +2838,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElemen
 
 /* ---------- Boot ---------- */
 load();
+GED.load(); // importe une fois pour toutes l'historique DB.documents pré-existant
 loadSession();
 renderSessionBar();
 render();
