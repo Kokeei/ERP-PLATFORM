@@ -1414,7 +1414,7 @@ function bindDFControle(){
 
 /* ---------- Portail Agent RH ---------- */
 function currentAgent(){ return DB.agents.find(function(a){return a.id===SESSION.asAgentId;}); }
-function agentDocs(){ var a=currentAgent(); return a ? DB.documents.filter(function(d){return d.agentId===a.id && canViewDocument(d,a);}) : []; }
+function agentDocs(){ var a=currentAgent(); return a ? DB.documents.filter(function(d){return d.agentId===a.id;}) : []; }
 function agentPays(){ var a=currentAgent(); return a ? DB.paie.filter(function(p){return p.agentId===a.id;}).sort(function(x,y){return (y.periode||'').localeCompare(x.periode||'');}) : []; }
 function agentForms(){ var a=currentAgent(); return a ? DB.formations.filter(function(f){return f.agentId===a.id;}) : []; }
 function agentCareer(){ var a=currentAgent(); return a ? DB.carriere.filter(function(x){return x.agentId===a.id;}).sort(function(x,y){return (y.date||'').localeCompare(x.date||'');}) : []; }
