@@ -70,9 +70,9 @@ test.describe("Gestion des agents — droits différenciés par profil", () => {
     await page.goto("/rh/");
     await page.selectOption("#sessRole", "agent");
 
-    await expect(page.locator("#nav a")).toHaveCount(3);
+    await expect(page.locator("#nav a")).toHaveCount(15);
     await expect(page.locator("#nav a", { hasText: "Agents" })).toHaveCount(0);
-    await expect(page.locator("#pageTitle")).toHaveText("Mon espace");
+    await expect(page.locator("#pageTitle")).toHaveText("Accueil");
   });
 
   test("un responsable ne voit que son équipe directe et ne peut pas modifier leur fiche", async ({ page }) => {
