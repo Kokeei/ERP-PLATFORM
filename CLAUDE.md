@@ -11,7 +11,7 @@ Ce projet doit être traité comme une application en production. Ces règles s'
 ## 2. Travail par fonctionnalité
 
 - Une branche dédiée par fonctionnalité : `feature/nom-fonctionnalite`, ou `fix/nom-du-bug` pour un correctif.
-- Ne jamais commiter directement sur `main`.
+- **Fusion vers `main`** : l'utilisateur a autorisé la fusion (merge) directe de la branche de fonctionnalité vers `main` sans passer par une pull request GitHub, à chaque fois, jusqu'à nouvel ordre. Ceci ne dispense pas des vérifications de la règle 4 (tests + suite complète) avant la fusion.
 - Commits petits, cohérents, explicites (`feat: …`, `fix: …`, `test: …`, `refactor: …`), une fonctionnalité par commit.
 
 ## 3. Tests obligatoires
