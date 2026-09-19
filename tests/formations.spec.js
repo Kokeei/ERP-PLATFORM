@@ -73,9 +73,9 @@ test.describe("Formations — self-service (profil Agent)", () => {
     const agentOption = page.locator("#sessAgent option", { hasText: "Poema TERIItAHI" });
     await page.selectOption("#sessAgent", await agentOption.evaluate((el) => el.value));
 
-    await page.locator("#nav a", { hasText: "Mon dossier" }).click();
-    await page.locator("#detailTabs button", { hasText: "Formations" }).click();
-    await page.click("#detailAdd");
+    await page.locator("#nav a", { hasText: "Mon profil" }).click();
+    await page.locator("#nav a", { hasText: "Mes formations" }).click();
+    await page.getByRole("button", { name: "Demander une formation" }).click();
 
     await expect(page.locator(".field label", { hasText: "Statut" })).toHaveCount(0);
 
