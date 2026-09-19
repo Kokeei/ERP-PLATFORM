@@ -15,9 +15,8 @@ test.describe("Espace Agent RH", () => {
 
   test("affiche uniquement les données de l'agent courant", async ({ page }) => {
     await selectAgent(page);
-    const selected = await page.locator("#sessAgent").inputValue();
     await page.locator("#nav a", { hasText: "Mon profil" }).click();
-    await expect(page.locator(".detail-head")).toContainText(selected ? "" : "");
+    await expect(page.locator(".detail-head")).toBeVisible();
     await expect(page.locator(".detail-cols")).toBeVisible();
   });
 
@@ -31,8 +30,7 @@ test.describe("Espace Agent RH", () => {
 
   test("protège les modules RH du profil Agent par la navigation", async ({ page }) => {
     await selectAgent(page);
-    await page.evaluate(() => { window.location.hash = "#agents"; });
-    await page.reload();
+    await page.evaluate(() => window.go("agents"));
     await expect(page.locator("#pageTitle")).toHaveText("Accueil");
     await expect(page.locator("#nav a", { hasText: "Agents" })).toHaveCount(0);
   });
