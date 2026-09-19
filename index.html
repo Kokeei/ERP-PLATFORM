@@ -137,19 +137,19 @@ const MODULES={
     {slug:"demandeurs",name:"Demandeurs",desc:"Demandes de logement, instruction des dossiers et attributions",status:"soon"}
   ],
   achats:[
-    {slug:"clients",name:"Clients / Tiers",desc:"Référentiel des tiers et contacts",status:"soon"},
-    {slug:"fournisseurs",name:"Fournisseurs",desc:"Référentiel fournisseurs et prestataires",status:"soon"},
-    {slug:"marches",name:"Marchés publics",desc:"CCTP, BPU et suivi de l'exécution des marchés",status:"soon"},
-    {slug:"commandes",name:"Commandes",desc:"Bons de commande et engagements",status:"soon"},
-    {slug:"factures",name:"Factures",desc:"Facturation, réception et règlements",status:"soon"},
-    {slug:"budget",name:"Budget",desc:"Suivi budgétaire et exécution",status:"soon"}
+    {slug:"clients",name:"Clients / Tiers",desc:"Référentiel des tiers et contacts",status:"ready",href:"achats/#tiers?type=Client"},
+    {slug:"fournisseurs",name:"Fournisseurs",desc:"Référentiel fournisseurs et prestataires",status:"ready",href:"achats/#tiers?type=Fournisseur"},
+    {slug:"marches",name:"Marchés publics",desc:"CCTP, BPU et suivi de l'exécution des marchés",status:"ready",href:"achats/#marches"},
+    {slug:"commandes",name:"Commandes",desc:"Bons de commande et engagements",status:"ready",href:"achats/#commandes"},
+    {slug:"factures",name:"Factures",desc:"Facturation, réception et règlements",status:"ready",href:"achats/#factures"},
+    {slug:"budget",name:"Budget",desc:"Suivi budgétaire et exécution",status:"ready",href:"achats/#budget"}
   ]
 };
 function card(m){
   const ico=`<div class="ico"><svg viewBox="0 0 24 24">${ICO[m.slug]||""}</svg></div>`;
   const body=`${ico}<h3>${m.name}</h3><p>${m.desc}</p>`;
   if(m.status==="ready"){
-    return `<a class="card" href="${m.slug}/">${body}<div class="foot"><span class="badge ok">Disponible</span><span class="go">Ouvrir →</span></div></a>`;
+    return `<a class="card" href="${m.href||(m.slug+"/")}">${body}<div class="foot"><span class="badge ok">Disponible</span><span class="go">Ouvrir →</span></div></a>`;
   }
   return `<div class="card soon">${body}<div class="foot"><span class="badge soon">À venir</span></div></div>`;
 }

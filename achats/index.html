@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPH · Achats & Finances</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ink: #12211f; --ink-2: #4a5b58; --ink-3: #7a8a87;
+  --bg: #eef1f0; --surface: #ffffff; --surface-2: #f6f8f7;
+  --border: #d7dddb; --border-strong: #c2cac8;
+  --primary: #0f6e6a; --primary-dark: #0a504d; --primary-soft: #e2efee; --primary-ink: #ffffff;
+  --ok: #2f8f5b; --ok-bg:#e6f4ec; --warn: #b57812; --warn-bg:#fbf1dd; --bad: #c0453b; --bad-bg:#f9e6e4; --info:#2f6f9f; --info-bg:#e5eef6;
+  --shadow: 0 1px 2px rgba(18,33,31,.06), 0 8px 24px rgba(18,33,31,.05);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ink:#e8efed; --ink-2:#a9b8b5; --ink-3:#7d8d8a;
+  --bg:#0c1413; --surface:#131e1c; --surface-2:#0f1817;
+  --border:#243230; --border-strong:#334340;
+  --primary:#3aa39c; --primary-dark:#2b807a; --primary-soft:#12302e; --primary-ink:#04110f;
+  --ok:#4bbd7f; --ok-bg:#123122; --warn:#d69a3c; --warn-bg:#332614; --bad:#e06b60; --bad-bg:#361c1a; --info:#5c9ecb; --info-bg:#132635;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ink:#e8efed; --ink-2:#a9b8b5; --ink-3:#7d8d8a;
+  --bg:#0c1413; --surface:#131e1c; --surface-2:#0f1817;
+  --border:#243230; --border-strong:#334340;
+  --primary:#3aa39c; --primary-dark:#2b807a; --primary-soft:#12302e; --primary-ink:#04110f;
+  --ok:#4bbd7f; --ok-bg:#123122; --warn:#d69a3c; --warn-bg:#332614; --bad:#e06b60; --bad-bg:#361c1a; --info:#5c9ecb; --info-bg:#132635;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font); color:var(--ink); background:var(--bg); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+a{color:inherit}
+
+.app{display:grid; grid-template-columns:248px 1fr; min-height:100vh}
+.sidebar{background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; position:sticky; top:0; height:100vh}
+.brand{padding:20px 20px 14px; display:flex; align-items:center; gap:11px}
+.brand .logo{width:38px;height:38px;border-radius:9px;flex:0 0 auto; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:var(--primary-ink); display:grid; place-items:center; font-weight:800; font-size:16px}
+.brand h1{font-size:15px; margin:0; line-height:1.15; font-weight:700}
+.brand span{font-size:11.5px; color:var(--ink-3); font-weight:500}
+.nav{padding:8px; overflow-y:auto; flex:1}
+.nav-group{font-size:10.5px; letter-spacing:.06em; color:var(--ink-3); font-weight:700; padding:14px 12px 6px; text-transform:uppercase}
+.nav a{display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:8px; color:var(--ink-2); text-decoration:none; font-weight:500; font-size:14px; cursor:pointer}
+.nav a .ic{width:18px;height:18px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9}
+.nav a:hover{background:var(--surface-2); color:var(--ink)}
+.nav a.active{background:var(--primary-soft); color:var(--primary-dark); font-weight:600}
+.nav a .count{margin-left:auto; background:var(--warn-bg); color:var(--warn); font-size:11px; font-weight:700; padding:1px 7px; border-radius:20px}
+.sidebar-foot{padding:12px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.sidebar-foot select{flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px}
+.theme-btn{background:var(--surface-2); border:1px solid var(--border); color:var(--ink-2); border-radius:8px; padding:7px 9px; cursor:pointer; font-size:12.5px; display:flex; gap:6px; align-items:center}
+
+.main{min-width:0; display:flex; flex-direction:column}
+.topbar{background:var(--surface); border-bottom:1px solid var(--border); padding:16px 28px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:5; flex-wrap:wrap}
+.topbar h2{margin:0; font-size:19px; font-weight:700}
+.topbar .sub{color:var(--ink-3); font-size:13px; margin-top:1px}
+.topbar .spacer{flex:1}
+.menu-toggle{display:none; background:none; border:1px solid var(--border); border-radius:8px; padding:8px; cursor:pointer; color:var(--ink)}
+.content{padding:24px 28px 60px; max-width:1280px; width:100%}
+
+.btn{display:inline-flex; align-items:center; gap:7px; border-radius:8px; border:1px solid transparent; padding:9px 15px; font-size:13.5px; font-weight:600; cursor:pointer; background:var(--surface-2); color:var(--ink); border-color:var(--border)}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--primary); color:var(--primary-ink); border-color:var(--primary)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent; border-color:transparent; color:var(--ink-2); padding:7px 9px}
+.btn.ghost:hover{background:var(--surface-2); color:var(--ink)}
+.btn.sm{padding:6px 11px; font-size:12.5px}
+.btn.danger{color:var(--bad); border-color:var(--border)}
+.btn.danger:hover{background:var(--bad-bg)}
+.btn .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+
+.kpi-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; margin-bottom:22px}
+.kpi{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); cursor:pointer}
+.kpi:hover{border-color:var(--border-strong)}
+.kpi .k-lbl{font-size:12.5px; color:var(--ink-3); font-weight:600}
+.kpi .k-val{font-size:30px; font-weight:800; margin-top:6px; letter-spacing:-.02em}
+.kpi .k-meta{font-size:12px; margin-top:4px; font-weight:600}
+.kpi .k-meta.ok{color:var(--ok)} .kpi .k-meta.warn{color:var(--warn)} .kpi .k-meta.bad{color:var(--bad)} .kpi .k-meta.mut{color:var(--ink-3)}
+
+.panels{display:grid; grid-template-columns:1.4fr 1fr; gap:16px}
+.panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+.panel-head{padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px}
+.panel-head h3{margin:0; font-size:14.5px; font-weight:700}
+.panel-head .spacer{flex:1}
+.panel-body{padding:6px 6px}
+.mini-row{display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px}
+.mini-row:hover{background:var(--surface-2)}
+.mini-row .who{font-weight:600; font-size:13.5px}
+.mini-row .det{font-size:12.5px; color:var(--ink-3)}
+.mini-row .spacer{flex:1}
+.empty{padding:26px 16px; text-align:center; color:var(--ink-3); font-size:13.5px}
+
+.toolbar{display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap}
+.search{position:relative; flex:1; min-width:200px; max-width:360px}
+.search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13.5px}
+.search .ic{position:absolute; left:10px; top:50%; transform:translateY(-50%); width:16px;height:16px; stroke:var(--ink-3); fill:none; stroke-width:2}
+.filter-sel{padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13.5px}
+input:focus, select:focus, textarea:focus, .btn:focus-visible, .kpi:focus-visible, a:focus-visible{outline:2px solid var(--primary); outline-offset:1px}
+
+.table-wrap{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:13.5px}
+thead th{text-align:left; padding:11px 14px; font-size:11.5px; letter-spacing:.02em; color:var(--ink-3); font-weight:700; border-bottom:1px solid var(--border); white-space:nowrap; background:var(--surface-2)}
+tbody td{padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+.cell-name{font-weight:600}
+.cell-sub{font-size:12px; color:var(--ink-3)}
+.row-actions{display:flex; gap:4px; justify-content:flex-end; white-space:nowrap}
+
+.badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap}
+.badge::before{content:""; width:6px;height:6px;border-radius:50%; background:currentColor}
+.badge.ok{background:var(--ok-bg); color:var(--ok)}
+.badge.warn{background:var(--warn-bg); color:var(--warn)}
+.badge.bad{background:var(--bad-bg); color:var(--bad)}
+.badge.info{background:var(--info-bg); color:var(--info)}
+.badge.mut{background:var(--surface-2); color:var(--ink-3)}
+.tag{display:inline-block; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border); color:var(--ink-2)}
+
+.overlay{position:fixed; inset:0; background:rgba(10,20,19,.5); backdrop-filter:blur(2px); display:grid; place-items:center; padding:20px; z-index:50}
+.modal{background:var(--surface); border:1px solid var(--border); border-radius:14px; width:100%; max-width:660px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.modal-head{padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px}
+.modal-head h3{margin:0; font-size:17px; font-weight:700}
+.modal-head .spacer{flex:1}
+.modal-body{padding:20px 22px; overflow-y:auto}
+.modal-foot{padding:14px 22px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap}
+.close-x{background:none;border:none;cursor:pointer;color:var(--ink-3);padding:4px;border-radius:6px}
+.close-x .ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2}
+
+.form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px 16px}
+.field{display:flex; flex-direction:column; gap:5px}
+.field.full{grid-column:1 / -1}
+.field label{font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.field label .req{color:var(--bad)}
+.field input, .field select, .field textarea{padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:14px; width:100%}
+.field textarea{resize:vertical; min-height:64px}
+.field .hint{font-size:11.5px; color:var(--ink-3)}
+.field.checkline{flex-direction:row; align-items:center; gap:8px}
+.field.checkline input{width:auto}
+.form-section{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); font-weight:700; grid-column:1/-1; margin-top:6px; padding-bottom:2px; border-bottom:1px solid var(--border)}
+
+.detail-head{display:flex; align-items:center; gap:16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); margin-bottom:16px; flex-wrap:wrap}
+.detail-head h2{margin:0; font-size:21px}
+.detail-head .meta{color:var(--ink-3); font-size:13.5px; margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.info-list{display:flex; flex-direction:column}
+.info-list .row{display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px}
+.info-list .row:last-child{border-bottom:none}
+.info-list .row .l{color:var(--ink-3)}
+.info-list .row .v{font-weight:600; text-align:right}
+
+.wf-item{display:flex; gap:12px; position:relative; padding:6px 0}
+.wf-dot{width:9px;height:9px;border-radius:50%; background:var(--primary); margin-top:5px; flex:0 0 auto}
+.wf-body{flex:1}
+.wf-top{display:flex; justify-content:space-between; gap:10px; font-size:13.5px}
+.wf-date{color:var(--ink-3); font-size:12px; white-space:nowrap}
+.wf-comment{font-size:12.5px; color:var(--ink-3); margin-top:4px; font-style:italic}
+
+.bar{height:9px;background:var(--surface-2);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
+.bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--primary),var(--primary-dark))}
+.bar.over span{background:linear-gradient(90deg,var(--bad),#8a2e26)}
+
+.toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:9px; font-size:13.5px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.3); z-index:80; opacity:0; transition:opacity .2s}
+.toast.show{opacity:1}
+
+@media (max-width:960px){ .panels{grid-template-columns:1fr} }
+@media (max-width:820px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed; z-index:60; width:260px; transform:translateX(-100%); transition:transform .2s}
+  .sidebar.open{transform:translateX(0)}
+  .menu-toggle{display:inline-flex}
+  .content{padding:18px 16px 60px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="logo">OPH</div><div><h1>Achats & Finances</h1><span>Office de l'Habitat · PF</span></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <a class="btn ghost sm" href="../">← Portail</a>
+      <select id="sessRole" title="Profil de test">
+        <option value="achats">Service Achats</option>
+        <option value="df">Direction Financière</option>
+      </select>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div><h2 id="pageTitle">Tableau de bord</h2><div class="sub" id="pageSub"></div></div>
+      <div class="spacer"></div>
+      <div id="pageActions"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script src="../ged/ged-core.js"></script>
+<script src="../ged/ged-ui.js"></script>
+<script>
+"use strict";
+const KEY = "oph_achats_v1";
+const SESSION_KEY = KEY + "_session";
+
+const I = {
+  dash:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  tiers:'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 20a5 5 0 0 0-3-4.6"/>',
+  budget:'<path d="M3 20h18"/><rect x="5" y="11" width="3" height="7"/><rect x="10.5" y="7" width="3" height="11"/><rect x="16" y="4" width="3" height="14"/>',
+  marches:'<path d="M3 21h18"/><path d="M12 3 3 8h18z"/><path d="M5 8v9M10 8v9M14 8v9M19 8v9"/>',
+  commandes:'<path d="M6 6h15l-1.5 9H7.5z"/><path d="M6 6 5 3H2"/><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/>',
+  factures:'<path d="M6 2h9l4 4v16l-2.5-1.5L14 22l-2.5-1.5L9 22l-2.5-1.5L4 22V4a2 2 0 0 1 2-2z"/><path d="M8 8h6M8 12h8M8 16h5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>'
+};
+function svg(d, cls){ return `<svg class="${cls||'ic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function uid(p){ return p+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function nowStamp(){ const d=new Date(); return d.toLocaleDateString("fr-FR")+" "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); }
+function fmtDate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return d&&m&&y?`${d}/${m}/${y}`:iso; }
+function fmtMoney(n){ return (Math.round(Number(n)||0)).toLocaleString("fr-FR")+" XPF"; }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2400); }
+function badge(s){
+  const tone={"Actif":"ok","Inactif":"mut",
+    "En préparation":"mut","Publié":"info","Attribué":"info","Notifié":"info","En exécution":"ok","Soldé":"ok",
+    "Brouillon":"mut","Validée":"info","Envoyée":"info","Livrée":"ok","Clôturée":"ok",
+    "Reçue":"info","Contrôlée":"warn","Rejetée":"bad","Payée":"ok"}[s]||"mut";
+  return `<span class="badge ${tone}">${esc(s||"—")}</span>`;
+}
+
+const DIRECTIONS = ["Direction Générale","DSI","Direction des Ressources Humaines","Direction de la Maîtrise d'Ouvrage","Direction de la Gestion Locative","Direction Financière","Direction du Patrimoine"];
+
+/* ---------- Données de démonstration ---------- */
+function seed(){
+  const tiers = [
+    {raisonSociale:"SOPAD Polynésie", type:["Fournisseur"], formeJuridique:"SARL", tahiti:"TPM 123456", adresse:"Zone industrielle", commune:"Punaauia", tel:"40 50 10 20", email:"contact@sopad.pf", contactNom:"J. Wong", statut:"Actif"},
+    {raisonSociale:"Polynésie Bâtiment", type:["Fournisseur"], formeJuridique:"SA", tahiti:"TPM 234567", adresse:"Route de Outumaoro", commune:"Punaauia", tel:"40 50 20 30", email:"devis@polybat.pf", contactNom:"T. Teriitau", statut:"Actif"},
+    {raisonSociale:"Fenua Informatique", type:["Fournisseur"], formeJuridique:"SARL", tahiti:"TPM 345678", adresse:"Centre-ville", commune:"Papeete", tel:"40 42 11 22", email:"contact@fenua-info.pf", contactNom:"H. Ah-Min", statut:"Actif"},
+    {raisonSociale:"Bureau Vallée Tahiti", type:["Fournisseur"], formeJuridique:"SARL", tahiti:"TPM 456789", adresse:"Centre Commercial", commune:"Faa'a", tel:"40 82 33 44", email:"pro@bureauvallee.pf", contactNom:"—", statut:"Actif"},
+    {raisonSociale:"Cabinet Architecture Moana", type:["Fournisseur"], formeJuridique:"EI", tahiti:"TPM 567890", adresse:"Rue Anne-Marie Javouhey", commune:"Papeete", tel:"40 43 55 66", email:"moana@archi.pf", contactNom:"K. Moana", statut:"Actif"},
+    {raisonSociale:"Commune de Papeete", type:["Client"], formeJuridique:"Collectivité", tahiti:"—", adresse:"Hôtel de ville", commune:"Papeete", tel:"40 41 60 60", email:"contact@papeete.pf", contactNom:"Service technique", statut:"Actif"},
+    {raisonSociale:"Direction de l'Équipement", type:["Client","Fournisseur"], formeJuridique:"Collectivité", tahiti:"—", adresse:"Route de l'aéroport", commune:"Faa'a", tel:"40 47 20 00", email:"de@administration.pf", contactNom:"—", statut:"Actif"}
+  ].map(t=>({id:uid("ti_"), ...t}));
+  const tid=n=>tiers[n].id;
+
+  const exercice=String(new Date().getFullYear());
+  const budgetLignes = [
+    {exercice, direction:"Direction du Patrimoine", nature:"Travaux d'entretien du parc locatif", alloue:15000000},
+    {exercice, direction:"DSI", nature:"Matériel et logiciels informatiques", alloue:4000000},
+    {exercice, direction:"Direction Générale", nature:"Fournitures de bureau", alloue:1200000},
+    {exercice, direction:"Direction de la Maîtrise d'Ouvrage", nature:"Études et maîtrise d'œuvre", alloue:8000000}
+  ].map(b=>({id:uid("bl_"), ...b}));
+  const blid=n=>budgetLignes[n].id;
+
+  const marches = [
+    {objet:"Réfection des toitures — résidence Teavaraa", typeProcedure:"Appel d'offres ouvert", tiersId:tid(1), montant:9500000, dateNotification:"2026-03-01", dureeMois:6, statut:"En exécution", ligneBudgetId:blid(0)},
+    {objet:"Maîtrise d'œuvre extension résidence Punavai", typeProcedure:"Marché négocié", tiersId:tid(4), montant:3200000, dateNotification:"2026-06-15", dureeMois:12, statut:"Notifié", ligneBudgetId:blid(3)}
+  ].map(m=>({id:uid("mp_"), ...m}));
+  const mid=n=>marches[n].id;
+
+  const commandes = [
+    {numero:"BC-2026-001", tiersId:tid(0), marcheId:null, ligneBudgetId:blid(2), objet:"Fournitures de bureau — 3ème trimestre", montant:180000, dateCommande:"2026-07-05", statut:"Livrée", serviceFait:true},
+    {numero:"BC-2026-002", tiersId:tid(2), marcheId:null, ligneBudgetId:blid(1), objet:"Renouvellement 5 postes informatiques", montant:950000, dateCommande:"2026-07-20", statut:"Livrée", serviceFait:true},
+    {numero:"BC-2026-003", tiersId:tid(1), marcheId:mid(0), ligneBudgetId:blid(0), objet:"Acompte travaux toiture Teavaraa", montant:3000000, dateCommande:"2026-08-01", statut:"Validée", serviceFait:false},
+    {numero:"BC-2026-004", tiersId:tid(3), marcheId:null, ligneBudgetId:blid(2), objet:"Mobilier de bureau", montant:320000, dateCommande:"2026-09-02", statut:"Envoyée", serviceFait:false}
+  ].map(c=>({id:uid("cm_"), ...c}));
+  const cid=n=>commandes[n].id;
+
+  const factures = [
+    {numero:"FA-8841", tiersId:tid(0), commandeId:cid(0), montant:180000, dateReception:"2026-07-18", dateEcheance:"2026-08-18", statut:"Payée", datePaiement:"2026-08-10"},
+    {numero:"FA-2201", tiersId:tid(2), commandeId:cid(1), montant:950000, dateReception:"2026-08-02", dateEcheance:"2026-09-02", statut:"Validée", datePaiement:null},
+    {numero:"FA-5567", tiersId:tid(1), commandeId:cid(2), montant:3000000, dateReception:"2026-09-10", dateEcheance:"2026-10-10", statut:"Contrôlée", datePaiement:null},
+    {numero:"FA-9012", tiersId:tid(3), commandeId:cid(3), montant:320000, dateReception:"2026-09-15", dateEcheance:"2026-10-15", statut:"Reçue", datePaiement:null}
+  ].map(f=>({id:uid("fa_"), ...f, historique:[{action:"Facture reçue", date:f.dateReception, commentaire:""}]}));
+
+  return { tiers, budgetLignes, marches, commandes, factures };
+}
+function migrate(db){
+  if(!db.tiers) db.tiers=[];
+  if(!db.budgetLignes) db.budgetLignes=[];
+  if(!db.marches) db.marches=[];
+  if(!db.commandes) db.commandes=[];
+  if(!db.factures) db.factures=[];
+  db.factures.forEach(f=>{ if(!f.historique) f.historique=[]; });
+  return db;
+}
+let DB=null;
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ console.warn("save",e); } }
+function load(){
+  try{ const raw=localStorage.getItem(KEY); if(raw){ DB=migrate(JSON.parse(raw)); return; } }catch(e){}
+  DB=seed(); save();
+}
+
+let SESSION = { role:"achats" };
+function loadSession(){ try{ const raw=localStorage.getItem(SESSION_KEY); if(raw) SESSION={...SESSION, ...JSON.parse(raw)}; }catch(e){} }
+function saveSession(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); }catch(e){} }
+function renderSessionBar(){
+  const roleSel=document.getElementById("sessRole");
+  roleSel.value=SESSION.role;
+  roleSel.onchange=()=>{ SESSION.role=roleSel.value; saveSession(); go(roleHome()); };
+}
+function roleHome(){ return ROLE_MODULES[SESSION.role][0]; }
+
+function tiersName(id){ const t=DB.tiers.find(x=>x.id===id); return t?t.raisonSociale:"—"; }
+function ligneLabel(id){ const l=DB.budgetLignes.find(x=>x.id===id); return l?`${l.direction} — ${l.nature}`:"—"; }
+function commandeLabel(id){ const c=DB.commandes.find(x=>x.id===id); return c?`${c.numero} · ${esc(c.objet)}`:"—"; }
+function ligneEngage(ligneId){ return DB.commandes.filter(c=>c.ligneBudgetId===ligneId && c.statut!=="Clôturée").reduce((s,c)=>s+c.montant,0); }
+function ligneConsomme(ligneId){
+  const cmdIds=new Set(DB.commandes.filter(c=>c.ligneBudgetId===ligneId).map(c=>c.id));
+  return DB.factures.filter(f=>f.commandeId && cmdIds.has(f.commandeId) && f.statut==="Payée").reduce((s,f)=>s+f.montant,0);
+}
+
+/* ---------- Navigation ---------- */
+const NAV_ACHATS = [
+  {id:"dashboard", label:"Tableau de bord", icon:I.dash},
+  {id:"tiers", label:"Tiers", icon:I.tiers, group:"Référentiels"},
+  {id:"budget", label:"Budget", icon:I.budget, group:"Référentiels"},
+  {id:"marches", label:"Marchés publics", icon:I.marches, group:"Chaîne d'achat"},
+  {id:"commandes", label:"Commandes", icon:I.commandes, group:"Chaîne d'achat"},
+  {id:"factures", label:"Factures", icon:I.factures, group:"Chaîne d'achat"}
+];
+const NAV_DF = [
+  {id:"factures-controle", label:"Factures à valider", icon:I.factures},
+  {id:"budget", label:"Suivi budgétaire", icon:I.budget}
+];
+const ROLE_NAV = {achats:NAV_ACHATS, df:NAV_DF};
+const ROLE_MODULES = {achats:NAV_ACHATS.map(n=>n.id), df:NAV_DF.map(n=>n.id)};
+
+let view = {module:"dashboard", search:"", filter:""};
+function go(module){ view={...view, module, search:"", filter:""}; render(); }
+function renderNav(){
+  const items=ROLE_NAV[SESSION.role]||NAV_ACHATS;
+  let html="", lastGroup="__";
+  items.forEach(n=>{
+    if(n.group!==lastGroup){ if(n.group) html+=`<div class="nav-group">${n.group}</div>`; lastGroup=n.group; }
+    const active=view.module===n.id?"active":"";
+    let cnt="";
+    if(n.id==="factures"||n.id==="factures-controle"){ const c=DB.factures.filter(f=>f.statut==="Contrôlée"||f.statut==="Reçue").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${esc(n.label)}</span>${cnt}</a>`;
+  });
+  document.getElementById("nav").innerHTML=html;
+  document.querySelectorAll("[data-nav]").forEach(a=>a.onclick=()=>{ go(a.dataset.nav); closeSidebar(); });
+}
+function closeSidebar(){ document.getElementById("sidebar").classList.remove("open"); }
+document.getElementById("menuToggle").onclick=()=>document.getElementById("sidebar").classList.toggle("open");
+
+function filterRows(rows){
+  let r=rows;
+  if(view.search) r=r.filter(x=>(x._search||"").toLowerCase().includes(view.search.toLowerCase()));
+  if(view.filter) r=r.filter(x=>x._filterVal===view.filter);
+  return r;
+}
+function toolbar(filterKey, options){
+  return `<div class="toolbar">
+    <div class="search">${svg(I.eye,'ic')}<input id="searchInp" placeholder="Rechercher…" value="${esc(view.search)}"></div>
+    ${options?`<select class="filter-sel" id="filterSel"><option value="">Tous — ${esc(filterKey)}</option>${options.map(o=>`<option value="${esc(o)}" ${view.filter===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`:""}
+  </div>`;
+}
+function tableShell(cols, body){
+  return `<div class="table-wrap"><table><thead><tr>${cols.map(c=>`<th${c.num?' style="text-align:right"':""}>${esc(c.h)}</th>`).join("")}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}"><div class="empty">Aucun résultat.</div></td></tr>`}</tbody></table></div>`;
+}
+function wireToolbar(renderFn, bindFn){
+  const rerender=()=>{ document.getElementById("content").innerHTML=renderFn(); wireToolbar(renderFn, bindFn); if(bindFn) bindFn(); };
+  const si=document.getElementById("searchInp"); if(si) si.oninput=()=>{ view.search=si.value; rerender(); };
+  const fs=document.getElementById("filterSel"); if(fs) fs.onchange=()=>{ view.filter=fs.value; rerender(); };
+}
+
+/* ---------- Formulaires génériques ---------- */
+const FORMS = {
+  tiers:{ title:"tiers",
+    fields:[
+      {k:"raisonSociale",l:"Raison sociale / Nom",t:"text",req:true,full:true},
+      {k:"type",l:"Rôle",t:"multi",o:["Client","Fournisseur"],req:true},
+      {k:"formeJuridique",l:"Forme juridique",t:"select",o:["EI","SARL","SA","Collectivité","Particulier","Autre"]},
+      {k:"tahiti",l:"N° Tahiti / RC",t:"text"},
+      {k:"adresse",l:"Adresse",t:"text",full:true},
+      {k:"commune",l:"Commune",t:"text"},
+      {k:"tel",l:"Téléphone",t:"tel"},
+      {k:"email",l:"Email",t:"email"},
+      {k:"contactNom",l:"Contact",t:"text"},
+      {k:"statut",l:"Statut",t:"select",o:["Actif","Inactif"]}
+    ],
+    defaults:()=>({type:["Fournisseur"],formeJuridique:"SARL",statut:"Actif"})
+  },
+  budgetLignes:{ title:"ligne budgétaire",
+    fields:[
+      {k:"exercice",l:"Exercice",t:"text",req:true},
+      {k:"direction",l:"Direction",t:"select",o:DIRECTIONS,req:true},
+      {k:"nature",l:"Nature de la dépense",t:"text",req:true,full:true},
+      {k:"alloue",l:"Montant alloué (XPF)",t:"number",req:true}
+    ],
+    defaults:()=>({exercice:String(new Date().getFullYear()),direction:DIRECTIONS[0],alloue:1000000})
+  },
+  marches:{ title:"marché",
+    fields:[
+      {k:"objet",l:"Objet du marché",t:"text",req:true,full:true},
+      {k:"typeProcedure",l:"Type de procédure",t:"select",o:["Consultation simplifiée","Appel d'offres ouvert","Marché négocié","Accord-cadre"]},
+      {k:"tiersId",l:"Titulaire",t:"ref",coll:"tiers",labelFn:t=>t.raisonSociale,req:true},
+      {k:"ligneBudgetId",l:"Ligne budgétaire",t:"ref",coll:"budgetLignes",labelFn:ligneLabel_,req:true},
+      {k:"montant",l:"Montant (XPF)",t:"number",req:true},
+      {k:"dateNotification",l:"Date de notification",t:"date"},
+      {k:"dureeMois",l:"Durée (mois)",t:"number"},
+      {k:"statut",l:"Statut",t:"select",o:["En préparation","Publié","Attribué","Notifié","En exécution","Soldé"]}
+    ],
+    defaults:()=>({typeProcedure:"Consultation simplifiée",dateNotification:todayISO(),dureeMois:6,statut:"En préparation"})
+  },
+  commandes:{ title:"commande",
+    fields:[
+      {k:"numero",l:"Numéro",t:"text",req:true},
+      {k:"tiersId",l:"Fournisseur",t:"ref",coll:"tiers",labelFn:t=>t.raisonSociale,req:true},
+      {k:"marcheId",l:"Marché lié (optionnel)",t:"ref",coll:"marches",labelFn:m=>m.objet},
+      {k:"ligneBudgetId",l:"Ligne budgétaire",t:"ref",coll:"budgetLignes",labelFn:ligneLabel_,req:true},
+      {k:"objet",l:"Objet",t:"text",req:true,full:true},
+      {k:"montant",l:"Montant (XPF)",t:"number",req:true},
+      {k:"dateCommande",l:"Date de commande",t:"date",req:true},
+      {k:"statut",l:"Statut",t:"select",o:["Brouillon","Validée","Envoyée","Livrée","Clôturée"]},
+      {k:"serviceFait",l:"Service fait constaté",t:"bool"}
+    ],
+    defaults:()=>({numero:"BC-"+new Date().getFullYear()+"-"+String(DB.commandes.length+1).padStart(3,"0"),dateCommande:todayISO(),statut:"Brouillon",serviceFait:false})
+  },
+  factures:{ title:"facture",
+    fields:[
+      {k:"numero",l:"N° de facture fournisseur",t:"text",req:true},
+      {k:"tiersId",l:"Fournisseur",t:"ref",coll:"tiers",labelFn:t=>t.raisonSociale,req:true},
+      {k:"commandeId",l:"Commande liée",t:"ref",coll:"commandes",labelFn:c=>c.numero+" — "+c.objet},
+      {k:"montant",l:"Montant (XPF)",t:"number",req:true},
+      {k:"dateReception",l:"Date de réception",t:"date",req:true},
+      {k:"dateEcheance",l:"Date d'échéance",t:"date"}
+    ],
+    defaults:()=>({dateReception:todayISO()})
+  }
+};
+function ligneLabel_(l){ return `${l.direction} — ${l.nature} (${l.exercice})`; }
+
+function openForm(module, id=null, preset={}){
+  const cfg=FORMS[module]; const coll=DB[module];
+  const rec = id ? {...coll.find(x=>x.id===id)} : {...cfg.defaults(), ...preset};
+  const isEdit=!!id;
+  const fieldHTML=(f)=>{
+    if(f.s) return `<div class="form-section">${esc(f.s)}</div>`;
+    const val=rec[f.k]; const req=f.req?'<span class="req"> *</span>':"";
+    let input="";
+    const disabled = preset[f.k] ? "disabled":"";
+    if(f.t==="select"){ input=`<select data-k="${f.k}" ${disabled}>${f.o.map(o=>`<option value="${esc(o)}" ${val===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`; }
+    else if(f.t==="ref"){ const items=DB[f.coll]||[]; input=`<select data-k="${f.k}" ${disabled}><option value="">—</option>${items.map(it=>`<option value="${it.id}" ${val===it.id?"selected":""}>${esc(f.labelFn(it))}</option>`).join("")}</select>`; }
+    else if(f.t==="multi"){ input=`<div style="display:flex;gap:14px">${f.o.map(o=>`<label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:13.5px"><input type="checkbox" data-k-multi="${f.k}" value="${esc(o)}" ${(val||[]).includes(o)?"checked":""}> ${esc(o)}</label>`).join("")}</div>`; }
+    else if(f.t==="bool"){ input=`<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-k="${f.k}" ${val?"checked":""}> <span class="hint">Oui</span></label>`; }
+    else if(f.t==="textarea"){ input=`<textarea data-k="${f.k}">${esc(val||"")}</textarea>`; }
+    else{ input=`<input data-k="${f.k}" type="${f.t}" value="${esc(val==null?"":val)}">`; }
+    return `<div class="field ${f.full?"full":""}"><label>${esc(f.l)}${req}</label>${input}${f.hint?`<span class="hint">${esc(f.hint)}</span>`:""}</div>`;
+  };
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>${isEdit?"Modifier":"Nouveau"} ${esc(cfg.title)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">${cfg.fields.map(fieldHTML).join("")}</div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check,'ic')} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    const data={...rec}; let missing=null;
+    cfg.fields.forEach(f=>{
+      if(f.s) return;
+      if(f.t==="multi"){ data[f.k]=Array.from(mr.querySelectorAll(`[data-k-multi="${f.k}"]:checked`)).map(el=>el.value); if(f.req && !data[f.k].length) missing=f.l; return; }
+      const el=mr.querySelector(`[data-k="${f.k}"]`); if(!el) return;
+      let v = f.t==="bool" ? el.checked : el.value;
+      if(f.t==="number") v=v===""?0:Number(v);
+      if(f.req && (v===""||v==null)) missing=f.l;
+      data[f.k]=v;
+    });
+    if(missing){ toast(`Champ requis : ${missing}`); return; }
+    if(isEdit){ Object.assign(coll.find(x=>x.id===id), data); }
+    else { data.id=uid(module.slice(0,2)+"_"); Object.assign(data, preset); coll.push(data); }
+    save(); close(); toast("Enregistrement créé"); render();
+  };
+}
+function delRecord(module, id){
+  if(!confirm("Supprimer cet enregistrement ?")) return;
+  DB[module]=DB[module].filter(x=>x.id!==id);
+  save(); toast("Supprimé"); render();
+}
+
+/* ---------- Rendu principal ---------- */
+function render(){
+  renderNav();
+  const c=document.getElementById("content");
+  const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
+  act.innerHTML="";
+  if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble budgétaire et de la chaîne d'achat"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
+  if(view.module==="tiers"){ t.textContent="Tiers"; s.textContent="Clients et fournisseurs"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau tiers</button>`; c.innerHTML=renderTiers(); wireToolbar(renderTiers, bindTiers); bindTiers(); document.getElementById("addBtn").onclick=()=>openForm("tiers"); return; }
+  if(view.module==="budget"){ t.textContent = SESSION.role==="df"?"Suivi budgétaire":"Budget"; s.textContent="Alloué, engagé, consommé par ligne"; if(SESSION.role!=="df") act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle ligne</button>`; c.innerHTML=renderBudget(); bindBudget(); if(SESSION.role!=="df") document.getElementById("addBtn").onclick=()=>openForm("budgetLignes"); return; }
+  if(view.module==="marches"){ t.textContent="Marchés publics"; s.textContent="CCTP, BPU et suivi de l'exécution"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau marché</button>`; c.innerHTML=renderMarches(); wireToolbar(renderMarches, bindMarches); bindMarches(); document.getElementById("addBtn").onclick=()=>openForm("marches"); return; }
+  if(view.module==="commandes"){ t.textContent="Commandes"; s.textContent="Bons de commande et engagements"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle commande</button>`; c.innerHTML=renderCommandes(); wireToolbar(renderCommandes, bindCommandes); bindCommandes(); document.getElementById("addBtn").onclick=()=>openForm("commandes"); return; }
+  if(view.module==="factures"){ t.textContent="Factures"; s.textContent="Réception, contrôle et règlement"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle facture</button>`; c.innerHTML=renderFactures(); wireToolbar(renderFactures, bindFactures); bindFactures(); document.getElementById("addBtn").onclick=()=>openForm("factures"); return; }
+  if(view.module==="factures-controle"){ t.textContent="Factures à valider"; s.textContent="Toutes les factures non payées, tous fournisseurs confondus"; c.innerHTML=renderFacturesControle(); bindFacturesControle(); return; }
+}
+
+/* ---------- Dashboard ---------- */
+function renderDashboard(){
+  const alloueTotal=DB.budgetLignes.reduce((s,l)=>s+l.alloue,0);
+  const engageTotal=DB.budgetLignes.reduce((s,l)=>s+ligneEngage(l.id),0);
+  const consommeTotal=DB.budgetLignes.reduce((s,l)=>s+ligneConsomme(l.id),0);
+  const facturesAttente=DB.factures.filter(f=>f.statut==="Reçue"||f.statut==="Contrôlée");
+  const marchesEnCours=DB.marches.filter(m=>m.statut==="En exécution"||m.statut==="Notifié").length;
+  const pct = alloueTotal? Math.round((engageTotal/alloueTotal)*100) : 0;
+  const recentesFactures=DB.factures.slice().sort((a,b)=>(b.dateReception||"").localeCompare(a.dateReception||"")).slice(0,5);
+  return `
+    <div class="kpi-grid">
+      <div class="kpi" data-goto="budget"><div class="k-lbl">Budget alloué (${DB.budgetLignes[0]?.exercice||""})</div><div class="k-val" style="font-size:22px">${fmtMoney(alloueTotal)}</div></div>
+      <div class="kpi" data-goto="budget"><div class="k-lbl">Engagé</div><div class="k-val" style="font-size:22px">${fmtMoney(engageTotal)}</div><div class="k-meta ${pct>90?'bad':pct>70?'warn':'ok'}">${pct}% du budget</div></div>
+      <div class="kpi" data-goto="factures"><div class="k-lbl">Factures en attente</div><div class="k-val">${facturesAttente.length}</div><div class="k-meta ${facturesAttente.length?'warn':'ok'}">${facturesAttente.length?fmtMoney(facturesAttente.reduce((s,f)=>s+f.montant,0)):"À jour"}</div></div>
+      <div class="kpi" data-goto="marches"><div class="k-lbl">Marchés en cours</div><div class="k-val">${marchesEnCours}</div></div>
+    </div>
+    <div class="panels">
+      <div class="panel"><div class="panel-head"><h3>Dernières factures reçues</h3></div><div class="panel-body">${recentesFactures.map(f=>`<div class="mini-row"><div><div class="who">${esc(tiersName(f.tiersId))}</div><div class="det">${esc(f.numero)} · ${fmtMoney(f.montant)} · ${fmtDate(f.dateReception)}</div></div><div class="spacer"></div>${badge(f.statut)}</div>`).join("")||'<div class="empty">Aucune facture.</div>'}</div></div>
+      <div class="panel"><div class="panel-head"><h3>Lignes budgétaires les plus engagées</h3></div><div class="panel-body">${DB.budgetLignes.slice().sort((a,b)=>ligneEngage(b.id)-ligneEngage(a.id)).slice(0,5).map(l=>{const e=ligneEngage(l.id),p=l.alloue?Math.min(100,Math.round(e/l.alloue*100)):0;return `<div class="mini-row" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;justify-content:space-between"><span class="who">${esc(l.nature)}</span><span class="det">${p}%</span></div><div class="bar ${p>=100?'over':''}"><span style="width:${p}%"></span></div></div>`;}).join("")||'<div class="empty">Aucune ligne.</div>'}</div></div>
+    </div>`;
+}
+function bindDashboard(){ document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto)); }
+
+/* ---------- Tiers ---------- */
+function renderTiers(){
+  let rows=DB.tiers.map(t=>({...t, _search:`${t.raisonSociale} ${t.commune} ${(t.type||[]).join(" ")}`, _filterVal:(t.type||[])[0]}));
+  rows=filterRows(rows);
+  const cols=[{h:"Tiers"},{h:"Rôle"},{h:"Commune"},{h:"Contact"},{h:"Statut"},{h:""}];
+  const body=rows.map(t=>`<tr>
+      <td><div class="cell-name">${esc(t.raisonSociale)}</div><div class="cell-sub">${esc(t.formeJuridique)} · ${esc(t.tahiti||"—")}</div></td>
+      <td>${(t.type||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join(" ")}</td>
+      <td>${esc(t.commune||"—")}</td>
+      <td>${esc(t.contactNom||"—")}<div class="cell-sub">${esc(t.tel||"")}</div></td>
+      <td>${badge(t.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${t.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${t.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("rôle", ["Client","Fournisseur"]) + tableShell(cols, body);
+}
+function bindTiers(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("tiers", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("tiers", el.dataset.del));
+}
+
+/* ---------- Budget ---------- */
+function renderBudget(){
+  const cols=[{h:"Direction"},{h:"Nature"},{h:"Alloué",num:true},{h:"Engagé",num:true},{h:"Consommé",num:true},{h:"Disponible",num:true},{h:""}];
+  const body=DB.budgetLignes.map(l=>{
+    const engage=ligneEngage(l.id), consomme=ligneConsomme(l.id), dispo=l.alloue-engage;
+    const pct=l.alloue?Math.min(100,Math.round(engage/l.alloue*100)):0;
+    return `<tr>
+      <td class="cell-name">${esc(l.direction)}</td>
+      <td>${esc(l.nature)}<div class="bar ${pct>=100?'over':''}" style="margin-top:6px;width:140px"><span style="width:${pct}%"></span></div></td>
+      <td class="num">${fmtMoney(l.alloue)}</td>
+      <td class="num">${fmtMoney(engage)}</td>
+      <td class="num">${fmtMoney(consomme)}</td>
+      <td class="num" style="font-weight:700;color:${dispo<0?'var(--bad)':'inherit'}">${fmtMoney(dispo)}</td>
+      <td>${SESSION.role!=="df"?`<div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button></div>`:""}</td>
+    </tr>`;
+  }).join("");
+  return tableShell(cols, body);
+}
+function bindBudget(){ document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("budgetLignes", el.dataset.edit)); }
+
+/* ---------- Marchés ---------- */
+function renderMarches(){
+  let rows=DB.marches.map(m=>({...m, _search:`${m.objet} ${tiersName(m.tiersId)}`, _filterVal:m.statut}));
+  rows=filterRows(rows);
+  const cols=[{h:"Marché"},{h:"Titulaire"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(m=>`<tr>
+      <td><div class="cell-name">${esc(m.objet)}</div><div class="cell-sub">${esc(m.typeProcedure)} · ${fmtDate(m.dateNotification)}</div></td>
+      <td>${esc(tiersName(m.tiersId))}</td>
+      <td class="num">${fmtMoney(m.montant)}</td>
+      <td>${badge(m.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${m.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${m.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["En préparation","Publié","Attribué","Notifié","En exécution","Soldé"]) + tableShell(cols, body);
+}
+function bindMarches(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("marches", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("marches", el.dataset.del));
+}
+
+/* ---------- Commandes ---------- */
+function renderCommandes(){
+  let rows=DB.commandes.map(c=>({...c, _search:`${c.numero} ${c.objet} ${tiersName(c.tiersId)}`, _filterVal:c.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.dateCommande||"").localeCompare(a.dateCommande||""));
+  const cols=[{h:"N°"},{h:"Fournisseur"},{h:"Objet"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(c=>`<tr>
+      <td class="cell-name">${esc(c.numero)}</td>
+      <td>${esc(tiersName(c.tiersId))}</td>
+      <td>${esc(c.objet)}<div class="cell-sub">${esc(ligneLabel(c.ligneBudgetId))}</div></td>
+      <td class="num">${fmtMoney(c.montant)}</td>
+      <td>${badge(c.statut)}${c.serviceFait?' <span class="tag">Service fait</span>':""}</td>
+      <td><div class="row-actions">
+        ${c.statut==="Brouillon"?`<button class="btn ghost sm" data-valider="${c.id}" title="Valider">${svg(I.check,'ic')}</button>`:""}
+        ${c.statut==="Validée"?`<button class="btn ghost sm" data-envoyer="${c.id}" title="Marquer envoyée">${svg(I.commandes,'ic')}</button>`:""}
+        ${c.statut==="Envoyée"?`<button class="btn ghost sm" data-livrer="${c.id}" title="Marquer livrée (service fait)">${svg(I.check,'ic')}</button>`:""}
+        <button class="btn ghost sm" data-edit="${c.id}" title="Modifier">${svg(I.edit,'ic')}</button>
+      </div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Brouillon","Validée","Envoyée","Livrée","Clôturée"]) + tableShell(cols, body);
+}
+function bindCommandes(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("commandes", el.dataset.edit));
+  document.querySelectorAll("[data-valider]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.valider); c.statut="Validée"; save(); toast("Commande validée"); render(); });
+  document.querySelectorAll("[data-envoyer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.envoyer); c.statut="Envoyée"; save(); toast("Commande envoyée au fournisseur"); render(); });
+  document.querySelectorAll("[data-livrer]").forEach(el=>el.onclick=()=>{ const c=DB.commandes.find(x=>x.id===el.dataset.livrer); c.statut="Livrée"; c.serviceFait=true; save(); toast("Commande marquée livrée, service fait constaté"); render(); });
+}
+
+/* ---------- Factures (service Achats) ---------- */
+function pushHistoriqueFacture(f, action, commentaire){ if(!f.historique) f.historique=[]; f.historique.push({action, date:nowStamp(), commentaire:commentaire||""}); }
+function renderFactures(){
+  let rows=DB.factures.map(f=>({...f, _search:`${f.numero} ${tiersName(f.tiersId)}`, _filterVal:f.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.dateReception||"").localeCompare(a.dateReception||""));
+  const cols=[{h:"N°"},{h:"Fournisseur"},{h:"Commande"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(f=>{ const cmd=DB.commandes.find(c=>c.id===f.commandeId); return `<tr>
+      <td class="cell-name">${esc(f.numero)}</td>
+      <td>${esc(tiersName(f.tiersId))}</td>
+      <td>${cmd?esc(cmd.numero):"—"}</td>
+      <td class="num">${fmtMoney(f.montant)}</td>
+      <td>${badge(f.statut)}</td>
+      <td><div class="row-actions">
+        ${f.statut==="Reçue"?`<button class="btn ghost sm" data-controler="${f.id}" title="Contrôler (service fait)">${svg(I.check,'ic')}</button>`:""}
+        <button class="btn ghost sm" data-view="${f.id}" title="Voir le détail">${svg(I.eye,'ic')}</button>
+      </div></td>
+    </tr>`;}).join("");
+  return toolbar("statut", ["Reçue","Contrôlée","Validée","Rejetée","Payée"]) + tableShell(cols, body);
+}
+function controlerFacture(id){
+  const f=DB.factures.find(x=>x.id===id);
+  const cmd=DB.commandes.find(c=>c.id===f.commandeId);
+  if(cmd && !cmd.serviceFait){ toast("Service fait non constaté sur la commande liée : contrôle impossible"); return; }
+  f.statut="Contrôlée"; pushHistoriqueFacture(f, "Contrôle service fait effectué", "Agent Achats");
+  save(); toast("Facture contrôlée, transmise à la Direction Financière"); render();
+}
+function bindFactures(){
+  document.querySelectorAll("[data-controler]").forEach(el=>el.onclick=()=>controlerFacture(el.dataset.controler));
+  document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openFactureDetail(el.dataset.view));
+}
+function openFactureDetail(id){
+  const f=DB.factures.find(x=>x.id===id); if(!f) return;
+  const cmd=DB.commandes.find(c=>c.id===f.commandeId);
+  const isDF = SESSION.role==="df";
+  const actions=[];
+  if(f.statut==="Contrôlée" && isDF) actions.push(`<button class="btn primary sm" id="validerBtn">${svg(I.check,'ic')} Valider pour paiement</button> <button class="btn danger sm" id="rejeterBtn">${svg(I.x,'ic')} Rejeter</button>`);
+  if(f.statut==="Validée" && isDF) actions.push(`<button class="btn primary sm" id="payerBtn">${svg(I.check,'ic')} Marquer payée</button>`);
+  const histHtml=(f.historique||[]).slice().reverse().map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("");
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:700px">
+    <div class="modal-head"><h3>Facture ${esc(f.numero)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="info-list">
+        <div class="row"><span class="l">Fournisseur</span><span class="v">${esc(tiersName(f.tiersId))}</span></div>
+        <div class="row"><span class="l">Commande liée</span><span class="v">${cmd?esc(cmd.numero+" — "+cmd.objet):"—"}</span></div>
+        <div class="row"><span class="l">Service fait</span><span class="v">${cmd?(cmd.serviceFait?"Constaté":"Non constaté"):"—"}</span></div>
+        <div class="row"><span class="l">Montant</span><span class="v">${fmtMoney(f.montant)}</span></div>
+        <div class="row"><span class="l">Réception</span><span class="v">${fmtDate(f.dateReception)}</span></div>
+        <div class="row"><span class="l">Échéance</span><span class="v">${fmtDate(f.dateEcheance)}</span></div>
+        <div class="row"><span class="l">Statut</span><span class="v">${badge(f.statut)}</span></div>
+      </div>
+      <div style="margin-top:14px">${actions.join(" ")}</div>
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Historique</h4>
+      ${histHtml||'<div class="empty">Aucun historique.</div>'}
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  const vb=document.getElementById("validerBtn"); if(vb) vb.onclick=()=>{ f.statut="Validée"; pushHistoriqueFacture(f,"Validée pour paiement","Direction Financière"); save(); close(); toast("Facture validée pour paiement"); render(); };
+  const rb=document.getElementById("rejeterBtn"); if(rb) rb.onclick=()=>{
+    const motif=prompt("Motif du rejet :",""); if(motif===null) return; if(!motif.trim()){ toast("Merci de préciser un motif"); return; }
+    f.statut="Rejetée"; pushHistoriqueFacture(f,"Rejetée par la Direction Financière",motif.trim()); save(); close(); toast("Facture rejetée"); render();
+  };
+  const pb=document.getElementById("payerBtn"); if(pb) pb.onclick=()=>{ f.statut="Payée"; f.datePaiement=todayISO(); pushHistoriqueFacture(f,"Marquée payée","Direction Financière"); save(); close(); toast("Facture marquée payée"); render(); };
+}
+
+/* ---------- Contrôle global DF ---------- */
+function renderFacturesControle(){
+  const pending=DB.factures.filter(f=>f.statut==="Contrôlée"||f.statut==="Validée");
+  const cols=[{h:"Fournisseur"},{h:"N°"},{h:"Montant",num:true},{h:"Échéance"},{h:"Statut"},{h:""}];
+  const body=pending.map(f=>`<tr>
+      <td class="cell-name">${esc(tiersName(f.tiersId))}</td>
+      <td>${esc(f.numero)}</td>
+      <td class="num">${fmtMoney(f.montant)}</td>
+      <td>${fmtDate(f.dateEcheance)}</td>
+      <td>${badge(f.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-view="${f.id}" title="Traiter">${svg(I.eye,'ic')}</button></div></td>
+    </tr>`).join("");
+  return `<p class="hint" style="margin-bottom:12px;display:block">Toutes les factures contrôlées par le service Achats en attente de validation ou de paiement, tous fournisseurs confondus.</p>` + tableShell(cols, body);
+}
+function bindFacturesControle(){ document.querySelectorAll("[data-view]").forEach(el=>el.onclick=()=>openFactureDetail(el.dataset.view)); }
+
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElementById("modalRoot").innerHTML=""; });
+(function initTheme(){ try{ const t=localStorage.getItem(KEY+"_theme"); if(t) document.documentElement.setAttribute("data-theme",t); }catch(e){} })();
+
+/* ---------- Boot ---------- */
+load();
+GED.load();
+loadSession();
+renderSessionBar();
+const hashModule = location.hash.replace("#","").split("?")[0];
+if(hashModule){
+  if(hashModule==="clients"||hashModule==="fournisseurs") view.module="tiers";
+  else if(ROLE_MODULES[SESSION.role] && ROLE_MODULES[SESSION.role].includes(hashModule)) view.module=hashModule;
+}
+const hashQuery = location.hash.split("?")[1];
+if(hashQuery){ const params=new URLSearchParams(hashQuery); if(params.get("type")) view.filter=params.get("type"); }
+render();
+</script>
+</body>
+</html>
