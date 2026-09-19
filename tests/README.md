@@ -25,10 +25,12 @@ Autres commandes utiles :
 ## Organisation
 
 - `smoke.spec.js` — vérification de base (le portail se charge, le module RH est accessible).
-- D'autres fichiers seront ajoutés au fur et à mesure pour chaque parcours métier (agents, congés, workflow de validation, paie, formations, évaluations, maternité…).
+- `agents.spec.js`, `conges.spec.js`, `paie.spec.js`, `formations.spec.js`, `maternite.spec.js` — parcours métier du module RH.
+- `ged.spec.js` — module GED (accès, création de dossier, dépôt, consultation/téléchargement, versioning, corbeille/restauration, droits, audit, intégration avec le dossier agent RH). Utilise les fixtures de `tests/fixtures/`.
 
 ## Notes
 
-- Chaque test Playwright démarre avec un contexte navigateur isolé et un `localStorage` vide : l'application régénère alors son jeu de données de démonstration (`seed()`) à chaque exécution, sans fixture externe à préparer.
+- Chaque test Playwright démarre avec un contexte navigateur isolé et un `localStorage`/`IndexedDB` vides : l'application régénère alors son jeu de données de démonstration (`seed()`) à chaque exécution, sans fixture externe à préparer (à l'exception des petits fichiers de `tests/fixtures/` utilisés pour les dépôts de documents dans `ged.spec.js`).
 - Il n'y a pas d'authentification réelle dans l'application : le contrôle d'accès est simulé via le sélecteur de profil (`#sessRole` : RH / Agent / Responsable / Direction Financière). Les tests qui vérifient les permissions passent par ce sélecteur.
 - Éviter les attentes arbitraires (`waitForTimeout`) : utiliser les assertions Playwright (`expect(locator).toBeVisible()`, etc.), qui attendent l'état réel de l'application.
+- Pour un dépôt de fichier déclenché par un `<input type="file">` créé dynamiquement en JavaScript (ex. « Nouvelle version » dans la GED), utiliser `page.waitForEvent("filechooser")` plutôt que de chercher l'élément dans le DOM : Playwright intercepte la boîte de dialogue au niveau du navigateur, indépendamment de la présence de l'input dans l'arbre du document.

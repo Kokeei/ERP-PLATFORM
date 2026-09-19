@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPH · GED</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ged.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo">OPH</div>
+      <div><h1>GED</h1><span>Gestion électronique des documents</span></div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <a class="btn ghost sm" href="../">← Portail</a>
+      <select id="sessRole" title="Profil de test">
+        <option value="rh">RH</option>
+        <option value="agent">Agent</option>
+        <option value="responsable">Responsable</option>
+        <option value="df">Direction Financière</option>
+      </select>
+      <select id="sessAgent" title="Agent simulé"></select>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div><h2 id="pageTitle">Parcourir</h2><div class="sub" id="pageSub"></div></div>
+      <div class="spacer"></div>
+      <div id="pageActions"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script src="ged-core.js"></script>
+<script src="ged-ui.js"></script>
+<script>
+"use strict";
+let view = { tab: "parcourir", espaceId: null, dossierId: null, search: "", categorieId: "", classification: "", expanded: {} };
+
+function initSession() {
+  const roleSel = document.getElementById("sessRole"), agentSel = document.getElementById("sessAgent");
+  const agents = GED.getAgentDirectory();
+  agentSel.innerHTML = agents.map((a) => `<option value="${a.id}">${a.prenom} ${a.nom}</option>`).join("");
+  const session = GED.getSession();
+  roleSel.value = session.role;
+  if (!session.asAgentId && agents[0]) session.asAgentId = agents[0].id;
+  agentSel.value = session.asAgentId || "";
+  const save = () => { try { localStorage.setItem("oph_rh_v1_session", JSON.stringify(session)); } catch (e) {} };
+  save();
+  roleSel.onchange = () => { session.role = roleSel.value; save(); render(); };
+  agentSel.onchange = () => { session.asAgentId = agentSel.value; save(); render(); };
+}
+
+function renderNav() {
+  const session = GED.getSession();
+  const items = [{ id: "parcourir", label: "Parcourir" }, { id: "corbeille", label: "Corbeille" }];
+  if (session.role === "rh") items.push({ id: "audit", label: "Journal d'audit" });
+  document.getElementById("nav").innerHTML = items.map((n) => `<a data-nav="${n.id}" class="${view.tab === n.id ? "active" : ""}">${n.label}</a>`).join("");
+  document.querySelectorAll("[data-nav]").forEach((a) => a.onclick = () => { view.tab = a.dataset.nav; render(); });
+}
+
+function render() {
+  renderNav();
+  const t = document.getElementById("pageTitle"), s = document.getElementById("pageSub"), act = document.getElementById("pageActions"), c = document.getElementById("content");
+  act.innerHTML = "";
+  if (view.tab === "parcourir") {
+    t.textContent = "Parcourir"; s.textContent = "Espaces, dossiers et documents de l'ERP";
+    if (view.dossierId) {
+      act.innerHTML = `<button class="btn primary" id="uploadBtn">${GEDUI.svg("upload", "ic")} Déposer un document</button>`;
+    }
+    c.innerHTML = renderParcourir();
+    bindParcourir();
+    return;
+  }
+  if (view.tab === "corbeille") {
+    t.textContent = "Corbeille"; s.textContent = `Rétention configurée : ${GED.getConfig().retentionCorbeilleJours} jours avant suppression définitive automatique`;
+    const session = GED.getSession();
+    if (session.role === "rh") act.innerHTML = `<button class="btn" id="purgeNowBtn">Purger les éléments expirés</button>`;
+    c.innerHTML = renderCorbeille();
+    bindCorbeille();
+    return;
+  }
+  if (view.tab === "audit") {
+    t.textContent = "Journal d'audit"; s.textContent = "Historique des opérations sensibles (consultation, dépôt, suppression, droits...)";
+    c.innerHTML = renderAudit();
+    return;
+  }
+}
+
+function renderTree() {
+  const spaces = GED.getSpaces();
+  const isRh = GED.getSession().role === "rh";
+  let html = `<div class="ged-tree">`;
+  spaces.forEach((esp) => {
+    const open = view.expanded[esp.id] !== false;
+    html += `<div class="ged-space">
+      <div class="ged-space-head" data-toggle-space="${esp.id}">${GEDUI.svg("folder", "ic")}<span style="flex:1">${GEDUI.esc(esp.nom)}</span>${isRh ? `<button class="btn ghost sm" data-new-folder="${esp.id}" title="Nouveau dossier">${GEDUI.svg("plus", "ic")}</button>` : ""}</div>
+      ${open ? GED.getFolders(esp.id).filter((f) => !f.parentId).map((f) => folderRow(f)).join("") : ""}
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+function folderRow(f) {
+  const active = view.dossierId === f.id ? "active" : "";
+  const children = GED.getFolders().filter((c) => c.parentId === f.id);
+  return `<div class="ged-folder ${active}" data-folder="${f.id}">${GEDUI.svg("folder")}<span>${GEDUI.esc(f.nom)}</span></div>` +
+    children.map((c) => `<div class="ged-folder ${view.dossierId === c.id ? "active" : ""}" data-folder="${c.id}" style="padding-left:40px">${GEDUI.svg("folder")}<span>${GEDUI.esc(c.nom)}</span></div>`).join("");
+}
+
+function renderParcourir() {
+  const categories = GED.getCategories();
+  const classifications = GED.getClassifications();
+  const filters = { search: view.search };
+  if (view.dossierId) filters.dossierId = view.dossierId;
+  else if (view.espaceId) filters.espaceId = view.espaceId;
+  if (view.categorieId) filters.categorieId = view.categorieId;
+  if (view.classification) filters.classification = view.classification;
+  if (view.search) filters.nom = view.search;
+  const docs = (view.dossierId || view.espaceId || view.search) ? GED.getDocuments(filters) : [];
+  const folder = view.dossierId ? GED.getFolder(view.dossierId) : null;
+
+  const list = docs.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Document</th><th>Catégorie</th><th>Taille</th><th>Version</th><th>Statut</th><th>Modifié le</th><th>Classification</th></tr></thead>
+    <tbody>${docs.map((d) => {
+      const cat = GED.getCategory(d.categorieId);
+      return `<tr data-open="${d.id}" style="cursor:pointer">
+        <td><div class="cell-name">${GEDUI.svg(GEDUI.iconForDoc(d), "ic")} ${GEDUI.esc(d.nom)}</div><div class="cell-sub">${GEDUI.esc(GEDUI.agentLabel(d.auteurId))}</div></td>
+        <td>${GEDUI.esc(cat ? cat.nom : "—")}</td>
+        <td class="num">${d.sansFichier ? "—" : GED.formatSize(d.taille)}</td>
+        <td class="num">v${d.version}</td>
+        <td>${GEDUI.badge(d.statut, GEDUI.statutTone(d.statut))}</td>
+        <td>${GEDUI.fmtDate(d.dateModification)}</td>
+        <td>${GEDUI.badge((GED.getClassifications().find(c=>c.id===d.classification)||{}).nom || "", GEDUI.classifTone(d.classification))}</td>
+      </tr>`;
+    }).join("")}</tbody></table></div>`
+    : `<div class="empty">${(view.dossierId || view.espaceId || view.search) ? "Aucun document ne correspond." : "Sélectionnez un espace ou un dossier à gauche, ou lancez une recherche."}</div>`;
+
+  return `<div class="ged-layout">
+    <div class="panel">${renderTree()}</div>
+    <div>
+      <div class="toolbar">
+        <div class="search">${GEDUI.svg("eye", "ic")}<input id="gedSearch" placeholder="Rechercher un document…" value="${GEDUI.esc(view.search)}"></div>
+        <select class="filter-sel" id="catFilter"><option value="">Toutes catégories</option>${categories.map((c) => `<option value="${c.id}" ${view.categorieId === c.id ? "selected" : ""}>${GEDUI.esc(c.nom)}</option>`).join("")}</select>
+        <select class="filter-sel" id="classifFilter"><option value="">Toutes classifications</option>${classifications.map((c) => `<option value="${c.id}" ${view.classification === c.id ? "selected" : ""}>${GEDUI.esc(c.nom)}</option>`).join("")}</select>
+        ${folder ? `<span class="tag">${GEDUI.esc(folder.nom)}</span>` : ""}
+      </div>
+      ${list}
+    </div>
+  </div>`;
+}
+function bindParcourir() {
+  document.querySelectorAll("[data-toggle-space]").forEach((el) => el.onclick = () => { const id = el.dataset.toggleSpace; view.expanded[id] = view.expanded[id] === false; view.espaceId = id; view.dossierId = null; render(); });
+  document.querySelectorAll("[data-new-folder]").forEach((el) => el.onclick = (e) => {
+    e.stopPropagation();
+    const nom = prompt("Nom du nouveau dossier :", "");
+    if (!nom) return;
+    try { GED.createFolder(el.dataset.newFolder, null, nom); GEDUI.toast(`Dossier « ${nom} » créé`); render(); }
+    catch (err) { GEDUI.toast(err.message); }
+  });
+  document.querySelectorAll("[data-folder]").forEach((el) => el.onclick = () => { view.dossierId = el.dataset.folder; render(); });
+  document.querySelectorAll("[data-open]").forEach((el) => el.onclick = () => GEDUI.openDocumentDetail(el.dataset.open, { onChange: render }));
+  const si = document.getElementById("gedSearch");
+  if (si) si.oninput = () => { view.search = si.value; render(); };
+  const cf = document.getElementById("catFilter");
+  if (cf) cf.onchange = () => { view.categorieId = cf.value; render(); };
+  const clf = document.getElementById("classifFilter");
+  if (clf) clf.onchange = () => { view.classification = clf.value; render(); };
+  const up = document.getElementById("uploadBtn");
+  if (up) up.onclick = () => GEDUI.openUploadModal({ dossierId: view.dossierId, module: "ged", entite: null, onUploaded: render });
+}
+
+function renderCorbeille() {
+  const docs = GED.getDocuments({ inclureCorbeille: true, corbeilleUniquement: true });
+  if (!docs.length) return `<div class="empty">La corbeille est vide.</div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>Document</th><th>Supprimé le</th><th>Par</th><th>Suppression définitive prévue</th><th></th></tr></thead>
+    <tbody>${docs.map((d) => `<tr>
+      <td><div class="cell-name">${GEDUI.esc(d.nom)}</div></td>
+      <td>${GEDUI.fmtDate(d.corbeille.supprimeLe)}</td>
+      <td>${GEDUI.esc(GEDUI.agentLabel(d.corbeille.supprimePar))}</td>
+      <td>${GEDUI.fmtDate(d.corbeille.expireLe)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-open="${d.id}">Détail</button></div></td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+function bindCorbeille() {
+  document.querySelectorAll("[data-open]").forEach((el) => el.onclick = () => GEDUI.openDocumentDetail(el.dataset.open, { onChange: render }));
+  const pn = document.getElementById("purgeNowBtn");
+  if (pn) pn.onclick = () => { const n = GED.purgerCorbeilleMaintenant(); GEDUI.toast(n ? `${n} document(s) supprimé(s) définitivement` : "Rien à purger pour le moment"); render(); };
+}
+
+function renderAudit() {
+  const session = GED.getSession();
+  if (session.role !== "rh") return `<div class="empty">Accès réservé à la RH (administration GED).</div>`;
+  const logs = GED.getAuditLog().slice(0, 300);
+  if (!logs.length) return `<div class="empty">Aucune opération journalisée.</div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Action</th><th>Utilisateur</th><th>Résultat</th></tr></thead>
+    <tbody>${logs.map((l) => `<tr><td>${GEDUI.esc(l.date)}</td><td>${GEDUI.esc(l.action)}</td><td>${GEDUI.esc(GEDUI.agentLabel(l.acteurId))}</td><td>${GEDUI.badge(l.resultat, l.resultat === "OK" ? "ok" : "bad")}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+document.getElementById("menuToggle").onclick = () => document.getElementById("sidebar").classList.toggle("open");
+
+GED.load();
+initSession();
+render();
+</script>
+</body>
+</html>
