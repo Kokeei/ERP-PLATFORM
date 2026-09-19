@@ -55,7 +55,7 @@ test.describe("Espace Agent RH", () => {
     await page.locator("#nav a", { hasText: "Mes documents" }).click();
     await expect(page.locator("#pageTitle")).toHaveText("Mes documents");
     await page.locator("#nav a", { hasText: "Recherche RH" }).click();
-    await expect(page.locator("#agentSearchInput")).toBeVisible();
+    await expect(page.locator("#agentSearch")).toBeVisible();
   });
 });
 
