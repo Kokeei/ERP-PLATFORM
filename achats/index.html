@@ -225,7 +225,8 @@ const I = {
   trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
-  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>'
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  scan:'<path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/><path d="M4 12h16"/>'
 };
 function svg(d, cls){ return `<svg class="${cls||'ic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`; }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -272,6 +273,107 @@ function calcLigne(l){
 }
 function calcLignesTotal(lignes){
   return (lignes||[]).reduce((acc,l)=>{ const c=calcLigne(l); acc.brut+=c.brut; acc.remise+=c.remise; acc.ht+=c.ht; acc.tva+=c.tva; acc.ttc+=c.ttc; return acc; }, {brut:0,remise:0,ht:0,tva:0,ttc:0});
+}
+
+/* ---------- Scan de devis (PDF texte) pour pré-remplir un BC ----------
+   Best-effort : la mise en page d'un devis varie d'un fournisseur à l'autre, le résultat
+   est donc toujours présenté en pré-remplissage à vérifier/corriger, jamais enregistré tel quel. */
+function parseFrenchNumber(str){
+  if(str==null) return 0;
+  const cleaned=String(str).replace(/[\s ]/g,"").replace(",",".").replace(/[^0-9.\-]/g,"");
+  const n=parseFloat(cleaned);
+  return isNaN(n)?0:n;
+}
+function parseDevisDate(str){
+  const m=String(str||"").match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(!m) return null;
+  let [,d,mo,y]=m;
+  if(y.length===2) y="20"+y;
+  d=d.padStart(2,"0"); mo=mo.padStart(2,"0");
+  if(Number(mo)<1||Number(mo)>12||Number(d)<1||Number(d)>31) return null;
+  return `${y}-${mo}-${d}`;
+}
+function matchTiersInText(text){
+  const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const t=norm(text);
+  const found=DB.tiers.find(ti=>ti.raisonSociale && t.includes(norm(ti.raisonSociale)));
+  return found?found.id:null;
+}
+// Ligne de tableau reconnue si elle commence par une désignation suivie d'une quantité puis
+// d'un prix unitaire HT ; les % présents sur la ligne sont ensuite interprétés séparément
+// (un seul % = TVA ; deux % = remise puis TVA, ordre usuel des colonnes d'un devis).
+// Les lignes qui ne correspondent pas à cette forme sont ignorées (total, TVA récapitulative,
+// conditions de paiement…).
+const DEVIS_QTY_RE = "\\d{1,4}(?:[.,]\\d{1,2})?";
+const DEVIS_PRIX_RE = "(?:\\d{1,3}(?:[ \\u00A0]\\d{3})+|\\d+)(?:[.,]\\d{1,2})?";
+const DEVIS_LIGNE_RE = new RegExp(`^(.{3,}?)\\s+(${DEVIS_QTY_RE})\\s+(${DEVIS_PRIX_RE})(?:\\s*(?:XPF|FCP|F))?\\b`, "i");
+function parseDevisLignes(text){
+  const lignes=[];
+  text.split(/\r?\n/).forEach(rawLine=>{
+    const line=rawLine.trim();
+    if(!line || line.length<5) return;
+    const m=line.match(DEVIS_LIGNE_RE);
+    if(!m) return;
+    const designation=m[1].trim();
+    if(!designation || /^(total|sous-total|tva|net a payer|net à payer)/i.test(designation)) return;
+    const quantite=parseFrenchNumber(m[2])||1;
+    const puHT=parseFrenchNumber(m[3]);
+    if(!puHT) return;
+    const pcts=Array.from(line.matchAll(/(\d{1,3})\s*%/g)).map(x=>parseFrenchNumber(x[1]));
+    let remisePct=0, tvaPct=null;
+    if(pcts.length===1){ tvaPct=pcts[0]; }
+    else if(pcts.length>=2){ remisePct=pcts[0]; tvaPct=pcts[1]; }
+    const type = tvaPct!=null && Math.abs(tvaPct-13)<Math.abs(tvaPct-16) ? "Prestation" : "Produit";
+    lignes.push({ designation, quantite, puHT, remisePct, type });
+  });
+  return lignes;
+}
+function parseDevisText(text){
+  text=String(text||"");
+  const numMatch=text.match(/devis\s*n[°ºo]?\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/_.]{1,20})/i);
+  const dateMatch=text.match(/date[^0-9]{0,15}(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i) || text.match(/(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/);
+  return {
+    numeroDevis: numMatch?numMatch[1]:null,
+    dateDevis: dateMatch?parseDevisDate(dateMatch[1]):null,
+    tiersId: matchTiersInText(text),
+    lignes: parseDevisLignes(text)
+  };
+}
+const PDFJS_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+function ensurePdfJsLoaded(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement("script");
+    s.src=PDFJS_URL;
+    s.onload=()=>{ window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER_URL; resolve(window.pdfjsLib); };
+    s.onerror=()=>reject(new Error("Impossible de charger le lecteur de PDF (connexion internet requise)"));
+    document.head.appendChild(s);
+  });
+}
+// Reconstitue des lignes de texte à partir des positions des fragments de pdf.js (regroupés
+// par ordonnée), car le texte brut d'un PDF n'est pas restitué dans l'ordre visuel des colonnes.
+async function extractPdfText(file){
+  const pdfjsLib=await ensurePdfJsLoaded();
+  const buf=await file.arrayBuffer();
+  const doc=await pdfjsLib.getDocument({data:buf}).promise;
+  let fullText="";
+  for(let p=1;p<=doc.numPages;p++){
+    const page=await doc.getPage(p);
+    const content=await page.getTextContent();
+    const lines=new Map();
+    content.items.forEach(item=>{
+      const y=Math.round(item.transform[5]);
+      if(!lines.has(y)) lines.set(y, []);
+      lines.get(y).push(item);
+    });
+    const sortedY=Array.from(lines.keys()).sort((a,b)=>b-a);
+    sortedY.forEach(y=>{
+      const items=lines.get(y).sort((a,b)=>a.transform[4]-b.transform[4]);
+      fullText+=items.map(i=>i.str).join(" ")+"\n";
+    });
+  }
+  return fullText;
 }
 
 /* ---------- Données de démonstration ---------- */
@@ -375,7 +477,7 @@ function migrate(db){
   // aucun bouton d'action ne reconnaît (le visa ou le bon à payer semblent alors absents).
   const COMMANDE_STATUT_MIGRATE = { "Validée":"Signée DG" };
   const FACTURE_STATUT_MIGRATE = { "Reçue":"À contrôler", "Contrôlée":"Bon à payer", "Validée":"Mandatement" };
-  db.commandes.forEach(c=>{ if(COMMANDE_STATUT_MIGRATE[c.statut]) c.statut=COMMANDE_STATUT_MIGRATE[c.statut]; if(!c.lignes) c.lignes=[]; if(c.montant==null) c.montant=calcLignesTotal(c.lignes).ttc; });
+  db.commandes.forEach(c=>{ if(COMMANDE_STATUT_MIGRATE[c.statut]) c.statut=COMMANDE_STATUT_MIGRATE[c.statut]; if(!c.lignes) c.lignes=[]; if(c.montant==null) c.montant=calcLignesTotal(c.lignes).ttc; if(c.numeroDevis===undefined) c.numeroDevis=null; if(c.dateDevis===undefined) c.dateDevis=null; });
   if(!db.factures) db.factures=[];
   db.factures.forEach(f=>{ if(FACTURE_STATUT_MIGRATE[f.statut]) f.statut=FACTURE_STATUT_MIGRATE[f.statut]; if(!f.historique) f.historique=[]; if(!f.lignes) f.lignes=[]; if(f.montant==null) f.montant=calcLignesTotal(f.lignes).ttc; if(f.penaliteMontant==null) f.penaliteMontant=0; if(!f.numeroFournisseur) f.numeroFournisseur=f.numero||""; });
   if(!db.virements) db.virements=[];
@@ -623,7 +725,7 @@ function render(){
     return;
   }
   if(view.module==="marches"){ t.textContent="Marchés publics"; s.textContent="CCTP, BPU et suivi de l'exécution"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau marché</button>`; c.innerHTML=renderMarches(); wireToolbar(renderMarches, bindMarches); bindMarches(); document.getElementById("addBtn").onclick=()=>openForm("marches"); return; }
-  if(view.module==="commandes"){ t.textContent="Commandes"; s.textContent="Bons de commande et engagements"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle commande</button>`; c.innerHTML=renderCommandes(); wireToolbar(renderCommandes, bindCommandes); bindCommandes(); document.getElementById("addBtn").onclick=()=>openCommandeModal(); return; }
+  if(view.module==="commandes"){ t.textContent="Commandes"; s.textContent="Bons de commande et engagements"; act.innerHTML=`<button class="btn ghost" id="scanDevisBtn">${svg(I.scan)} Scanner un devis</button> <button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle commande</button>`; c.innerHTML=renderCommandes(); wireToolbar(renderCommandes, bindCommandes); bindCommandes(); document.getElementById("addBtn").onclick=()=>openCommandeModal(); document.getElementById("scanDevisBtn").onclick=()=>openScanDevisModal(); return; }
   if(view.module==="factures"){ t.textContent="Factures"; s.textContent="Réception, contrôle et règlement"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle facture</button>`; c.innerHTML=renderFactures(); wireToolbar(renderFactures, bindFactures); bindFactures(); document.getElementById("addBtn").onclick=()=>openFactureModal(); return; }
   if(view.module==="factures-controle"){ t.textContent="Factures à valider"; s.textContent="Toutes les factures non payées, tous fournisseurs confondus"; c.innerHTML=renderFacturesControle(); bindFacturesControle(); return; }
   if(view.module==="certificats"){ t.textContent="Certificats administratifs"; s.textContent="Justification d'une anomalie ou d'une dépense imprévue"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau certificat</button>`; c.innerHTML=renderCertificats(); wireToolbar(renderCertificats, bindCertificats); bindCertificats(); document.getElementById("addBtn").onclick=()=>openForm("certificatsAdministratifs"); return; }
@@ -951,22 +1053,61 @@ function wireLignesEditor(rerender){
     toast(`Remise de ${pct}% appliquée à ${checked.length} ligne(s)`);
   };
 }
-function openCommandeModal(id){
+function openScanDevisModal(){
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:480px">
+    <div class="modal-head"><h3>Scanner un devis</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 12px;font-size:11.5px;color:var(--ink-3)">Dépose le PDF du devis (texte, pas une photo) : n° devis, date, fournisseur et lignes seront pré-remplis dans le formulaire de commande, à vérifier avant enregistrement.</p>
+      <div class="field"><label>Fichier PDF</label><input id="devisFileInp" type="file" accept="application/pdf"></div>
+      <p id="scanStatus" style="margin:10px 0 0;font-size:11.5px;color:var(--ink-3)"></p>
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="analyserBtn">${svg(I.scan,'ic')} Analyser</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("analyserBtn").onclick=async ()=>{
+    const file=document.getElementById("devisFileInp").files[0];
+    const status=document.getElementById("scanStatus");
+    if(!file){ toast("Choisis un fichier PDF"); return; }
+    const analyserBtn=document.getElementById("analyserBtn");
+    analyserBtn.disabled=true; status.textContent="Analyse du devis en cours…";
+    try{
+      const text=await extractPdfText(file);
+      const prefill=parseDevisText(text);
+      close();
+      if(!prefill.lignes.length) toast("Devis analysé, mais aucune ligne reconnue automatiquement — à compléter manuellement");
+      else toast("Devis analysé : vérifie les données avant d'enregistrer");
+      openCommandeModal(null, prefill);
+    }catch(e){
+      status.textContent=e.message||"Échec de l'analyse du devis";
+      analyserBtn.disabled=false;
+    }
+  };
+}
+function openCommandeModal(id, prefill){
   const isEdit=!!id;
   const rec=isEdit?DB.commandes.find(x=>x.id===id):null;
-  _lignesWorking = isEdit ? rec.lignes.map(l=>({...l})) : [newLigneDefault()];
+  _lignesWorking = isEdit ? rec.lignes.map(l=>({...l}))
+    : prefill ? (prefill.lignes.length ? prefill.lignes.map(l=>({...newLigneDefault(), ...l})) : [newLigneDefault()])
+    : [newLigneDefault()];
   const numero = isEdit ? rec.numero : numeroAuto(DB.commandes);
   const mr=document.getElementById("modalRoot");
   const rerenderLignes=()=>{ document.getElementById("lignesEditorContainer").innerHTML=renderLignesEditor(); wireLignesEditor(rerenderLignes); };
   mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:940px">
     <div class="modal-head"><h3>${isEdit?"Modifier la commande":"Nouvelle commande"}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
     <div class="modal-body">
+      ${prefill?`<div style="margin-bottom:14px;padding:9px 12px;border-radius:8px;background:var(--warn-bg);color:var(--warn);font-size:13px;font-weight:600">Données extraites automatiquement du devis — vérifiez-les avant d'enregistrer (fournisseur, lignes, montants).</div>`:""}
       <div class="form-grid">
         <div class="field"><label>Numéro</label><input type="text" value="${esc(numero)}" disabled><span class="hint">Généré automatiquement (AAMMJJ + index du jour), non modifiable.</span></div>
-        <div class="field"><label>Fournisseur<span class="req"> *</span></label><select id="tiersSelect">${DB.tiers.map(t=>`<option value="${t.id}" ${(rec&&rec.tiersId===t.id)?"selected":""}>${esc(t.raisonSociale)}</option>`).join("")}</select></div>
+        <div class="field"><label>Fournisseur<span class="req"> *</span></label><select id="tiersSelect">${DB.tiers.map(t=>`<option value="${t.id}" ${((rec&&rec.tiersId===t.id)||(prefill&&prefill.tiersId===t.id))?"selected":""}>${esc(t.raisonSociale)}</option>`).join("")}</select></div>
         <div class="field"><label>Marché lié (optionnel)</label><select id="marcheSelect"><option value="">—</option>${DB.marches.map(m=>`<option value="${m.id}" ${(rec&&rec.marcheId===m.id)?"selected":""}>${esc(m.objet)}</option>`).join("")}</select></div>
         <div class="field"><label>Date de commande<span class="req"> *</span></label><input id="dateInp" type="date" value="${rec?rec.dateCommande:todayISO()}"></div>
-        <div class="field full"><label>Objet<span class="req"> *</span></label><input id="objetInp" type="text" value="${esc(rec?rec.objet:"")}"></div>
+        <div class="field full"><label>Objet<span class="req"> *</span></label><input id="objetInp" type="text" value="${esc(rec?rec.objet:(prefill?`Devis n° ${prefill.numeroDevis||"—"}`:""))}"></div>
+        <div class="field"><label>N° devis (origine)</label><input id="numeroDevisInp" type="text" value="${esc(rec?(rec.numeroDevis||""):(prefill?(prefill.numeroDevis||""):""))}"></div>
+        <div class="field"><label>Date du devis</label><input id="dateDevisInp" type="date" value="${rec?(rec.dateDevis||""):(prefill?(prefill.dateDevis||""):"")}"></div>
       </div>
       <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Lignes</h4>
       <div id="lignesEditorContainer">${renderLignesEditor()}</div>
@@ -983,12 +1124,14 @@ function openCommandeModal(id){
     const marcheId=document.getElementById("marcheSelect").value||null;
     const dateCommande=document.getElementById("dateInp").value;
     const objet=document.getElementById("objetInp").value;
+    const numeroDevis=document.getElementById("numeroDevisInp").value.trim()||null;
+    const dateDevis=document.getElementById("dateDevisInp").value||null;
     if(!tiersId){ toast("Champ requis : Fournisseur"); return; }
     if(!objet.trim()){ toast("Champ requis : Objet"); return; }
     if(!_lignesWorking.length || _lignesWorking.some(l=>!l.designation.trim())){ toast("Chaque ligne doit avoir une désignation"); return; }
     const montant=calcLignesTotal(_lignesWorking).ttc;
-    if(isEdit){ Object.assign(rec, { tiersId, marcheId, dateCommande, objet, lignes:_lignesWorking, montant }); }
-    else { DB.commandes.push({ id:uid("cm_"), numero, tiersId, marcheId, objet, dateCommande, statut:"Brouillon", serviceFait:false, lignes:_lignesWorking, montant }); }
+    if(isEdit){ Object.assign(rec, { tiersId, marcheId, dateCommande, objet, numeroDevis, dateDevis, lignes:_lignesWorking, montant }); }
+    else { DB.commandes.push({ id:uid("cm_"), numero, tiersId, marcheId, objet, dateCommande, numeroDevis, dateDevis, statut:"Brouillon", serviceFait:false, lignes:_lignesWorking, montant }); }
     save(); close(); toast("Enregistrement créé"); render();
   };
 }
