@@ -298,7 +298,7 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <div class="logo">OPH</div>
+      <div class="logo" aria-label="OPH"></div>
       <div>
         <h1>Gestion RH</h1>
         <span>Office de l'Habitat · PF</span>
@@ -930,6 +930,34 @@ function renderSessionBar(){
   if(!SESSION.asAgentId && DB.agents[0]) SESSION.asAgentId=DB.agents[0].id;
   agentSel.value=SESSION.asAgentId;
   agentSel.style.display=SESSION.role==="rh"?"none":"block";
+  document.body.classList.toggle("agent-mode",SESSION.role==="agent");
+  const agent=DB.agents.find(a=>a.id===SESSION.asAgentId);
+  if(SESSION.role==="agent"){
+    const top=document.querySelector(".topbar");
+    if(top){
+      let oldAgent=top.querySelector(".agent-top-search");
+      if(!oldAgent){
+        const title=top.querySelector(":scope > div:first-of-type");
+        if(title) title.innerHTML='<div class="agent-top-search">Rechercher une information, un document...</div>';
+        const actions=document.getElementById("pageActions");
+        if(actions){
+          const unread=(DB.agentNotifications||[]).filter(n=>n.agentId===SESSION.asAgentId&&!n.read).length;
+          actions.innerHTML='<div class="agent-top-user"><span class="agent-bell">♧<b>'+unread+'</b></span><span class="agent-top-avatar">'+esc(((agent&&agent.prenom)||"")[0]+((agent&&agent.nom)||"")[0]).toUpperCase())+'</span><span><strong>'+esc(agentName(SESSION.asAgentId))+'</strong><small>Agent</small></span><span style="color:#7890a8">⌄</span></div>';
+        }
+      }
+    }
+    const sidebar=document.getElementById("sidebar");
+    if(sidebar && !sidebar.querySelector(".agent-help-card")){
+      const help=document.createElement("div"); help.className="agent-help-card";
+      help.innerHTML='<div style="font-size:25px">◯</div><strong>Une question ?</strong><span>Le service RH est à votre écoute</span><br><button onclick="go(\'aide-agent\')">Nous contacter</button>';
+      sidebar.appendChild(help);
+    }
+  }else{
+    const top=document.querySelector(".topbar"),title=top&&top.querySelector(":scope > div:first-of-type");
+    if(title) title.innerHTML='<h2 id="pageTitle">Tableau de bord</h2><div class="sub" id="pageSub"></div>';
+    const actions=document.getElementById("pageActions");if(actions) actions.innerHTML="";
+    const help=document.querySelector(".agent-help-card");if(help) help.remove();
+  }
   roleSel.onchange=()=>{
     SESSION.role=roleSel.value;
     agentSel.style.display=SESSION.role==="rh"?"none":"block";
@@ -2821,7 +2849,42 @@ function printBulletin(p){
   .net{text-align:right;font-size:14px;font-weight:800;margin-top:6px}
   .foot{margin-top:24px;font-size:10px;color:#7a8a87}
   @media print{ body{margin:0} }
-</style></head><body>
+<style>
+/* Agent RH visual system — based on approved self-service reference */
+body.agent-mode{background:#f7fafd;color:#1b3154}
+body.agent-mode .app{grid-template-columns:214px 1fr;max-width:none}
+body.agent-mode .sidebar{background:#fff;border-right:1px solid #e5edf5;box-shadow:2px 0 18px rgba(25,74,115,.04)}
+body.agent-mode .brand{height:76px;padding:12px 18px;border-bottom:1px solid #edf2f7}
+body.agent-mode .brand .logo{width:46px;height:46px;border-radius:0;background:linear-gradient(145deg,#fff,#eef8ff);color:#087bc1;font-size:0;position:relative;overflow:hidden}
+body.agent-mode .brand .logo:before{content:"";position:absolute;left:8px;bottom:8px;width:30px;height:26px;background:linear-gradient(135deg,#10a4b7,#0878c3);clip-path:polygon(50% 0,100% 28%,100% 100%,72% 100%,72% 56%,50% 43%,28% 56%,28% 100%,0 100%,0 28%)}
+body.agent-mode .brand .logo:after{content:"OPH";position:absolute;left:50px;top:5px;color:#19365b;font-size:22px;font-weight:800;letter-spacing:-1px}
+body.agent-mode .brand h1{position:absolute;margin-left:50px;margin-top:29px;font-size:9px;color:#1681ba;white-space:nowrap}
+body.agent-mode .brand span{display:none}
+body.agent-mode .nav{padding:12px 8px}
+body.agent-mode .nav a{min-height:42px;padding:10px 12px;border-radius:9px;color:#49627f;font-size:13px;gap:12px}
+body.agent-mode .nav a:hover{background:#f1f7fc;color:#146da8}
+body.agent-mode .nav a.active{background:#117dca;color:#fff;box-shadow:0 5px 12px rgba(17,125,202,.2)}
+body.agent-mode .nav a.active svg{color:#fff}
+body.agent-mode .session-bar,body.agent-mode .sidebar-foot{display:none}
+body.agent-mode .main{min-width:0}
+body.agent-mode .topbar{height:62px;background:#fff;border-bottom:1px solid #e8eef5;padding:10px 28px;box-shadow:none}
+body.agent-mode .topbar>div:first-of-type{flex:1}
+body.agent-mode .topbar>div:first-of-type h2{display:none}
+body.agent-mode .topbar>div:first-of-type .sub{display:none}
+body.agent-mode .topbar:before{content:"⌕";display:grid;place-items:center;width:18px;height:18px;color:#6e8aa7;font-size:22px;margin-right:9px}
+body.agent-mode .topbar:after{content:"";display:block}
+body.agent-mode .agent-top-search{display:flex!important;align-items:center;max-width:410px;width:100%;height:40px;background:#f1f6fb;border:1px solid #e6edf5;border-radius:9px;color:#8094aa;padding:0 14px;font-size:12px}
+body.agent-mode .agent-top-user{display:flex;align-items:center;gap:9px;margin-left:auto;padding-left:18px;border-left:1px solid #edf1f5}
+body.agent-mode .agent-top-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#f4d8c3,#a9684f);color:#fff;font-size:11px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+body.agent-mode .agent-top-user strong{display:block;font-size:12px;color:#243c5e}.agent-top-user small{display:block;color:#8495aa;font-size:10px;margin-top:2px}
+body.agent-mode .agent-bell{font-size:20px;color:#56718e;margin-right:6px;position:relative}
+body.agent-mode .agent-bell b{position:absolute;top:-7px;right:-8px;background:#e23d45;color:#fff;border-radius:50%;font-size:8px;min-width:16px;height:16px;display:grid;place-items:center}
+body.agent-mode .content{padding:14px 28px 30px;max-width:1500px;margin:0 auto;width:100%}
+body.agent-mode .agent-help-card{display:block;margin:10px 8px 14px;padding:15px 12px;border-radius:12px;background:linear-gradient(145deg,#e9f6ff,#f1faff);border:1px solid #dcecf7;text-align:center;color:#57728d;font-size:10px}
+body.agent-mode .agent-help-card strong{display:block;color:#244363;font-size:13px;margin:5px 0}
+body.agent-mode .agent-help-card button{border:0;border-radius:20px;background:#087dca;color:#fff;padding:8px 20px;font-weight:700;font-size:11px;margin-top:8px;cursor:pointer}
+@media(max-width:820px){body.agent-mode .app{grid-template-columns:1fr}body.agent-mode .content{padding:12px 14px 40px}body.agent-mode .topbar{padding:9px 14px}body.agent-mode .agent-top-search{max-width:220px}body.agent-mode .agent-top-user strong,body.agent-mode .agent-top-user small{display:none}}
+</style></style></head><body>
   <div class="head">
     <div><h1>OPH · Office Polynésien de l'Habitat</h1><div>Bulletin de paie</div></div>
     <div style="text-align:right"><div><strong>${esc(agentName(p.agentId))}</strong></div><div>Matricule ${esc(a?.matricule||"—")}</div><div>Période ${esc(p.periode)}</div></div>
