@@ -34,29 +34,76 @@ test.describe("Achats — tableau de bord et budget (profil Achats)", () => {
     await expect(page.locator(".kpi", { hasText: "Engagé" })).toBeVisible();
   });
 
-  test("le suivi budgétaire calcule alloué/engagé/consommé/disponible en sommant les lignes de BC/factures par compte", async ({ page }) => {
+  test("le compte enfant calcule alloué/engagé (BC ou marché)/liquidé/disponible (cas nominal)", async ({ page }) => {
     await page.locator("[data-nav='budget']").click();
     const row = page.locator("tbody tr", { hasText: "Travaux d'entretien" });
     await expect(row.locator("td").nth(0)).toHaveText("615004");
     await expect(row.locator("td").nth(3)).toHaveText("15 000 000 XPF");
-    // Engagé = ligne de BC (prestation, 2 500 000 XPF HT) à 13% de TVA = 2 825 000 XPF.
-    await expect(row.locator("td").nth(4)).toHaveText("2 825 000 XPF");
-    await expect(row.locator("td").nth(6)).toHaveText("12 175 000 XPF");
+    // Engagé = ligne de BC (prestation, 2 500 000 XPF HT à 13% de TVA = 2 825 000 XPF)
+    // + marché "Réfection des toitures" (9 500 000 XPF) imputé sur le même compte enfant.
+    await expect(row.locator("td").nth(4)).toHaveText("12 325 000 XPF");
+    await expect(row.locator("td").nth(6)).toHaveText("2 675 000 XPF");
   });
 
-  test("le compte budgétaire combine le compte comptable et le code de la direction (ex. 2183 + SG = 2183001)", async ({ page }) => {
+  test("le compte parent affiche son plafond et le total de ses comptes enfants, calculé en direct (cas nominal)", async ({ page }) => {
     await page.locator("[data-nav='budget']").click();
-    const row = page.locator("tbody tr", { hasText: "informatiques" });
-    await expect(row.locator("td").nth(0)).toHaveText("2183001");
+    const parentRow = page.locator("tbody tr", { hasText: "Matériel informatique" });
+    await expect(parentRow.locator("td").nth(0)).toHaveText("2183");
+    await expect(parentRow.locator("td").nth(2)).toHaveText("4 000 000 XPF"); // plafond
+    await expect(parentRow.locator("td").nth(3)).toHaveText("4 000 000 XPF"); // total des enfants (1 seul enfant ici)
+
+    const enfantRow = page.locator("tbody tr", { hasText: "informatiques" });
+    await expect(enfantRow.locator("td").nth(0)).toHaveText("2183001");
   });
 
-  test("crée une nouvelle ligne budgétaire (cas nominal)", async ({ page }) => {
+  test("crée un nouveau compte parent puis un compte enfant rattaché (cas nominal)", async ({ page }) => {
     await page.locator("[data-nav='budget']").click();
-    await page.click("#addBtn");
-    await page.fill('input[data-k="nature"]', "Formation du personnel");
-    await page.fill('input[data-k="alloue"]', "500000");
+    await page.click("#addParentBtn");
+    await page.fill('input[data-k="code"]', "6135");
+    await page.fill('input[data-k="libelle"]', "Formation du personnel");
+    await page.fill('input[data-k="montantLimite"]', "500000");
     await page.click("#saveModal");
     await expect(page.locator("tbody tr", { hasText: "Formation du personnel" })).toBeVisible();
+
+    await page.click("#addEnfantBtn");
+    const parentOptionValue = await page.locator('select[data-k="compteParentId"] option', { hasText: "Formation du personnel" }).getAttribute("value");
+    await page.selectOption('select[data-k="compteParentId"]', parentOptionValue);
+    await page.fill('input[data-k="libelle"]', "Formation SG 2026");
+    await page.fill('input[data-k="alloue"]', "500000");
+    await page.click("#saveModal");
+    await expect(page.locator("tbody tr", { hasText: "Formation SG 2026" })).toContainText("6135001");
+  });
+
+  test("importe plusieurs comptes en une fois par collage (code;libellé;montants) (cas nominal)", async ({ page }) => {
+    await page.locator("[data-nav='budget']").click();
+    await page.click("#importBtn");
+    await page.fill("#importText", "6068;Petit matériel;100000;50000;25000;25000");
+    await page.click("#okBtn");
+    await expect(page.locator("#toast")).toHaveText("1 compte(s) importé(s)");
+
+    const parentRow = page.locator("tbody tr", { hasText: "Petit matériel" });
+    await expect(parentRow.locator("td").nth(2)).toHaveText("200 000 XPF"); // 100000+50000+25000+25000
+    await expect(page.locator("tbody tr", { hasText: "6068001" })).toBeVisible();
+    await expect(page.locator("tbody tr", { hasText: "6068004" })).toBeVisible();
+  });
+
+  test("une ligne d'import au format invalide est ignorée et signalée (cas erreur)", async ({ page }) => {
+    await page.locator("[data-nav='budget']").click();
+    await page.click("#importBtn");
+    await page.fill("#importText", "codeincomplet;libelle sans les 4 montants");
+    await page.click("#okBtn");
+    await expect(page.locator("#toast")).toHaveText("Aucun compte importé : vérifiez le format de chaque ligne");
+  });
+
+  test("crée un nouvel exercice budgétaire en dupliquant les comptes de l'exercice source (cas nominal)", async ({ page }) => {
+    await page.locator("[data-nav='budget']").click();
+    const anneeSuivante = String(Number(new Date().getFullYear()) + 1);
+    await page.click("#nouvelExerciceBtn");
+    await page.fill("#exerciceInp", anneeSuivante);
+    await page.click("#okBtn");
+    await expect(page.locator("#toast")).toContainText(`Exercice ${anneeSuivante} créé`);
+    await expect(page.locator("#exerciceSelect")).toHaveValue(anneeSuivante);
+    await expect(page.locator("tbody tr", { hasText: "Travaux d'entretien" })).toBeVisible();
   });
 });
 
