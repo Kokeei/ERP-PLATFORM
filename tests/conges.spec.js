@@ -106,7 +106,7 @@ test.describe("Congés — self-service (profil Agent)", () => {
     await page.selectOption("#sessRole", "agent");
     await selectAgentOption(page, "#sessAgent", "Teiva TAMA");
 
-    await page.locator("#nav a", { hasText: "Mes congés" }).click();
+    await page.locator("#nav a", { hasText: "Mes absences" }).click();
     await page.click("#addBtn");
 
     await expect(page.locator(".field label", { hasText: "Statut" })).toHaveCount(0);

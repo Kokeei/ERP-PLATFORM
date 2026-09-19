@@ -73,19 +73,20 @@ test.describe("Formations — self-service (profil Agent)", () => {
     const agentOption = page.locator("#sessAgent option", { hasText: "Poema TERIItAHI" });
     await page.selectOption("#sessAgent", await agentOption.evaluate((el) => el.value));
 
-    await page.locator("#nav a", { hasText: "Mon dossier" }).click();
-    await page.locator("#detailTabs button", { hasText: "Formations" }).click();
-    await page.click("#detailAdd");
+    await page.locator("#nav a", { hasText: "Mon profil" }).click();
+    await page.locator("#nav a", { hasText: "Mes formations" }).click();
+    await page.getByRole("button", { name: "Demander une formation" }).click();
 
     await expect(page.locator(".field label", { hasText: "Statut" })).toHaveCount(0);
 
-    await page.fill('input[data-k="intitule"]', "Communication interpersonnelle");
-    await page.click("#saveModal");
+    await expect(page.locator("#apSubject")).toBeVisible();
+    await expect(page.locator("#apDetails")).toBeVisible();
+    await page.fill("#apSubject", "Communication interpersonnelle");
+    await page.fill("#apDetails", "Demande de formation depuis mon espace agent.");
+    await page.click("#apSend");
 
-    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
-    const row = page.locator("tbody tr", { hasText: "Communication interpersonnelle" });
-    await expect(row.locator(".badge")).toHaveText("Demandée");
-    // Lecture seule : ni bouton de validation ni bouton d'édition depuis son propre dossier.
-    await expect(row.locator("[data-fvalide]")).toHaveCount(0);
+    await expect(page.locator("#toast")).toHaveText("Demande envoyée à la RH");
+    await page.locator("#nav a", { hasText: "Mes demandes" }).click();
+    await expect(page.locator(".panel-body")).toContainText("Communication interpersonnelle");
   });
 });
