@@ -2841,6 +2841,7 @@ function printBulletin(p){
   ${p.congesRecap?`<table style="margin-top:18px"><thead><tr><th>Congés</th><th>Solde M-1</th><th>Acquis/Mois</th><th>Pris/Mois</th><th>Solde</th></tr></thead><tbody>${congesRows}</tbody></table>`:""}
   <div class="foot">Document généré par la plateforme ERP OPH — modèle simplifié à des fins de démonstration.</div>
   <script>window.onload=()=>{ window.print(); };<\/script>
+<script src="agent-portal.js"></script>
 </body></html>`;
   const w=window.open("", "_blank");
   if(!w){ toast("Autorisez les pop-ups pour imprimer le bulletin"); return; }
