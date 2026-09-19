@@ -177,12 +177,12 @@ test.describe("Logement — workflow demandeur (profil Gestion)", () => {
     await expect(page.locator("#okBtn")).toBeEnabled();
     await page.click("#okBtn");
     await expect(page.locator("#toast")).toHaveText("Logement proposé au demandeur");
-    await expect(page.locator("tbody tr", { hasText: "FAANA" }).locator(".badge")).toHaveText("Proposée");
+    await expect(page.locator("tbody tr", { hasText: "FAANA" }).locator(".badge").last()).toHaveText("Proposée");
 
     await page.locator("tbody tr", { hasText: "FAANA" }).click();
     await page.click('[data-act="attribuer"]');
     await expect(page.locator("#toast")).toHaveText("Logement attribué : locataire et bail créés");
-    await expect(page.locator("tbody tr", { hasText: "FAANA" }).locator(".badge").first()).toHaveText("Attribuée");
+    await expect(page.locator("tbody tr", { hasText: "FAANA" }).locator(".badge").last()).toHaveText("Attribuée");
 
     // Le locataire et le bail doivent exister automatiquement.
     await page.locator("[data-nav='locataires']").click();
@@ -194,14 +194,14 @@ test.describe("Logement — workflow demandeur (profil Gestion)", () => {
   test("une demande en instruction peut être refusée (cas limite)", async ({ page }) => {
     await page.locator("tbody tr", { hasText: "MARAEURA" }).click();
     await page.click('[data-act="Refusée"]');
-    await expect(page.locator("tbody tr", { hasText: "MARAEURA" }).locator(".badge")).toHaveText("Refusée");
+    await expect(page.locator("tbody tr", { hasText: "MARAEURA" }).locator(".badge").last()).toHaveText("Refusée");
   });
 
   test("une demande déposée n'a qu'une seule action disponible : passer en instruction (cas limite)", async ({ page }) => {
     await page.locator("tbody tr", { hasText: "AH-PUOU" }).click();
     await expect(page.locator("[data-act]")).toHaveCount(1);
     await page.click('[data-act="Instruction"]');
-    await expect(page.locator("tbody tr", { hasText: "AH-PUOU" }).locator(".badge")).toHaveText("Instruction");
+    await expect(page.locator("tbody tr", { hasText: "AH-PUOU" }).locator(".badge").last()).toHaveText("Instruction");
   });
 });
 
@@ -276,5 +276,147 @@ test.describe("Logement — self-service Demandeur", () => {
     await page.selectOption("#sessId", { label: "Hiro MARO" });
     await expect(page.locator(".panel-body p")).toContainText("Votre demande a été refusée");
     await expect(page.locator(".kpi-grid")).toHaveCount(0);
+  });
+});
+
+test.describe("Logement — fiche détail d'un lotissement (profil Gestion)", () => {
+  test("affiche identité, équipements, typologie et logements accessibles PMR (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='lotissements']").click();
+    await page.locator("tbody tr", { hasText: "Teavaraa" }).click();
+    await expect(page.locator(".modal-head h3")).toContainText("Teavaraa");
+    await expect(page.locator(".kpi", { hasText: "Accessibles PMR" })).toContainText("1");
+    await expect(page.locator(".badge.ok", { hasText: "Aire de jeux" })).toBeVisible();
+    await expect(page.locator(".badge.mut", { hasText: "Ascenseur" })).toBeVisible();
+    await expect(page.locator(".modal-body table", { hasText: "T4" }).first()).toBeVisible();
+  });
+
+  test("les boutons modifier/supprimer de la liste n'ouvrent pas la fiche détail (cas limite)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='lotissements']").click();
+    await page.locator("tbody tr", { hasText: "Manutahi" }).locator("[data-edit]").click();
+    await expect(page.locator(".modal-head h3")).toHaveText("Modifier lotissement");
+  });
+});
+
+test.describe("Logement — pistes foncières (profil Gestion)", () => {
+  test("liste les pistes foncières repérées (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='pistes-foncieres']").click();
+    await expect(page.locator("#pageTitle")).toHaveText("Pistes foncières");
+    await expect(page.locator("tbody tr", { hasText: "Taharuu" })).toBeVisible();
+  });
+
+  test("crée une nouvelle piste foncière (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='pistes-foncieres']").click();
+    await page.click("#addBtn");
+    await page.fill('input[data-k="nom"]', "Réserve Vaitupa");
+    await page.click("#saveModal");
+    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
+    await expect(page.locator("tbody tr", { hasText: "Réserve Vaitupa" })).toBeVisible();
+  });
+});
+
+test.describe("Logement — projets de construction (profil Gestion)", () => {
+  test("liste les projets pilotés par les chargés d'opération (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='projets-construction']").click();
+    await expect(page.locator("#pageTitle")).toHaveText("Projets de construction");
+    await expect(page.locator("tbody tr", { hasText: "Extension Punavai tranche 2" })).toContainText("Indigo");
+  });
+
+  test("crée un nouveau projet de construction (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='projets-construction']").click();
+    await page.click("#addBtn");
+    await page.fill('input[data-k="nom"]', "Extension Ariiheue");
+    await page.fill('input[data-k="chargeOperation"]', "Test CHARGE");
+    await page.click("#saveModal");
+    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
+    await expect(page.locator("tbody tr", { hasText: "Extension Ariiheue" })).toBeVisible();
+  });
+});
+
+test.describe("Logement — demande AAHI (aide à l'amélioration de l'habitat individuel)", () => {
+  test("l'attribution AAHI n'enregistre qu'une aide, sans création de bail (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='demandeurs']").click();
+    await page.locator("tbody tr", { hasText: "TEAI" }).click();
+    await expect(page.locator("[data-act]")).toHaveCount(2);
+    await page.click('[data-act="attribuerAahi"]');
+    await page.fill("#montantInp", "650000");
+    await page.click("#okBtn");
+    await expect(page.locator("#toast")).toHaveText("Aide AAHI attribuée");
+    await expect(page.locator("tbody tr", { hasText: "TEAI" }).locator(".badge").last()).toHaveText("Attribuée");
+
+    await page.locator("tbody tr", { hasText: "TEAI" }).click();
+    await expect(page.locator(".info-list")).toContainText("650 000 XPF");
+    await page.click("#cancelModal");
+
+    await page.locator("[data-nav='baux']").click();
+    await expect(page.locator("tbody tr", { hasText: "TEAI" })).toHaveCount(0);
+  });
+});
+
+test.describe("Logement — demande FARE (habitat individuel sur terrain propre)", () => {
+  test("l'attribution Fare capture le type et le terrain, sans création de bail (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='demandeurs']").click();
+    await page.locator("tbody tr", { hasText: "TAUFA" }).click();
+    await page.click('[data-act="attribuerFare"]');
+    await page.selectOption("#typeInp", "F4");
+    await page.click("#okBtn");
+    await expect(page.locator("#toast")).toHaveText("Fare attribué");
+    await expect(page.locator("tbody tr", { hasText: "TAUFA" }).locator(".badge").last()).toHaveText("Attribuée");
+
+    await page.locator("tbody tr", { hasText: "TAUFA" }).click();
+    await expect(page.locator(".info-list")).toContainText("F4");
+    await page.click("#cancelModal");
+
+    await page.locator("[data-nav='baux']").click();
+    await expect(page.locator("tbody tr", { hasText: "TAUFA" })).toHaveCount(0);
+  });
+});
+
+test.describe("Logement — demande CHE (hébergement étudiant, cycle complet)", () => {
+  test("un étudiant proposé puis attribué devient locataire étudiant avec un bail CHE annuel (cycle complet)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='demandeurs']").click();
+    await page.locator("tbody tr", { hasText: "Toriki MARAE" }).click();
+    await page.click('[data-act="proposeChe"]');
+    await expect(page.locator("#okBtn")).toBeEnabled();
+    await page.click("#okBtn");
+    await expect(page.locator("#toast")).toHaveText("Hébergement CHE proposé au demandeur");
+    await expect(page.locator("tbody tr", { hasText: "Toriki MARAE" }).locator(".badge").last()).toHaveText("Proposée");
+
+    await page.locator("tbody tr", { hasText: "Toriki MARAE" }).click();
+    await page.click('[data-act="attribuerChe"]');
+    await expect(page.locator("#toast")).toHaveText("Hébergement CHE attribué : locataire et bail créés");
+
+    await page.locator("[data-nav='baux']").click();
+    await expect(page.locator("tbody tr", { hasText: "Toriki MARAE" })).toContainText("CHE");
+  });
+
+  test("un logement CHE à pleine capacité n'est plus proposable (cas limite)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.evaluate(() => {
+      // Sature toutes les places CHE restantes (Outumaoro + Paraita) pour vérifier le garde-fou de capacité.
+      DB.logements.filter(l => l.categorie === "CHE").forEach(l => {
+        const restantes = (l.capacite || 1) - occupantsCount(l.id);
+        for (let i = 0; i < restantes; i++) {
+          const locataire = { id: "lo_test_che_full_" + l.id + "_" + i, civ: "M.", nom: "COLOC", prenom: "Test" + i, estEtudiant: true };
+          DB.locataires.push(locataire);
+          DB.baux.push({ id: "bx_test_che_full_" + l.id + "_" + i, locataireId: locataire.id, logementId: l.id, dateEffet: todayISO(), loyer: l.loyerBase, charges: 0, depotGarantie: 0, statut: "Actif", modeOccupation: "CHE", anneeAcademique: "2025-2026" });
+        }
+        l.statut = "Occupé";
+      });
+      save();
+    });
+    await page.locator("[data-nav='demandeurs']").click();
+    await page.locator("tbody tr", { hasText: "Toriki MARAE" }).click();
+    await page.click('[data-act="proposeChe"]');
+    await expect(page.locator("#okBtn")).toBeDisabled();
+    await expect(page.locator("#logSelect")).toContainText("Aucune place disponible");
   });
 });
