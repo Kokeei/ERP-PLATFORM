@@ -133,8 +133,8 @@ const MODULES={
   transverse:[{slug:"ged",name:"GED",desc:"Gestion électronique des documents : espaces, dossiers, versions, corbeille — réutilisable par les autres modules",status:"ready"}],
   rh:[{slug:"rh",name:"Ressources Humaines",desc:"Agents, congés, paie, formations, santé au travail, déplacements",status:"ready"}],
   logement:[
-    {slug:"locataires",name:"Locataires",desc:"Gestion locative, baux, quittances et suivi des impayés",status:"soon"},
-    {slug:"demandeurs",name:"Demandeurs",desc:"Demandes de logement, instruction des dossiers et attributions",status:"soon"}
+    {slug:"locataires",name:"Locataires",desc:"Gestion locative, baux, quittances et suivi des impayés",status:"ready",href:"logement/#locataires"},
+    {slug:"demandeurs",name:"Demandeurs",desc:"Demandes de logement, instruction des dossiers et attributions",status:"ready",href:"logement/#demandeurs"}
   ],
   achats:[
     {slug:"clients",name:"Clients / Tiers",desc:"Référentiel des tiers et contacts",status:"soon"},
@@ -149,7 +149,7 @@ function card(m){
   const ico=`<div class="ico"><svg viewBox="0 0 24 24">${ICO[m.slug]||""}</svg></div>`;
   const body=`${ico}<h3>${m.name}</h3><p>${m.desc}</p>`;
   if(m.status==="ready"){
-    return `<a class="card" href="${m.slug}/">${body}<div class="foot"><span class="badge ok">Disponible</span><span class="go">Ouvrir →</span></div></a>`;
+    return `<a class="card" href="${m.href||(m.slug+"/")}">${body}<div class="foot"><span class="badge ok">Disponible</span><span class="go">Ouvrir →</span></div></a>`;
   }
   return `<div class="card soon">${body}<div class="foot"><span class="badge soon">À venir</span></div></div>`;
 }

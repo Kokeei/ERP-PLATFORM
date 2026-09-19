@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPH · Gestion Locative</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ink: #12211f; --ink-2: #4a5b58; --ink-3: #7a8a87;
+  --bg: #eef1f0; --surface: #ffffff; --surface-2: #f6f8f7;
+  --border: #d7dddb; --border-strong: #c2cac8;
+  --primary: #0f6e6a; --primary-dark: #0a504d; --primary-soft: #e2efee; --primary-ink: #ffffff;
+  --ok: #2f8f5b; --ok-bg:#e6f4ec; --warn: #b57812; --warn-bg:#fbf1dd; --bad: #c0453b; --bad-bg:#f9e6e4; --info:#2f6f9f; --info-bg:#e5eef6;
+  --shadow: 0 1px 2px rgba(18,33,31,.06), 0 8px 24px rgba(18,33,31,.05);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ink:#e8efed; --ink-2:#a9b8b5; --ink-3:#7d8d8a;
+  --bg:#0c1413; --surface:#131e1c; --surface-2:#0f1817;
+  --border:#243230; --border-strong:#334340;
+  --primary:#3aa39c; --primary-dark:#2b807a; --primary-soft:#12302e; --primary-ink:#04110f;
+  --ok:#4bbd7f; --ok-bg:#123122; --warn:#d69a3c; --warn-bg:#332614; --bad:#e06b60; --bad-bg:#361c1a; --info:#5c9ecb; --info-bg:#132635;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ink:#e8efed; --ink-2:#a9b8b5; --ink-3:#7d8d8a;
+  --bg:#0c1413; --surface:#131e1c; --surface-2:#0f1817;
+  --border:#243230; --border-strong:#334340;
+  --primary:#3aa39c; --primary-dark:#2b807a; --primary-soft:#12302e; --primary-ink:#04110f;
+  --ok:#4bbd7f; --ok-bg:#123122; --warn:#d69a3c; --warn-bg:#332614; --bad:#e06b60; --bad-bg:#361c1a; --info:#5c9ecb; --info-bg:#132635;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font); color:var(--ink); background:var(--bg); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+a{color:inherit}
+
+.app{display:grid; grid-template-columns:248px 1fr; min-height:100vh}
+.sidebar{background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; position:sticky; top:0; height:100vh}
+.brand{padding:20px 20px 14px; display:flex; align-items:center; gap:11px}
+.brand .logo{width:38px;height:38px;border-radius:9px;flex:0 0 auto; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:var(--primary-ink); display:grid; place-items:center; font-weight:800; font-size:16px}
+.brand h1{font-size:15px; margin:0; line-height:1.15; font-weight:700}
+.brand span{font-size:11.5px; color:var(--ink-3); font-weight:500}
+.nav{padding:8px; overflow-y:auto; flex:1}
+.nav-group{font-size:10.5px; letter-spacing:.06em; color:var(--ink-3); font-weight:700; padding:14px 12px 6px; text-transform:uppercase}
+.nav a{display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:8px; color:var(--ink-2); text-decoration:none; font-weight:500; font-size:14px; cursor:pointer}
+.nav a .ic{width:18px;height:18px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9}
+.nav a:hover{background:var(--surface-2); color:var(--ink)}
+.nav a.active{background:var(--primary-soft); color:var(--primary-dark); font-weight:600}
+.nav a .count{margin-left:auto; background:var(--warn-bg); color:var(--warn); font-size:11px; font-weight:700; padding:1px 7px; border-radius:20px}
+.sidebar-foot{padding:12px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.sidebar-foot select{flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px}
+.theme-btn{background:var(--surface-2); border:1px solid var(--border); color:var(--ink-2); border-radius:8px; padding:7px 9px; cursor:pointer; font-size:12.5px; display:flex; gap:6px; align-items:center}
+
+.main{min-width:0; display:flex; flex-direction:column}
+.topbar{background:var(--surface); border-bottom:1px solid var(--border); padding:16px 28px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:5; flex-wrap:wrap}
+.topbar h2{margin:0; font-size:19px; font-weight:700}
+.topbar .sub{color:var(--ink-3); font-size:13px; margin-top:1px}
+.topbar .spacer{flex:1}
+.menu-toggle{display:none; background:none; border:1px solid var(--border); border-radius:8px; padding:8px; cursor:pointer; color:var(--ink)}
+.content{padding:24px 28px 60px; max-width:1280px; width:100%}
+
+.btn{display:inline-flex; align-items:center; gap:7px; border-radius:8px; border:1px solid transparent; padding:9px 15px; font-size:13.5px; font-weight:600; cursor:pointer; background:var(--surface-2); color:var(--ink); border-color:var(--border)}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--primary); color:var(--primary-ink); border-color:var(--primary)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent; border-color:transparent; color:var(--ink-2); padding:7px 9px}
+.btn.ghost:hover{background:var(--surface-2); color:var(--ink)}
+.btn.sm{padding:6px 11px; font-size:12.5px}
+.btn.danger{color:var(--bad); border-color:var(--border)}
+.btn.danger:hover{background:var(--bad-bg)}
+.btn .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+
+.kpi-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; margin-bottom:22px}
+.kpi{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); cursor:pointer}
+.kpi:hover{border-color:var(--border-strong)}
+.kpi .k-lbl{font-size:12.5px; color:var(--ink-3); font-weight:600}
+.kpi .k-val{font-size:30px; font-weight:800; margin-top:6px; letter-spacing:-.02em}
+.kpi .k-meta{font-size:12px; margin-top:4px; font-weight:600}
+.kpi .k-meta.ok{color:var(--ok)} .kpi .k-meta.warn{color:var(--warn)} .kpi .k-meta.bad{color:var(--bad)} .kpi .k-meta.mut{color:var(--ink-3)}
+
+.panels{display:grid; grid-template-columns:1.4fr 1fr; gap:16px}
+.panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+.panel-head{padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px}
+.panel-head h3{margin:0; font-size:14.5px; font-weight:700}
+.panel-head .spacer{flex:1}
+.panel-body{padding:6px 6px}
+.mini-row{display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px}
+.mini-row:hover{background:var(--surface-2)}
+.mini-row .who{font-weight:600; font-size:13.5px}
+.mini-row .det{font-size:12.5px; color:var(--ink-3)}
+.mini-row .spacer{flex:1}
+.empty{padding:26px 16px; text-align:center; color:var(--ink-3); font-size:13.5px}
+
+.toolbar{display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap}
+.search{position:relative; flex:1; min-width:200px; max-width:360px}
+.search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13.5px}
+.search .ic{position:absolute; left:10px; top:50%; transform:translateY(-50%); width:16px;height:16px; stroke:var(--ink-3); fill:none; stroke-width:2}
+.filter-sel{padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13.5px}
+input:focus, select:focus, textarea:focus, .btn:focus-visible, .kpi:focus-visible, a:focus-visible{outline:2px solid var(--primary); outline-offset:1px}
+
+.table-wrap{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:13.5px}
+thead th{text-align:left; padding:11px 14px; font-size:11.5px; letter-spacing:.02em; color:var(--ink-3); font-weight:700; border-bottom:1px solid var(--border); white-space:nowrap; background:var(--surface-2)}
+tbody td{padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+.cell-name{font-weight:600}
+.cell-sub{font-size:12px; color:var(--ink-3)}
+.row-actions{display:flex; gap:4px; justify-content:flex-end; white-space:nowrap}
+
+.av{width:32px;height:32px;border-radius:50%; background:var(--primary-soft); color:var(--primary-dark); display:grid; place-items:center; font-weight:700; font-size:12px; flex:0 0 auto}
+
+.badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap}
+.badge::before{content:""; width:6px;height:6px;border-radius:50%; background:currentColor}
+.badge.ok{background:var(--ok-bg); color:var(--ok)}
+.badge.warn{background:var(--warn-bg); color:var(--warn)}
+.badge.bad{background:var(--bad-bg); color:var(--bad)}
+.badge.info{background:var(--info-bg); color:var(--info)}
+.badge.mut{background:var(--surface-2); color:var(--ink-3)}
+.tag{display:inline-block; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border); color:var(--ink-2)}
+
+.overlay{position:fixed; inset:0; background:rgba(10,20,19,.5); backdrop-filter:blur(2px); display:grid; place-items:center; padding:20px; z-index:50}
+.modal{background:var(--surface); border:1px solid var(--border); border-radius:14px; width:100%; max-width:660px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.modal-head{padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px}
+.modal-head h3{margin:0; font-size:17px; font-weight:700}
+.modal-head .spacer{flex:1}
+.modal-body{padding:20px 22px; overflow-y:auto}
+.modal-foot{padding:14px 22px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap}
+.close-x{background:none;border:none;cursor:pointer;color:var(--ink-3);padding:4px;border-radius:6px}
+.close-x .ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2}
+
+.form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px 16px}
+.field{display:flex; flex-direction:column; gap:5px}
+.field.full{grid-column:1 / -1}
+.field label{font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.field label .req{color:var(--bad)}
+.field input, .field select, .field textarea{padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:14px; width:100%}
+.field textarea{resize:vertical; min-height:64px}
+.field .hint{font-size:11.5px; color:var(--ink-3)}
+.form-section{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); font-weight:700; grid-column:1/-1; margin-top:6px; padding-bottom:2px; border-bottom:1px solid var(--border)}
+
+.detail-head{display:flex; align-items:center; gap:16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); margin-bottom:16px; flex-wrap:wrap}
+.detail-head .av{width:56px;height:56px;font-size:20px}
+.detail-head h2{margin:0; font-size:21px}
+.detail-head .meta{color:var(--ink-3); font-size:13.5px; margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.detail-cols{display:grid; grid-template-columns:300px 1fr; gap:16px; align-items:start}
+.info-list{display:flex; flex-direction:column}
+.info-list .row{display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px}
+.info-list .row:last-child{border-bottom:none}
+.info-list .row .l{color:var(--ink-3)}
+.info-list .row .v{font-weight:600; text-align:right}
+.tabs{display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:5px; margin-bottom:14px; overflow-x:auto}
+.tabs button{background:none; border:none; padding:8px 14px; border-radius:7px; font-size:13px; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap}
+.tabs button.active{background:var(--primary-soft); color:var(--primary-dark)}
+
+.wf-item{display:flex; gap:12px; position:relative; padding:6px 0}
+.wf-dot{width:9px;height:9px;border-radius:50%; background:var(--primary); margin-top:5px; flex:0 0 auto}
+.wf-body{flex:1}
+.wf-top{display:flex; justify-content:space-between; gap:10px; font-size:13.5px}
+.wf-date{color:var(--ink-3); font-size:12px; white-space:nowrap}
+.wf-actor{font-size:12.5px; color:var(--ink-2); margin-top:2px}
+.wf-comment{font-size:12.5px; color:var(--ink-3); margin-top:4px; font-style:italic}
+
+.toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:9px; font-size:13.5px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.3); z-index:80; opacity:0; transition:opacity .2s}
+.toast.show{opacity:1}
+
+@media (max-width:960px){ .panels{grid-template-columns:1fr} .detail-cols{grid-template-columns:1fr} }
+@media (max-width:820px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed; z-index:60; width:260px; transform:translateX(-100%); transition:transform .2s}
+  .sidebar.open{transform:translateX(0)}
+  .menu-toggle{display:inline-flex}
+  .content{padding:18px 16px 60px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="logo">OPH</div><div><h1>Gestion Locative</h1><span>Office de l'Habitat · PF</span></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <a class="btn ghost sm" href="../">← Portail</a>
+      <select id="sessRole" title="Profil de test">
+        <option value="gestion">Gestion locative</option>
+        <option value="locataire">Locataire</option>
+        <option value="demandeur">Demandeur</option>
+      </select>
+      <select id="sessId" title="Compte simulé"></select>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div><h2 id="pageTitle">Tableau de bord</h2><div class="sub" id="pageSub"></div></div>
+      <div class="spacer"></div>
+      <div id="pageActions"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script src="../ged/ged-core.js"></script>
+<script src="../ged/ged-ui.js"></script>
+<script>
+"use strict";
+const KEY = "oph_logement_v1";
+const SESSION_KEY = KEY + "_session";
+
+/* ---------- Icônes ---------- */
+const I = {
+  dash:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9h14v-9"/><path d="M10 19v-5h4v5"/>',
+  users:'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 20a5 5 0 0 0-3-4.6"/>',
+  file:'<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M8.5 13h7M8.5 16.5h5"/>',
+  cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 6v0M18 18v0"/>',
+  key:'<circle cx="8" cy="15" r="3.5"/><path d="M10.5 12.5 19 4l2 2-2 2 2 2-3 3-2-2-2 2"/>',
+  wrench:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L2 19l3 3 7.3-7.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.8-.8-.8-2.8z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  back:'<path d="M19 12H5M11 18l-6-6 6-6"/>',
+  star:'<path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.2-5.4 3.2 1.3-6L3.3 9.2l6.1-.6z"/>'
+};
+function svg(d, cls){ return `<svg class="${cls||'ic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function uid(p){ return p+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function nowStamp(){ const d=new Date(); return d.toLocaleDateString("fr-FR")+" "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); }
+function fmtDate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return d&&m&&y?`${d}/${m}/${y}`:iso; }
+function fmtMoney(n){ return (Math.round(Number(n)||0)).toLocaleString("fr-FR")+" XPF"; }
+function initials(nom,prenom){ return ((prenom||"")[0]||"")+((nom||"")[0]||""); }
+function badge(s){
+  const tone = {"Vacant":"info","Occupé":"ok","Travaux":"warn",
+    "Déposée":"info","Instruction":"info","Éligible":"ok","Proposée":"warn","Attribuée":"ok","Refusée":"bad","Radiée":"mut",
+    "Actif":"ok","Préavis":"warn","Résilié":"mut",
+    "À émettre":"info","Émise":"info","Payée":"ok","Impayée":"bad",
+    "Signalée":"warn","Planifiée":"info","Réalisée":"ok"}[s] || "mut";
+  return `<span class="badge ${tone}">${esc(s||"—")}</span>`;
+}
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2400); }
+
+const COMMUNES = ["Papeete","Faa'a","Pirae","Punaauia","Mahina","Arue","Paea","Papara"];
+const TYPES_LOGEMENT = ["T1","T2","T3","T4","T5"];
+
+/* ---------- Données de démonstration ---------- */
+function seed(){
+  const logements = [
+    {residence:"Résidence Manutahi", numero:"A101", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Occupé"},
+    {residence:"Résidence Manutahi", numero:"A102", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T3", surface:62, etage:"1", loyerBase:82000, chargesBase:10000, statut:"Occupé"},
+    {residence:"Résidence Manutahi", numero:"A203", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
+    {residence:"Résidence Teavaraa", numero:"B10", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T4", surface:78, etage:"0", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
+    {residence:"Résidence Teavaraa", numero:"B11", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Travaux"},
+    {residence:"Résidence Teavaraa", numero:"B22", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
+    {residence:"Résidence Ariiheue", numero:"C01", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T5", surface:95, etage:"0", loyerBase:115000, chargesBase:14000, statut:"Occupé"},
+    {residence:"Résidence Ariiheue", numero:"C02", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Vacant"},
+    {residence:"Résidence Punavai", numero:"D14", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T4", surface:78, etage:"1", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
+    {residence:"Résidence Punavai", numero:"D15", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Vacant"}
+  ].map(l=>({id:uid("lg_"), ...l}));
+  const gid = n => logements[n].id;
+
+  const locataires = [
+    {nom:"TEPAVA", prenom:"Heiarii", civ:"M.", dateNaissance:"1982-04-11", tel:"87 20 11 22", email:"h.tepava@mail.pf"},
+    {nom:"TERIIERO", prenom:"Manda", civ:"Mme", dateNaissance:"1990-09-03", tel:"87 30 44 55", email:"m.teriiero@mail.pf"},
+    {nom:"CHUNG", prenom:"Edwin", civ:"M.", dateNaissance:"1975-01-20", tel:"87 40 66 77", email:"e.chung@mail.pf"},
+    {nom:"TEROOATEA", prenom:"Vaiana", civ:"Mme", dateNaissance:"1988-11-14", tel:"87 50 88 99", email:"v.terooatea@mail.pf"}
+  ].map(l=>({id:uid("lo_"), ...l}));
+  const lid = n => locataires[n].id;
+
+  const baux = [
+    {locataireId:lid(0), logementId:gid(0), dateEffet:"2022-03-01", loyer:65000, charges:8000, depotGarantie:65000, statut:"Actif"},
+    {locataireId:lid(1), logementId:gid(1), dateEffet:"2019-06-01", loyer:82000, charges:10000, depotGarantie:82000, statut:"Actif"},
+    {locataireId:lid(2), logementId:gid(3), dateEffet:"2021-01-15", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif"},
+    {locataireId:lid(3), logementId:gid(6), dateEffet:"2023-08-01", loyer:115000, charges:14000, depotGarantie:115000, statut:"Préavis", dateResiliation:"2026-10-15"}
+  ].map(b=>({id:uid("bx_"), ...b}));
+  // Le logement D14 est occupé mais son bail n'est pas encore saisi (démonstration de données incomplètes réelles) :
+  baux.push({id:uid("bx_"), locataireId:lid(2), logementId:gid(8), dateEffet:"2024-02-01", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif"});
+
+  const bid = n => baux[n].id;
+  const quittances = [];
+  ["2026-07","2026-08","2026-09"].forEach(periode=>{
+    baux.filter(b=>b.statut!=="Résilié").forEach(b=>{
+      const impaye = periode==="2026-07" && b.id===bid(1);
+      quittances.push({id:uid("qt_"), bailId:b.id, periode, loyer:b.loyer, charges:b.charges, montant:b.loyer+b.charges, statut: periode==="2026-09"?"Émise":(impaye?"Impayée":"Payée"), datePaiement: periode!=="2026-09" && !impaye ? periode+"-05" : null});
+    });
+  });
+
+  const demandeurs = [
+    {civ:"Mme", nom:"MARAEURA", prenom:"Teiva", dateNaissance:"1994-02-18", tel:"87 60 11 33", email:"t.maraeura@mail.pf", adresseActuelle:"Chez ses parents, Punaauia", nbPersonnes:3, ressourcesMensuelles:180000, typeSouhaite:"T3", zoneSouhaitee:"Punaauia", dateDepot:"2026-04-02", statut:"Instruction", commentaire:"Dossier CAF à compléter"},
+    {civ:"M.", nom:"FAANA", prenom:"Teiki", dateNaissance:"1985-07-09", tel:"87 61 22 44", email:"t.faana@mail.pf", adresseActuelle:"Location privée, Papeete", nbPersonnes:1, ressourcesMensuelles:145000, typeSouhaite:"T1", zoneSouhaitee:"Papeete", dateDepot:"2026-02-10", statut:"Éligible", commentaire:""},
+    {civ:"Mme", nom:"TEHEI", prenom:"Rava", dateNaissance:"1979-12-01", tel:"87 62 33 55", email:"r.tehei@mail.pf", adresseActuelle:"Hébergée, Pirae", nbPersonnes:4, ressourcesMensuelles:210000, typeSouhaite:"T4", zoneSouhaitee:"Pirae", dateDepot:"2026-01-20", statut:"Proposée", commentaire:"Proposition logement D15 en cours", logementProposeId:gid(9)},
+    {civ:"M.", nom:"AH-PUOU", prenom:"Steven", dateNaissance:"1991-05-25", tel:"87 63 44 66", email:"s.ahpuou@mail.pf", adresseActuelle:"Location privée, Faa'a", nbPersonnes:2, ressourcesMensuelles:160000, typeSouhaite:"T2", zoneSouhaitee:"Faa'a", dateDepot:"2025-11-05", statut:"Déposée", commentaire:""},
+    {civ:"Mme", nom:"TEROOATEA", prenom:"Vaiana", dateNaissance:"1988-11-14", tel:"87 50 88 99", email:"v.terooatea@mail.pf", adresseActuelle:"—", nbPersonnes:2, ressourcesMensuelles:150000, typeSouhaite:"T4", zoneSouhaitee:"Punaauia", dateDepot:"2023-06-01", statut:"Attribuée", commentaire:"Relogée résidence Punavai", locataireId:lid(2)},
+    {civ:"M.", nom:"MARO", prenom:"Hiro", dateNaissance:"1983-03-30", tel:"87 64 55 77", email:"h.maro@mail.pf", adresseActuelle:"Location privée, Mahina", nbPersonnes:1, ressourcesMensuelles:250000, typeSouhaite:"T1", zoneSouhaitee:"Mahina", dateDepot:"2025-09-12", statut:"Refusée", commentaire:"Ressources au-dessus du plafond"}
+  ].map(d=>({id:uid("dm_"), historique:[{action:"Dépôt du dossier", date:d.dateDepot, commentaire:""}], ...d}));
+
+  const interventions = [
+    {bailId:bid(0), type:"Plomberie", description:"Fuite sous l'évier de la cuisine", dateDemande:"2026-09-10", statut:"Planifiée"},
+    {bailId:bid(2), type:"Électricité", description:"Prise défectueuse dans le salon", dateDemande:"2026-08-22", statut:"Réalisée"}
+  ].map(i=>({id:uid("iv_"), ...i}));
+
+  return { logements, locataires, baux, quittances, demandeurs, interventions };
+}
+function migrate(db){
+  if(!db.logements) db.logements=[];
+  if(!db.locataires) db.locataires=[];
+  if(!db.baux) db.baux=[];
+  if(!db.quittances) db.quittances=[];
+  if(!db.demandeurs) db.demandeurs=[];
+  if(!db.interventions) db.interventions=[];
+  return db;
+}
+let DB = null;
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ console.warn("save",e); } }
+function load(){
+  try{ const raw=localStorage.getItem(KEY); if(raw){ DB=migrate(JSON.parse(raw)); return; } }catch(e){}
+  DB = seed(); save();
+}
+
+/* ---------- Session (profils simulés) ---------- */
+let SESSION = { role:"gestion", asId:null };
+function loadSession(){
+  try{ const raw=localStorage.getItem(SESSION_KEY); if(raw) SESSION={...SESSION, ...JSON.parse(raw)}; }catch(e){}
+}
+function saveSession(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); }catch(e){} }
+function currentLocataire(){ return DB.locataires.find(l=>l.id===SESSION.asId)||null; }
+function currentDemandeur(){ return DB.demandeurs.find(d=>d.id===SESSION.asId)||null; }
+function locataireName(id){ const l=DB.locataires.find(x=>x.id===id); return l?`${l.prenom} ${l.nom}`:"—"; }
+function logementLabel(id){ const l=DB.logements.find(x=>x.id===id); return l?`${l.residence} ${l.numero}`:"—"; }
+function bailOf(logementId){ return DB.baux.find(b=>b.logementId===logementId && b.statut!=="Résilié")||null; }
+
+function renderSessionBar(){
+  const roleSel=document.getElementById("sessRole"), idSel=document.getElementById("sessId");
+  roleSel.value=SESSION.role;
+  const list = SESSION.role==="locataire" ? DB.locataires.map(l=>({v:l.id,l:`${l.prenom} ${l.nom}`}))
+    : SESSION.role==="demandeur" ? DB.demandeurs.map(d=>({v:d.id,l:`${d.prenom} ${d.nom}`}))
+    : [];
+  idSel.innerHTML = list.map(o=>`<option value="${o.v}">${esc(o.l)}</option>`).join("");
+  idSel.style.display = list.length ? "" : "none";
+  if(list.length && !list.some(o=>o.v===SESSION.asId)) SESSION.asId=list[0].v;
+  idSel.value = SESSION.asId||"";
+  roleSel.onchange=()=>{ SESSION.role=roleSel.value; SESSION.asId=null; saveSession(); renderSessionBar(); go(roleHome()); };
+  idSel.onchange=()=>{ SESSION.asId=idSel.value; saveSession(); render(); };
+}
+function roleHome(){ return ROLE_MODULES[SESSION.role] ? ROLE_MODULES[SESSION.role][0] : "dashboard"; }
+
+/* ---------- Navigation ---------- */
+const NAV_GESTION = [
+  {id:"dashboard", label:"Tableau de bord", icon:I.dash},
+  {id:"logements", label:"Patrimoine", icon:I.home, group:"Patrimoine"},
+  {id:"demandeurs", label:"Demandeurs", icon:I.users, group:"Locatif"},
+  {id:"locataires", label:"Locataires", icon:I.users, group:"Locatif"},
+  {id:"baux", label:"Baux", icon:I.file, group:"Locatif"},
+  {id:"quittances", label:"Quittances", icon:I.cash, group:"Locatif"},
+  {id:"interventions", label:"Interventions", icon:I.wrench, group:"Locatif"}
+];
+const NAV_LOCATAIRE = [
+  {id:"mon-espace", label:"Mon espace", icon:I.dash},
+  {id:"mon-bail", label:"Mon bail", icon:I.file},
+  {id:"mes-quittances", label:"Mes quittances", icon:I.cash},
+  {id:"mes-interventions", label:"Mes interventions", icon:I.wrench}
+];
+const NAV_DEMANDEUR = [
+  {id:"suivi-demande", label:"Suivi de ma demande", icon:I.dash}
+];
+const ROLE_NAV = {gestion:NAV_GESTION, locataire:NAV_LOCATAIRE, demandeur:NAV_DEMANDEUR};
+const ROLE_MODULES = {gestion:NAV_GESTION.map(n=>n.id), locataire:NAV_LOCATAIRE.map(n=>n.id), demandeur:NAV_DEMANDEUR.map(n=>n.id)};
+
+let view = {module:"dashboard", tab:"info", search:"", filter:""};
+function go(module, opts={}){ view={...view, module, search:"", filter:""}; if(opts.tab) view.tab=opts.tab; render(); }
+
+function renderNav(){
+  const items = ROLE_NAV[SESSION.role]||NAV_GESTION;
+  let html="", lastGroup="__";
+  items.forEach(n=>{
+    if(n.group!==lastGroup){ if(n.group) html+=`<div class="nav-group">${n.group}</div>`; lastGroup=n.group; }
+    const active = view.module===n.id?"active":"";
+    let cnt="";
+    if(n.id==="demandeurs"){ const c=DB.demandeurs.filter(d=>d.statut==="Déposée"||d.statut==="Instruction").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    if(n.id==="quittances"){ const c=DB.quittances.filter(q=>q.statut==="Impayée").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    if(n.id==="interventions"){ const c=DB.interventions.filter(i=>i.statut!=="Réalisée").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${esc(n.label)}</span>${cnt}</a>`;
+  });
+  document.getElementById("nav").innerHTML=html;
+  document.querySelectorAll("[data-nav]").forEach(a=>a.onclick=()=>{ go(a.dataset.nav); closeSidebar(); });
+}
+function closeSidebar(){ document.getElementById("sidebar").classList.remove("open"); }
+document.getElementById("menuToggle").onclick=()=>document.getElementById("sidebar").classList.toggle("open");
+
+/* ---------- Filtrage générique liste ---------- */
+function filterRows(rows){
+  let r=rows;
+  if(view.search) r=r.filter(x=>(x._search||"").toLowerCase().includes(view.search.toLowerCase()));
+  if(view.filter) r=r.filter(x=>x._filterVal===view.filter);
+  return r;
+}
+function toolbar(filterKey, options){
+  return `<div class="toolbar">
+    <div class="search">${svg(I.eye,'ic')}<input id="searchInp" placeholder="Rechercher…" value="${esc(view.search)}"></div>
+    ${options?`<select class="filter-sel" id="filterSel"><option value="">Tous — ${esc(filterKey)}</option>${options.map(o=>`<option value="${esc(o)}" ${view.filter===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`:""}
+  </div>`;
+}
+function tableShell(cols, body){
+  return `<div class="table-wrap"><table><thead><tr>${cols.map(c=>`<th${c.num?' style="text-align:right"':""}>${esc(c.h)}</th>`).join("")}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}"><div class="empty">Aucun résultat.</div></td></tr>`}</tbody></table></div>`;
+}
+function wireToolbar(renderFn, bindFn){
+  const rerender=()=>{ document.getElementById("content").innerHTML=renderFn(); wireToolbar(renderFn, bindFn); if(bindFn) bindFn(); };
+  const si=document.getElementById("searchInp"); if(si) si.oninput=()=>{ view.search=si.value; rerender(); };
+  const fs=document.getElementById("filterSel"); if(fs) fs.onchange=()=>{ view.filter=fs.value; rerender(); };
+}
+
+/* ---------- Formulaires génériques (FORMS) ---------- */
+const FORMS = {
+  logements:{ title:"logement",
+    fields:[
+      {k:"residence",l:"Résidence",t:"text",req:true},
+      {k:"numero",l:"Numéro / porte",t:"text",req:true},
+      {k:"adresse",l:"Adresse",t:"text",full:true},
+      {k:"direction",l:"Commune",t:"select",o:COMMUNES,req:true},
+      {k:"type",l:"Type",t:"select",o:TYPES_LOGEMENT,req:true},
+      {k:"surface",l:"Surface (m²)",t:"number"},
+      {k:"etage",l:"Étage",t:"text"},
+      {k:"loyerBase",l:"Loyer de base (XPF)",t:"number",req:true},
+      {k:"chargesBase",l:"Charges (XPF)",t:"number"},
+      {k:"statut",l:"Statut",t:"select",o:["Vacant","Occupé","Travaux"]}
+    ],
+    defaults:()=>({direction:COMMUNES[0], type:"T2", surface:45, loyerBase:65000, chargesBase:8000, statut:"Vacant"})
+  },
+  demandeurs:{ title:"demandeur",
+    fields:[
+      {s:"Identité"},
+      {k:"civ",l:"Civilité",t:"select",o:["M.","Mme"]},
+      {k:"nom",l:"Nom",t:"text",req:true},
+      {k:"prenom",l:"Prénom",t:"text",req:true},
+      {k:"dateNaissance",l:"Date de naissance",t:"date"},
+      {k:"tel",l:"Téléphone",t:"tel"},
+      {k:"email",l:"Email",t:"email"},
+      {s:"Situation"},
+      {k:"adresseActuelle",l:"Adresse actuelle",t:"text",full:true},
+      {k:"nbPersonnes",l:"Personnes au foyer",t:"number"},
+      {k:"ressourcesMensuelles",l:"Ressources mensuelles (XPF)",t:"number"},
+      {s:"Demande"},
+      {k:"typeSouhaite",l:"Type souhaité",t:"select",o:TYPES_LOGEMENT},
+      {k:"zoneSouhaitee",l:"Commune souhaitée",t:"select",o:COMMUNES},
+      {k:"dateDepot",l:"Date de dépôt",t:"date",req:true},
+      {k:"statut",l:"Statut",t:"select",o:["Déposée","Instruction","Éligible","Proposée","Attribuée","Refusée","Radiée"],hideSelf:true},
+      {k:"commentaire",l:"Commentaire",t:"textarea",full:true}
+    ],
+    defaults:()=>({civ:"M.",dateDepot:todayISO(),nbPersonnes:1,typeSouhaite:"T2",zoneSouhaitee:COMMUNES[0],statut:"Déposée"})
+  },
+  locataires:{ title:"locataire",
+    fields:[
+      {k:"civ",l:"Civilité",t:"select",o:["M.","Mme"]},
+      {k:"nom",l:"Nom",t:"text",req:true},
+      {k:"prenom",l:"Prénom",t:"text",req:true},
+      {k:"dateNaissance",l:"Date de naissance",t:"date"},
+      {k:"tel",l:"Téléphone",t:"tel"},
+      {k:"email",l:"Email",t:"email"}
+    ],
+    defaults:()=>({civ:"M."})
+  },
+  baux:{ title:"bail",
+    fields:[
+      {k:"locataireId",l:"Locataire",t:"ref",coll:"locataires",labelFn:l=>`${l.prenom} ${l.nom}`,req:true},
+      {k:"logementId",l:"Logement",t:"ref",coll:"logements",labelFn:l=>`${l.residence} ${l.numero}`,req:true},
+      {k:"dateEffet",l:"Date d'effet",t:"date",req:true},
+      {k:"loyer",l:"Loyer mensuel (XPF)",t:"number",req:true},
+      {k:"charges",l:"Charges mensuelles (XPF)",t:"number"},
+      {k:"depotGarantie",l:"Dépôt de garantie (XPF)",t:"number"},
+      {k:"statut",l:"Statut",t:"select",o:["Actif","Préavis","Résilié"]},
+      {k:"dateResiliation",l:"Date de résiliation / fin de préavis",t:"date"}
+    ],
+    defaults:()=>({dateEffet:todayISO(),loyer:65000,charges:8000,depotGarantie:65000,statut:"Actif"})
+  },
+  interventions:{ title:"demande d'intervention",
+    fields:[
+      {k:"bailId",l:"Bail",t:"ref",coll:"baux",labelFn:b=>`${locataireName(b.locataireId)} · ${logementLabel(b.logementId)}`,req:true},
+      {k:"type",l:"Type",t:"select",o:["Plomberie","Électricité","Serrurerie","Peinture","Autre"],req:true},
+      {k:"description",l:"Description",t:"textarea",full:true,req:true},
+      {k:"dateDemande",l:"Date de la demande",t:"date",req:true},
+      {k:"statut",l:"Statut",t:"select",o:["Signalée","Planifiée","Réalisée"],hideSelf:true}
+    ],
+    defaults:()=>({dateDemande:todayISO(),type:"Plomberie",statut:"Signalée"})
+  }
+};
+
+function openForm(module, id=null, preset={}, opts={}){
+  const cfg=FORMS[module];
+  const coll=DB[module];
+  const rec = id ? {...coll.find(x=>x.id===id)} : {...cfg.defaults(), ...preset};
+  const isEdit=!!id;
+  const fieldHTML=(f)=>{
+    if(f.hideSelf && opts.selfService) return "";
+    if(f.s) return `<div class="form-section">${esc(f.s)}</div>`;
+    const val=rec[f.k];
+    const req=f.req?'<span class="req"> *</span>':"";
+    let input="";
+    const disabled=(f.k==="locataireId"||f.k==="logementId"||f.k==="bailId") && preset[f.k] ? "disabled":"";
+    if(f.t==="select"){
+      input=`<select data-k="${f.k}" ${disabled}>${f.o.map(o=>`<option value="${esc(o)}" ${val===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
+    } else if(f.t==="ref"){
+      const items=DB[f.coll]||[];
+      input=`<select data-k="${f.k}" ${disabled}><option value="">—</option>${items.map(it=>`<option value="${it.id}" ${val===it.id?"selected":""}>${esc(f.labelFn(it))}</option>`).join("")}</select>`;
+    } else if(f.t==="textarea"){
+      input=`<textarea data-k="${f.k}">${esc(val||"")}</textarea>`;
+    } else {
+      input=`<input data-k="${f.k}" type="${f.t}" value="${esc(val==null?"":val)}">`;
+    }
+    return `<div class="field ${f.full?"full":""}"><label>${esc(f.l)}${req}</label>${input}${f.hint?`<span class="hint">${esc(f.hint)}</span>`:""}</div>`;
+  };
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>${isEdit?"Modifier":"Nouveau"} ${esc(cfg.title)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="form-grid">${cfg.fields.map(fieldHTML).join("")}</div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="saveModal">${svg(I.check,'ic')} Enregistrer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("saveModal").onclick=()=>{
+    const data={...rec};
+    let missing=null;
+    cfg.fields.forEach(f=>{
+      if(f.s || (f.hideSelf&&opts.selfService)) return;
+      const el=mr.querySelector(`[data-k="${f.k}"]`);
+      if(!el) return;
+      let v=el.value;
+      if(f.t==="number") v=v===""?0:Number(v);
+      if(f.req && (v===""||v==null)) missing=f.l;
+      data[f.k]=v;
+    });
+    if(missing){ toast(`Champ requis : ${missing}`); return; }
+    if(cfg.compute) Object.assign(data, cfg.compute(data));
+    if(isEdit){ Object.assign(coll.find(x=>x.id===id), data); }
+    else { data.id=uid(module.slice(0,2)+"_"); Object.assign(data, preset); coll.push(data); }
+    save(); close(); toast("Enregistrement créé"); render();
+  };
+}
+function delRecord(module, id){
+  if(!confirm("Supprimer cet enregistrement ?")) return;
+  DB[module]=DB[module].filter(x=>x.id!==id);
+  save(); toast("Supprimé"); render();
+}
+
+/* ---------- Rendu principal ---------- */
+function render(){
+  renderNav();
+  const c=document.getElementById("content");
+  const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
+  act.innerHTML="";
+  if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble du patrimoine et des demandes"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
+  if(view.module==="logements"){ t.textContent="Patrimoine"; s.textContent="Logements gérés par l'office"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau logement</button>`; c.innerHTML=renderLogements(); wireToolbar(renderLogements, bindLogements); bindLogements(); document.getElementById("addBtn").onclick=()=>openForm("logements"); return; }
+  if(view.module==="demandeurs"){ t.textContent="Demandeurs"; s.textContent="Dossiers de demande de logement"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle demande</button>`; c.innerHTML=renderDemandeurs(); wireToolbar(renderDemandeurs, bindDemandeurs); bindDemandeurs(); document.getElementById("addBtn").onclick=()=>openForm("demandeurs"); return; }
+  if(view.module==="locataires"){ t.textContent="Locataires"; s.textContent="Occupants sous bail"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau locataire</button>`; c.innerHTML=renderLocataires(); wireToolbar(renderLocataires, bindLocataires); bindLocataires(); document.getElementById("addBtn").onclick=()=>openForm("locataires"); return; }
+  if(view.module==="baux"){ t.textContent="Baux"; s.textContent="Contrats de location"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau bail</button>`; c.innerHTML=renderBaux(); wireToolbar(renderBaux, bindBaux); bindBaux(); document.getElementById("addBtn").onclick=()=>openForm("baux"); return; }
+  if(view.module==="quittances"){ t.textContent="Quittances"; s.textContent="Loyers et charges appelés"; act.innerHTML=`<button class="btn primary" id="genBtn">${svg(I.plus)} Générer les quittances du mois</button>`; c.innerHTML=renderQuittances(); wireToolbar(renderQuittances, bindQuittances); bindQuittances(); document.getElementById("genBtn").onclick=genererQuittances; return; }
+  if(view.module==="interventions"){ t.textContent="Interventions"; s.textContent="Demandes de travaux et maintenance"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle intervention</button>`; c.innerHTML=renderInterventions(); wireToolbar(renderInterventions, bindInterventions); bindInterventions(); document.getElementById("addBtn").onclick=()=>openForm("interventions"); return; }
+  if(view.module==="mon-espace"){ t.textContent="Mon espace"; s.textContent="Ma situation locative"; c.innerHTML=renderMonEspaceLocataire(); bindMonEspaceLocataire(); return; }
+  if(view.module==="mon-bail"){ t.textContent="Mon bail"; s.textContent="Détail de mon contrat de location"; c.innerHTML=renderMonBail(); return; }
+  if(view.module==="mes-quittances"){ t.textContent="Mes quittances"; s.textContent="Historique de mes paiements"; c.innerHTML=renderMesQuittances(); return; }
+  if(view.module==="mes-interventions"){ t.textContent="Mes interventions"; s.textContent="Mes demandes de travaux"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Signaler un problème</button>`; c.innerHTML=renderMesInterventions(); document.getElementById("addBtn").onclick=()=>{ const b=DB.baux.find(x=>x.locataireId===SESSION.asId && x.statut!=="Résilié"); if(!b){ toast("Aucun bail actif associé à ce compte"); return; } openForm("interventions", null, {bailId:b.id}, {selfService:true}); }; return; }
+  if(view.module==="suivi-demande"){ t.textContent="Suivi de ma demande"; s.textContent="État de mon dossier de logement social"; c.innerHTML=renderSuiviDemande(); return; }
+}
+
+/* ---------- Tableau de bord (gestion) ---------- */
+function renderDashboard(){
+  const total=DB.logements.length, vacants=DB.logements.filter(l=>l.statut==="Vacant").length, occupes=DB.logements.filter(l=>l.statut==="Occupé").length;
+  const enAttente=DB.demandeurs.filter(d=>["Déposée","Instruction","Éligible"].includes(d.statut)).length;
+  const impayes=DB.quittances.filter(q=>q.statut==="Impayée");
+  const interventionsOuvertes=DB.interventions.filter(i=>i.statut!=="Réalisée").length;
+  const tauxOccupation = total? Math.round((occupes/total)*100) : 0;
+  const recentesDemandes=DB.demandeurs.slice().sort((a,b)=>(b.dateDepot||"").localeCompare(a.dateDepot||"")).slice(0,5);
+  return `
+    <div class="kpi-grid">
+      <div class="kpi" data-goto="logements"><div class="k-lbl">Taux d'occupation</div><div class="k-val">${tauxOccupation}%</div><div class="k-meta mut">${occupes}/${total} logements</div></div>
+      <div class="kpi" data-goto="logements"><div class="k-lbl">Logements vacants</div><div class="k-val">${vacants}</div><div class="k-meta ${vacants?'warn':'ok'}">${vacants?"À proposer":"Aucun"}</div></div>
+      <div class="kpi" data-goto="demandeurs"><div class="k-lbl">Demandes en cours</div><div class="k-val">${enAttente}</div><div class="k-meta mut">en instruction</div></div>
+      <div class="kpi" data-goto="quittances"><div class="k-lbl">Impayés</div><div class="k-val">${impayes.length}</div><div class="k-meta ${impayes.length?'bad':'ok'}">${impayes.length?fmtMoney(impayes.reduce((s,q)=>s+q.montant,0)):"Aucun"}</div></div>
+      <div class="kpi" data-goto="interventions"><div class="k-lbl">Interventions ouvertes</div><div class="k-val">${interventionsOuvertes}</div><div class="k-meta mut">travaux en cours</div></div>
+    </div>
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-head"><h3>Dernières demandes déposées</h3></div>
+        <div class="panel-body">${recentesDemandes.map(d=>`<div class="mini-row" data-goto-d="${d.id}"><div class="av">${esc(initials(d.nom,d.prenom))}</div><div><div class="who">${esc(d.prenom)} ${esc(d.nom)}</div><div class="det">${esc(d.typeSouhaite)} · ${esc(d.zoneSouhaitee)} · ${fmtDate(d.dateDepot)}</div></div><div class="spacer"></div>${badge(d.statut)}</div>`).join("")||`<div class="empty">Aucune demande.</div>`}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Impayés en cours</h3></div>
+        <div class="panel-body">${impayes.map(q=>{const b=DB.baux.find(x=>x.id===q.bailId);return `<div class="mini-row"><div class="av">${esc(initials(""," "))}</div><div><div class="who">${esc(locataireName(b?.locataireId))}</div><div class="det">${esc(q.periode)} · ${fmtMoney(q.montant)}</div></div></div>`;}).join("")||`<div class="empty">Aucun impayé.</div>`}</div>
+      </div>
+    </div>`;
+}
+function bindDashboard(){
+  document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto));
+  document.querySelectorAll("[data-goto-d]").forEach(el=>el.onclick=()=>openDemandeurDetail(el.dataset.gotoD));
+}
+
+/* ---------- Patrimoine ---------- */
+function renderLogements(){
+  let rows=DB.logements.map(l=>({...l, _search:`${l.residence} ${l.numero} ${l.direction} ${l.type}`, _filterVal:l.statut}));
+  rows=filterRows(rows);
+  const cols=[{h:"Logement"},{h:"Commune"},{h:"Type"},{h:"Loyer",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(l=>{
+    const bail=bailOf(l.id);
+    return `<tr>
+      <td><div class="cell-name">${esc(l.residence)} ${esc(l.numero)}</div><div class="cell-sub">${esc(l.surface)} m² · étage ${esc(l.etage||"—")}</div></td>
+      <td>${esc(l.direction)}</td><td>${esc(l.type)}</td>
+      <td class="num">${fmtMoney(l.loyerBase+l.chargesBase)}</td>
+      <td>${badge(l.statut)}${bail?`<div class="cell-sub">${esc(locataireName(bail.locataireId))}</div>`:""}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`;
+  }).join("");
+  return toolbar("statut", ["Vacant","Occupé","Travaux"]) + tableShell(cols, body);
+}
+function bindLogements(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("logements", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("logements", el.dataset.del));
+}
+
+/* ---------- Demandeurs ---------- */
+function renderDemandeurs(){
+  let rows=DB.demandeurs.map(d=>({...d, _search:`${d.nom} ${d.prenom} ${d.typeSouhaite} ${d.zoneSouhaitee}`, _filterVal:d.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.dateDepot||"").localeCompare(a.dateDepot||""));
+  const cols=[{h:"Demandeur"},{h:"Souhaits"},{h:"Dépôt"},{h:"Statut"},{h:""}];
+  const body=rows.map(d=>`<tr data-open="${d.id}" style="cursor:pointer">
+      <td><div class="cell-name">${esc(d.civ)} ${esc(d.prenom)} ${esc(d.nom)}</div><div class="cell-sub">${esc(d.nbPersonnes)} pers. · ${fmtMoney(d.ressourcesMensuelles)}/mois</div></td>
+      <td>${esc(d.typeSouhaite)} · ${esc(d.zoneSouhaitee)}</td>
+      <td>${fmtDate(d.dateDepot)}</td>
+      <td>${badge(d.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-del="${d.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Déposée","Instruction","Éligible","Proposée","Attribuée","Refusée","Radiée"]) + tableShell(cols, body);
+}
+function bindDemandeurs(){
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=(e)=>{ if(e.target.closest("[data-del]")) return; openDemandeurDetail(el.dataset.open); });
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); delRecord("demandeurs", el.dataset.del); });
+}
+function pushHistorique(d, action, commentaire){ if(!d.historique) d.historique=[]; d.historique.push({action, date:nowStamp(), commentaire:commentaire||""}); }
+function openDemandeurDetail(id){
+  const d=DB.demandeurs.find(x=>x.id===id); if(!d) return;
+  const actionsByStatut = {
+    "Déposée": [{l:"Passer en instruction", to:"Instruction"}],
+    "Instruction": [{l:"Marquer éligible", to:"Éligible"},{l:"Refuser", to:"Refusée", danger:true}],
+    "Éligible": [{l:"Proposer un logement", action:"propose"},{l:"Refuser", to:"Refusée", danger:true}],
+    "Proposée": [{l:"Confirmer l'attribution", action:"attribuer"},{l:"Refuser la proposition", to:"Éligible"}],
+    "Attribuée": [], "Refusée": [{l:"Radier", to:"Radiée"}], "Radiée": []
+  };
+  const actions=(actionsByStatut[d.statut]||[]).map(a=>`<button class="btn ${a.danger?'danger':'primary'} sm" data-act="${a.action||a.to}">${esc(a.l)}</button>`).join(" ");
+  const histHtml=(d.historique||[]).slice().reverse().map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("");
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true" style="max-width:720px">
+    <div class="modal-head"><h3>${esc(d.civ)} ${esc(d.prenom)} ${esc(d.nom)}</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body">
+      <div class="info-list">
+        <div class="row"><span class="l">Statut</span><span class="v">${badge(d.statut)}</span></div>
+        <div class="row"><span class="l">Composition du foyer</span><span class="v">${esc(d.nbPersonnes)} personne(s)</span></div>
+        <div class="row"><span class="l">Ressources mensuelles</span><span class="v">${fmtMoney(d.ressourcesMensuelles)}</span></div>
+        <div class="row"><span class="l">Adresse actuelle</span><span class="v">${esc(d.adresseActuelle||"—")}</span></div>
+        <div class="row"><span class="l">Souhait</span><span class="v">${esc(d.typeSouhaite)} · ${esc(d.zoneSouhaitee)}</span></div>
+        <div class="row"><span class="l">Téléphone</span><span class="v">${esc(d.tel||"—")}</span></div>
+        <div class="row"><span class="l">Email</span><span class="v">${esc(d.email||"—")}</span></div>
+        ${d.commentaire?`<div class="row"><span class="l">Commentaire</span><span class="v">${esc(d.commentaire)}</span></div>`:""}
+      </div>
+      <div style="margin-top:14px">${actions}</div>
+      <h4 style="margin:18px 0 8px;font-size:13px;color:var(--ink-3);text-transform:uppercase">Historique</h4>
+      ${histHtml||'<div class="empty">Aucun historique.</div>'}
+    </div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Fermer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  mr.querySelectorAll("[data-act]").forEach(btn=>btn.onclick=()=>{
+    const act=btn.dataset.act;
+    if(act==="propose"){ close(); openProposerLogement(d.id); return; }
+    if(act==="attribuer"){ close(); attribuerLogement(d.id); return; }
+    d.statut=act; pushHistorique(d, `Statut → ${act}`);
+    save(); close(); toast(`Statut mis à jour : ${act}`); render();
+  });
+}
+function openProposerLogement(demandeurId){
+  const d=DB.demandeurs.find(x=>x.id===demandeurId);
+  const vacants=DB.logements.filter(l=>l.statut==="Vacant");
+  const mr=document.getElementById("modalRoot");
+  mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><h3>Proposer un logement</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
+    <div class="modal-body"><div class="field"><label>Logement vacant</label><select id="logSelect">${vacants.length?vacants.map(l=>`<option value="${l.id}">${esc(l.residence)} ${esc(l.numero)} · ${esc(l.type)} · ${esc(l.direction)}</option>`).join(""):'<option value="">Aucun logement vacant</option>'}</select></div></div>
+    <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn" ${vacants.length?"":"disabled"}>Proposer</button></div>
+  </div></div>`;
+  const close=()=>{ mr.innerHTML=""; };
+  document.getElementById("closeModal").onclick=close;
+  document.getElementById("cancelModal").onclick=close;
+  document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") close(); };
+  document.getElementById("okBtn").onclick=()=>{
+    const logId=document.getElementById("logSelect").value;
+    d.statut="Proposée"; d.logementProposeId=logId;
+    pushHistorique(d, "Logement proposé", logementLabel(logId));
+    save(); close(); toast("Logement proposé au demandeur"); render();
+  };
+}
+function attribuerLogement(demandeurId){
+  const d=DB.demandeurs.find(x=>x.id===demandeurId);
+  const logement=DB.logements.find(l=>l.id===d.logementProposeId);
+  if(!logement){ toast("Logement proposé introuvable"); return; }
+  const locataire={ id:uid("lo_"), civ:d.civ, nom:d.nom, prenom:d.prenom, dateNaissance:d.dateNaissance, tel:d.tel, email:d.email };
+  DB.locataires.push(locataire);
+  const bail={ id:uid("bx_"), locataireId:locataire.id, logementId:logement.id, dateEffet:todayISO(), loyer:logement.loyerBase, charges:logement.chargesBase, depotGarantie:logement.loyerBase, statut:"Actif" };
+  DB.baux.push(bail);
+  logement.statut="Occupé";
+  d.statut="Attribuée"; d.locataireId=locataire.id;
+  pushHistorique(d, "Attribution confirmée", `${logementLabel(logement.id)} — bail créé`);
+  save(); toast("Logement attribué : locataire et bail créés"); render();
+}
+
+/* ---------- Locataires ---------- */
+function renderLocataires(){
+  let rows=DB.locataires.map(l=>({...l, _search:`${l.nom} ${l.prenom}`}));
+  rows=filterRows(rows);
+  const cols=[{h:"Locataire"},{h:"Logement"},{h:"Loyer + charges",num:true},{h:"Statut bail"},{h:""}];
+  const body=rows.map(l=>{
+    const bail=DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
+    return `<tr>
+      <td><div class="av" style="display:inline-flex;margin-right:8px">${esc(initials(l.nom,l.prenom))}</div><span class="cell-name">${esc(l.civ)} ${esc(l.prenom)} ${esc(l.nom)}</span><div class="cell-sub">${esc(l.tel||"—")}</div></td>
+      <td>${bail?esc(logementLabel(bail.logementId)):"—"}</td>
+      <td class="num">${bail?fmtMoney(bail.loyer+bail.charges):"—"}</td>
+      <td>${bail?badge(bail.statut):'<span class="badge mut">Sans bail</span>'}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`;
+  }).join("");
+  return toolbar("recherche") + tableShell(cols, body);
+}
+function bindLocataires(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("locataires", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("locataires", el.dataset.del));
+}
+
+/* ---------- Baux ---------- */
+function renderBaux(){
+  let rows=DB.baux.map(b=>({...b, _search:`${locataireName(b.locataireId)} ${logementLabel(b.logementId)}`, _filterVal:b.statut}));
+  rows=filterRows(rows);
+  const cols=[{h:"Locataire"},{h:"Logement"},{h:"Effet"},{h:"Loyer + charges",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(b=>`<tr>
+      <td class="cell-name">${esc(locataireName(b.locataireId))}</td>
+      <td>${esc(logementLabel(b.logementId))}</td>
+      <td>${fmtDate(b.dateEffet)}</td>
+      <td class="num">${fmtMoney(b.loyer+b.charges)}</td>
+      <td>${badge(b.statut)}</td>
+      <td><div class="row-actions">
+        ${b.statut==="Actif"?`<button class="btn ghost sm" data-preavis="${b.id}" title="Mettre en préavis">${svg(I.wrench,'ic')}</button>`:""}
+        ${b.statut!=="Résilié"?`<button class="btn ghost sm" data-resilie="${b.id}" title="Résilier">${svg(I.x,'ic')}</button>`:""}
+        <button class="btn ghost sm" data-edit="${b.id}" title="Modifier">${svg(I.edit,'ic')}</button>
+      </div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Actif","Préavis","Résilié"]) + tableShell(cols, body);
+}
+function bindBaux(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("baux", el.dataset.edit));
+  document.querySelectorAll("[data-preavis]").forEach(el=>el.onclick=()=>{ const b=DB.baux.find(x=>x.id===el.dataset.preavis); b.statut="Préavis"; save(); toast("Bail en préavis"); render(); });
+  document.querySelectorAll("[data-resilie]").forEach(el=>el.onclick=()=>{
+    const b=DB.baux.find(x=>x.id===el.dataset.resilie);
+    if(!confirm("Résilier ce bail ? Le logement repassera en vacant.")) return;
+    b.statut="Résilié"; b.dateResiliation=todayISO();
+    const lg=DB.logements.find(l=>l.id===b.logementId); if(lg) lg.statut="Vacant";
+    save(); toast("Bail résilié"); render();
+  });
+}
+
+/* ---------- Quittances ---------- */
+function genererQuittances(){
+  const periode=todayISO().slice(0,7);
+  const actifs=DB.baux.filter(b=>b.statut!=="Résilié");
+  const existants=new Set(DB.quittances.filter(q=>q.periode===periode).map(q=>q.bailId));
+  let n=0;
+  actifs.forEach(b=>{
+    if(existants.has(b.id)) return;
+    DB.quittances.push({id:uid("qt_"), bailId:b.id, periode, loyer:b.loyer, charges:b.charges, montant:b.loyer+b.charges, statut:"Émise", datePaiement:null});
+    n++;
+  });
+  save();
+  if(n===0) toast("Toutes les quittances de ce mois ont déjà été générées");
+  else toast(`${n} quittance(s) générée(s) pour ${periode}`);
+  render();
+}
+function renderQuittances(){
+  let rows=DB.quittances.map(q=>({...q, _search:`${locataireName(DB.baux.find(b=>b.id===q.bailId)?.locataireId)} ${q.periode}`, _filterVal:q.statut}));
+  rows=filterRows(rows).sort((a,b)=>b.periode.localeCompare(a.periode));
+  const cols=[{h:"Locataire"},{h:"Logement"},{h:"Période"},{h:"Montant",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(q=>{ const b=DB.baux.find(x=>x.id===q.bailId); return `<tr>
+      <td class="cell-name">${esc(locataireName(b?.locataireId))}</td>
+      <td>${esc(logementLabel(b?.logementId))}</td>
+      <td>${esc(q.periode)}</td>
+      <td class="num">${fmtMoney(q.montant)}</td>
+      <td>${badge(q.statut)}</td>
+      <td><div class="row-actions">
+        ${q.statut!=="Payée"?`<button class="btn ghost sm" data-payee="${q.id}" title="Marquer payée">${svg(I.check,'ic')}</button>`:""}
+        ${q.statut==="Émise"?`<button class="btn ghost sm" data-impayee="${q.id}" title="Marquer impayée">${svg(I.x,'ic')}</button>`:""}
+      </div></td>
+    </tr>`;}).join("");
+  return toolbar("statut", ["À émettre","Émise","Payée","Impayée"]) + tableShell(cols, body);
+}
+function bindQuittances(){
+  document.querySelectorAll("[data-payee]").forEach(el=>el.onclick=()=>{ const q=DB.quittances.find(x=>x.id===el.dataset.payee); q.statut="Payée"; q.datePaiement=todayISO(); save(); toast("Quittance marquée payée"); render(); });
+  document.querySelectorAll("[data-impayee]").forEach(el=>el.onclick=()=>{ const q=DB.quittances.find(x=>x.id===el.dataset.impayee); q.statut="Impayée"; save(); toast("Quittance marquée impayée"); render(); });
+}
+
+/* ---------- Interventions ---------- */
+function renderInterventions(){
+  let rows=DB.interventions.map(i=>({...i, _search:`${i.type} ${locataireName(DB.baux.find(b=>b.id===i.bailId)?.locataireId)}`, _filterVal:i.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.dateDemande||"").localeCompare(a.dateDemande||""));
+  const cols=[{h:"Locataire"},{h:"Logement"},{h:"Type"},{h:"Signalée le"},{h:"Statut"},{h:""}];
+  const body=rows.map(i=>{ const b=DB.baux.find(x=>x.id===i.bailId); return `<tr>
+      <td class="cell-name">${esc(locataireName(b?.locataireId))}</td>
+      <td>${esc(logementLabel(b?.logementId))}</td>
+      <td>${esc(i.type)}<div class="cell-sub">${esc(i.description)}</div></td>
+      <td>${fmtDate(i.dateDemande)}</td>
+      <td>${badge(i.statut)}</td>
+      <td><div class="row-actions">
+        ${i.statut==="Signalée"?`<button class="btn ghost sm" data-planifie="${i.id}" title="Planifier">${svg(I.eye,'ic')}</button>`:""}
+        ${i.statut!=="Réalisée"?`<button class="btn ghost sm" data-realise="${i.id}" title="Marquer réalisée">${svg(I.check,'ic')}</button>`:""}
+      </div></td>
+    </tr>`;}).join("");
+  return toolbar("statut", ["Signalée","Planifiée","Réalisée"]) + tableShell(cols, body);
+}
+function bindInterventions(){
+  document.querySelectorAll("[data-planifie]").forEach(el=>el.onclick=()=>{ const i=DB.interventions.find(x=>x.id===el.dataset.planifie); i.statut="Planifiée"; save(); toast("Intervention planifiée"); render(); });
+  document.querySelectorAll("[data-realise]").forEach(el=>el.onclick=()=>{ const i=DB.interventions.find(x=>x.id===el.dataset.realise); i.statut="Réalisée"; save(); toast("Intervention marquée réalisée"); render(); });
+}
+
+/* ---------- Self-service Locataire ---------- */
+function renderMonEspaceLocataire(){
+  const l=currentLocataire(); if(!l) return `<div class="empty">Profil introuvable.</div>`;
+  const bail=DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
+  const mesQuittances=DB.quittances.filter(q=>bail && q.bailId===bail.id).sort((a,b)=>b.periode.localeCompare(a.periode));
+  const impayees=mesQuittances.filter(q=>q.statut==="Impayée");
+  const mesInterventions=DB.interventions.filter(i=>bail && i.bailId===bail.id);
+  return `
+    <div class="detail-head">
+      <div class="av">${esc(initials(l.nom,l.prenom))}</div>
+      <div style="flex:1"><h2>${esc(l.civ)} ${esc(l.prenom)} ${esc(l.nom)}</h2><div class="meta">${bail?esc(logementLabel(bail.logementId)):"Aucun bail actif"}</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi" data-goto="mon-bail"><div class="k-lbl">Loyer + charges</div><div class="k-val" style="font-size:22px">${bail?fmtMoney(bail.loyer+bail.charges):"—"}</div></div>
+      <div class="kpi" data-goto="mes-quittances"><div class="k-lbl">Impayés</div><div class="k-val">${impayees.length}</div><div class="k-meta ${impayees.length?'bad':'ok'}">${impayees.length?fmtMoney(impayees.reduce((s,q)=>s+q.montant,0)):"À jour"}</div></div>
+      <div class="kpi" data-goto="mes-interventions"><div class="k-lbl">Interventions en cours</div><div class="k-val">${mesInterventions.filter(i=>i.statut!=="Réalisée").length}</div></div>
+    </div>
+    <div class="panels">
+      <div class="panel"><div class="panel-head"><h3>Mes dernières quittances</h3></div><div class="panel-body">${mesQuittances.slice(0,5).map(q=>`<div class="mini-row"><div><div class="who">${esc(q.periode)}</div><div class="det">${fmtMoney(q.montant)}</div></div><div class="spacer"></div>${badge(q.statut)}</div>`).join("")||'<div class="empty">Aucune quittance.</div>'}</div></div>
+      <div class="panel"><div class="panel-head"><h3>Raccourcis</h3></div><div class="panel-body" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px"><button class="btn" data-goto="mon-bail">${svg(I.file,'ic')} Consulter mon bail</button><button class="btn primary" data-goto="mes-interventions">${svg(I.wrench,'ic')} Signaler un problème</button></div></div>
+    </div>`;
+}
+function bindMonEspaceLocataire(){ document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto)); }
+function renderMonBail(){
+  const l=currentLocataire(); const bail=l && DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
+  if(!bail) return `<div class="empty">Aucun bail actif associé à ce compte.</div>`;
+  const logement=DB.logements.find(x=>x.id===bail.logementId);
+  return `<div class="detail-cols"><div class="panel"><div class="panel-head"><h3>Logement</h3></div><div class="panel-body"><div class="info-list">
+      <div class="row"><span class="l">Résidence</span><span class="v">${esc(logement.residence)}</span></div>
+      <div class="row"><span class="l">Porte</span><span class="v">${esc(logement.numero)}</span></div>
+      <div class="row"><span class="l">Adresse</span><span class="v">${esc(logement.adresse)}, ${esc(logement.direction)}</span></div>
+      <div class="row"><span class="l">Type / surface</span><span class="v">${esc(logement.type)} · ${esc(logement.surface)} m²</span></div>
+    </div></div></div>
+    <div class="panel"><div class="panel-head"><h3>Contrat</h3></div><div class="panel-body"><div class="info-list">
+      <div class="row"><span class="l">Statut</span><span class="v">${badge(bail.statut)}</span></div>
+      <div class="row"><span class="l">Date d'effet</span><span class="v">${fmtDate(bail.dateEffet)}</span></div>
+      <div class="row"><span class="l">Loyer</span><span class="v">${fmtMoney(bail.loyer)}</span></div>
+      <div class="row"><span class="l">Charges</span><span class="v">${fmtMoney(bail.charges)}</span></div>
+      <div class="row"><span class="l">Dépôt de garantie</span><span class="v">${fmtMoney(bail.depotGarantie)}</span></div>
+      ${bail.dateResiliation?`<div class="row"><span class="l">Fin de préavis</span><span class="v">${fmtDate(bail.dateResiliation)}</span></div>`:""}
+    </div></div></div></div>`;
+}
+function renderMesQuittances(){
+  const l=currentLocataire(); const bail=l && DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
+  const rows=(bail?DB.quittances.filter(q=>q.bailId===bail.id):[]).sort((a,b)=>b.periode.localeCompare(a.periode));
+  const cols=[{h:"Période"},{h:"Montant",num:true},{h:"Statut"},{h:"Date de paiement"}];
+  const body=rows.map(q=>`<tr><td class="cell-name">${esc(q.periode)}</td><td class="num">${fmtMoney(q.montant)}</td><td>${badge(q.statut)}</td><td>${q.datePaiement?fmtDate(q.datePaiement):"—"}</td></tr>`).join("");
+  return tableShell(cols, body);
+}
+function renderMesInterventions(){
+  const l=currentLocataire(); const bail=l && DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
+  const rows=(bail?DB.interventions.filter(i=>i.bailId===bail.id):[]).sort((a,b)=>(b.dateDemande||"").localeCompare(a.dateDemande||""));
+  const cols=[{h:"Type"},{h:"Description"},{h:"Signalée le"},{h:"Statut"}];
+  const body=rows.map(i=>`<tr><td class="cell-name">${esc(i.type)}</td><td>${esc(i.description)}</td><td>${fmtDate(i.dateDemande)}</td><td>${badge(i.statut)}</td></tr>`).join("");
+  return tableShell(cols, body);
+}
+
+/* ---------- Self-service Demandeur ---------- */
+function renderSuiviDemande(){
+  const d=currentDemandeur(); if(!d) return `<div class="empty">Profil introuvable.</div>`;
+  const etapes=["Déposée","Instruction","Éligible","Proposée","Attribuée"];
+  const idx=etapes.indexOf(d.statut);
+  const stepsHtml=etapes.map((e,i)=>`<div class="kpi" style="text-align:center"><div class="k-lbl">${esc(e)}</div><div class="k-val" style="font-size:16px">${idx>=i?"✓":"—"}</div></div>`).join("");
+  const histHtml=(d.historique||[]).slice().reverse().map(h=>`<div class="wf-item"><div class="wf-dot"></div><div class="wf-body"><div class="wf-top"><strong>${esc(h.action)}</strong><span class="wf-date">${esc(h.date)}</span></div>${h.commentaire?`<div class="wf-comment">${esc(h.commentaire)}</div>`:""}</div></div>`).join("");
+  return `<div class="detail-head"><div class="av">${esc(initials(d.nom,d.prenom))}</div><div><h2>${esc(d.civ)} ${esc(d.prenom)} ${esc(d.nom)}</h2><div class="meta">Dossier déposé le ${fmtDate(d.dateDepot)} · ${badge(d.statut)}</div></div></div>
+    ${d.statut!=="Refusée"&&d.statut!=="Radiée"?`<div class="kpi-grid">${stepsHtml}</div>`:`<div class="panel"><div class="panel-body"><p style="padding:14px">${d.statut==="Refusée"?"Votre demande a été refusée.":"Votre dossier a été radié."} ${esc(d.commentaire||"")}</p></div></div>`}
+    <div class="panel"><div class="panel-head"><h3>Historique de mon dossier</h3></div><div class="panel-body" style="padding:14px 18px">${histHtml||'<div class="empty">Aucun historique.</div>'}</div></div>`;
+}
+
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElementById("modalRoot").innerHTML=""; });
+(function initTheme(){ try{ const t=localStorage.getItem(KEY+"_theme"); if(t) document.documentElement.setAttribute("data-theme",t); }catch(e){} })();
+
+/* ---------- Boot ---------- */
+load();
+GED.load();
+loadSession();
+renderSessionBar();
+// Le portail lie directement les cartes "Locataires" / "Demandeurs" vers les sections
+// correspondantes de ce module unique (#locataires / #demandeurs), plutôt que de dupliquer
+// le référentiel patrimoine/locatif dans deux applications distinctes.
+const hashModule = location.hash.replace("#","");
+if(hashModule && ROLE_MODULES[SESSION.role] && ROLE_MODULES[SESSION.role].includes(hashModule)) view.module=hashModule;
+render();
+</script>
+</body>
+</html>
