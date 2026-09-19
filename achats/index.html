@@ -369,9 +369,15 @@ function migrate(db){
   });
   if(!db.marches) db.marches=[];
   if(!db.commandes) db.commandes=[];
-  db.commandes.forEach(c=>{ if(!c.lignes) c.lignes=[]; if(c.montant==null) c.montant=calcLignesTotal(c.lignes).ttc; });
+  // Compatibilité avec les anciens cycles de statut BC/facture (avant l'introduction du
+  // visa SML / signature DG / bon à payer / mandatement) : sans cette correspondance, les
+  // commandes/factures créées sous l'ancien schéma restent bloquées sur un statut que plus
+  // aucun bouton d'action ne reconnaît (le visa ou le bon à payer semblent alors absents).
+  const COMMANDE_STATUT_MIGRATE = { "Validée":"Signée DG" };
+  const FACTURE_STATUT_MIGRATE = { "Reçue":"À contrôler", "Contrôlée":"Bon à payer", "Validée":"Mandatement" };
+  db.commandes.forEach(c=>{ if(COMMANDE_STATUT_MIGRATE[c.statut]) c.statut=COMMANDE_STATUT_MIGRATE[c.statut]; if(!c.lignes) c.lignes=[]; if(c.montant==null) c.montant=calcLignesTotal(c.lignes).ttc; });
   if(!db.factures) db.factures=[];
-  db.factures.forEach(f=>{ if(!f.historique) f.historique=[]; if(!f.lignes) f.lignes=[]; if(f.montant==null) f.montant=calcLignesTotal(f.lignes).ttc; if(f.penaliteMontant==null) f.penaliteMontant=0; if(!f.numeroFournisseur) f.numeroFournisseur=f.numero||""; });
+  db.factures.forEach(f=>{ if(FACTURE_STATUT_MIGRATE[f.statut]) f.statut=FACTURE_STATUT_MIGRATE[f.statut]; if(!f.historique) f.historique=[]; if(!f.lignes) f.lignes=[]; if(f.montant==null) f.montant=calcLignesTotal(f.lignes).ttc; if(f.penaliteMontant==null) f.penaliteMontant=0; if(!f.numeroFournisseur) f.numeroFournisseur=f.numero||""; });
   if(!db.virements) db.virements=[];
   if(!db.certificatsAdministratifs) db.certificatsAdministratifs=[];
   return db;

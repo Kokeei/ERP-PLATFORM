@@ -443,3 +443,39 @@ test.describe("Achats — certificat administratif (anomalie ou dépense imprév
     await expect(page.locator("#factureSelect option", { hasText: "FA-2201" })).toHaveCount(0);
   });
 });
+
+test.describe("Achats — migration des anciens statuts BC/facture (cas limite)", () => {
+  // Reproduit le bug : une commande/facture créée sous un ancien schéma de statuts
+  // (avant l'introduction du visa SML/signature DG et du bon à payer/mandatement) restait
+  // bloquée sur un statut que plus aucun bouton d'action ne reconnaissait, donnant
+  // l'impression que le visa ou le bon à payer avaient disparu.
+  test("une commande au statut legacy \"Validée\" est migrée vers \"Signée DG\" et redevient actionnable", async ({ page }) => {
+    await page.goto("/achats/");
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem("oph_achats_v1"));
+      db.commandes.push({ id: "cm_legacy", numero: "BC-2020-001", tiersId: null, marcheId: null, objet: "Ancienne commande legacy", dateCommande: "2020-01-01", statut: "Validée", serviceFait: false, lignes: [], montant: 0 });
+      localStorage.setItem("oph_achats_v1", JSON.stringify(db));
+    });
+    await page.reload();
+    await page.locator("[data-nav='commandes']").click();
+    const row = page.locator("tbody tr", { hasText: "Ancienne commande legacy" });
+    await expect(row.locator(".badge")).toHaveText("Signée DG");
+    await expect(row.locator("[data-envoyer]")).toBeVisible();
+  });
+
+  test("une facture au statut legacy \"Contrôlée\" est migrée vers \"Bon à payer\" et redevient actionnable (DFC)", async ({ page }) => {
+    await page.goto("/achats/");
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem("oph_achats_v1"));
+      db.factures.push({ id: "fa_legacy", numero: "FA-2020-001", numeroFournisseur: "FA-2020-001", tiersId: null, commandeId: null, marcheId: null, dateReception: "2020-01-01", dateEcheance: "2020-02-01", statut: "Contrôlée", datePaiement: null, penaliteMontant: 0, penaliteMotif: "", lignes: [], montant: 0, historique: [] });
+      localStorage.setItem("oph_achats_v1", JSON.stringify(db));
+    });
+    await page.reload();
+    await page.selectOption("#sessRole", "df");
+    await page.locator("[data-nav='factures-controle']").click();
+    const row = page.locator("tbody tr", { hasText: "FA-2020-001" });
+    await expect(row.locator(".badge")).toHaveText("Bon à payer");
+    await row.locator("[data-view]").click();
+    await expect(page.locator("#mandaterBtn")).toBeVisible();
+  });
+});
