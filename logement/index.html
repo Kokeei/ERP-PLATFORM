@@ -248,27 +248,39 @@ function badge(s){
     "Déposée":"info","Instruction":"info","Éligible":"ok","Proposée":"warn","Attribuée":"ok","Refusée":"bad","Radiée":"mut",
     "Actif":"ok","Préavis":"warn","Résilié":"mut",
     "À émettre":"info","Émise":"info","Payée":"ok","Impayée":"bad",
-    "Signalée":"warn","Planifiée":"info","Réalisée":"ok"}[s] || "mut";
+    "Signalée":"warn","Planifiée":"info","Réalisée":"ok",
+    "En réhabilitation":"warn","En cours":"info","Terminée":"ok"}[s] || "mut";
   return `<span class="badge ${tone}">${esc(s||"—")}</span>`;
 }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2400); }
 
 const COMMUNES = ["Papeete","Faa'a","Pirae","Punaauia","Mahina","Arue","Paea","Papara"];
 const TYPES_LOGEMENT = ["T1","T2","T3","T4","T5"];
+const TYPES_STATIONNEMENT = ["Garage","Place de parking"];
 
 /* ---------- Données de démonstration ---------- */
 function seed(){
+  const lotissements = [
+    {nom:"Manutahi", commune:"Papeete", statut:"Actif"},
+    {nom:"Teavaraa", commune:"Faa'a", statut:"Actif"},
+    {nom:"Ariiheue", commune:"Pirae", statut:"En réhabilitation"},
+    {nom:"Punavai", commune:"Punaauia", statut:"Actif"}
+  ].map(l=>({id:uid("lt_"), ...l}));
+  const ltid = n => lotissements[n].id;
+
   const logements = [
-    {residence:"Résidence Manutahi", numero:"A101", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Occupé"},
-    {residence:"Résidence Manutahi", numero:"A102", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T3", surface:62, etage:"1", loyerBase:82000, chargesBase:10000, statut:"Occupé"},
-    {residence:"Résidence Manutahi", numero:"A203", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
-    {residence:"Résidence Teavaraa", numero:"B10", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T4", surface:78, etage:"0", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
-    {residence:"Résidence Teavaraa", numero:"B11", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Travaux"},
-    {residence:"Résidence Teavaraa", numero:"B22", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
-    {residence:"Résidence Ariiheue", numero:"C01", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T5", surface:95, etage:"0", loyerBase:115000, chargesBase:14000, statut:"Occupé"},
-    {residence:"Résidence Ariiheue", numero:"C02", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Vacant"},
-    {residence:"Résidence Punavai", numero:"D14", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T4", surface:78, etage:"1", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
-    {residence:"Résidence Punavai", numero:"D15", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Vacant"}
+    {lotissementId:ltid(0), categorie:"Logement", numero:"A101", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Occupé"},
+    {lotissementId:ltid(0), categorie:"Logement", numero:"A102", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T3", surface:62, etage:"1", loyerBase:82000, chargesBase:10000, statut:"Occupé"},
+    {lotissementId:ltid(0), categorie:"Logement", numero:"A203", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
+    {lotissementId:ltid(1), categorie:"Logement", numero:"B10", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T4", surface:78, etage:"0", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
+    {lotissementId:ltid(1), categorie:"Logement", numero:"B11", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Travaux"},
+    {lotissementId:ltid(1), categorie:"Logement", numero:"B22", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"T2", surface:45, etage:"2", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
+    {lotissementId:ltid(2), categorie:"Logement", numero:"C01", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T5", surface:95, etage:"0", loyerBase:115000, chargesBase:14000, statut:"Occupé"},
+    {lotissementId:ltid(2), categorie:"Logement", numero:"C02", adresse:"Lotissement Ariiheue", direction:"Pirae", type:"T3", surface:62, etage:"0", loyerBase:82000, chargesBase:10000, statut:"Vacant"},
+    {lotissementId:ltid(3), categorie:"Logement", numero:"D14", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T4", surface:78, etage:"1", loyerBase:98000, chargesBase:12000, statut:"Occupé"},
+    {lotissementId:ltid(3), categorie:"Logement", numero:"D15", adresse:"PK 12 côté montagne", direction:"Punaauia", type:"T2", surface:45, etage:"1", loyerBase:65000, chargesBase:8000, statut:"Vacant"},
+    {lotissementId:ltid(0), categorie:"Stationnement", numero:"P-A01", adresse:"Rue du Commandant Destremau", direction:"Papeete", type:"Place de parking", surface:12, etage:"Rez", loyerBase:6000, chargesBase:0, statut:"Vacant"},
+    {lotissementId:ltid(1), categorie:"Stationnement", numero:"G-B01", adresse:"Route de l'Aéroport", direction:"Faa'a", type:"Garage", surface:15, etage:"Rez", loyerBase:9000, chargesBase:0, statut:"Occupé"}
   ].map(l=>({id:uid("lg_"), ...l}));
   const gid = n => logements[n].id;
 
@@ -281,20 +293,22 @@ function seed(){
   const lid = n => locataires[n].id;
 
   const baux = [
-    {locataireId:lid(0), logementId:gid(0), dateEffet:"2022-03-01", loyer:65000, charges:8000, depotGarantie:65000, statut:"Actif"},
-    {locataireId:lid(1), logementId:gid(1), dateEffet:"2019-06-01", loyer:82000, charges:10000, depotGarantie:82000, statut:"Actif"},
-    {locataireId:lid(2), logementId:gid(3), dateEffet:"2021-01-15", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif"},
-    {locataireId:lid(3), logementId:gid(6), dateEffet:"2023-08-01", loyer:115000, charges:14000, depotGarantie:115000, statut:"Préavis", dateResiliation:"2026-10-15"}
+    {locataireId:lid(0), logementId:gid(0), dateEffet:"2022-03-01", loyer:65000, charges:8000, depotGarantie:65000, statut:"Actif", modeOccupation:"Location", aideType:"AFL", aideMontant:15000},
+    {locataireId:lid(1), logementId:gid(1), dateEffet:"2019-06-01", loyer:82000, charges:10000, depotGarantie:82000, statut:"Actif", modeOccupation:"Location", aideType:"Aucune", aideMontant:0},
+    {locataireId:lid(2), logementId:gid(3), dateEffet:"2021-01-15", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif", modeOccupation:"Location", aideType:"ALE", aideMontant:20000},
+    {locataireId:lid(3), logementId:gid(6), dateEffet:"2023-08-01", loyer:115000, charges:14000, depotGarantie:115000, statut:"Préavis", dateResiliation:"2026-10-15", modeOccupation:"Location", aideType:"Aucune", aideMontant:0}
   ].map(b=>({id:uid("bx_"), ...b}));
   // Le logement D14 est occupé mais son bail n'est pas encore saisi (démonstration de données incomplètes réelles) :
-  baux.push({id:uid("bx_"), locataireId:lid(2), logementId:gid(8), dateEffet:"2024-02-01", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif"});
+  baux.push({id:uid("bx_"), locataireId:lid(2), logementId:gid(8), dateEffet:"2024-02-01", loyer:98000, charges:12000, depotGarantie:98000, statut:"Actif", modeOccupation:"Accession à la propriété", prixVente:18500000, aideType:"Aucune", aideMontant:0});
 
   const bid = n => baux[n].id;
   const quittances = [];
   ["2026-07","2026-08","2026-09"].forEach(periode=>{
     baux.filter(b=>b.statut!=="Résilié").forEach(b=>{
       const impaye = periode==="2026-07" && b.id===bid(1);
-      quittances.push({id:uid("qt_"), bailId:b.id, periode, loyer:b.loyer, charges:b.charges, montant:b.loyer+b.charges, statut: periode==="2026-09"?"Émise":(impaye?"Impayée":"Payée"), datePaiement: periode!=="2026-09" && !impaye ? periode+"-05" : null});
+      const brut = b.loyer+b.charges;
+      const aideDeduite = b.aideType && b.aideType!=="Aucune" ? Math.min(b.aideMontant||0, brut) : 0;
+      quittances.push({id:uid("qt_"), bailId:b.id, periode, loyer:b.loyer, charges:b.charges, aideDeduite, montant:brut-aideDeduite, statut: periode==="2026-09"?"Émise":(impaye?"Impayée":"Payée"), datePaiement: periode!=="2026-09" && !impaye ? periode+"-05" : null});
     });
   });
 
@@ -308,19 +322,27 @@ function seed(){
   ].map(d=>({id:uid("dm_"), historique:[{action:"Dépôt du dossier", date:d.dateDepot, commentaire:""}], ...d}));
 
   const interventions = [
-    {bailId:bid(0), type:"Plomberie", description:"Fuite sous l'évier de la cuisine", dateDemande:"2026-09-10", statut:"Planifiée"},
-    {bailId:bid(2), type:"Électricité", description:"Prise défectueuse dans le salon", dateDemande:"2026-08-22", statut:"Réalisée"}
+    {logementId:gid(0), bailId:bid(0), type:"Plomberie", description:"Fuite sous l'évier de la cuisine", dateDemande:"2026-09-10", statut:"Planifiée"},
+    {logementId:gid(3), bailId:bid(2), type:"Électricité", description:"Prise défectueuse dans le salon", dateDemande:"2026-08-22", statut:"Réalisée"},
+    {logementId:gid(2), type:"Peinture", description:"Rafraîchissement des peintures avant remise en location", dateDemande:"2026-09-05", statut:"Signalée"}
   ].map(i=>({id:uid("iv_"), ...i}));
 
-  return { logements, locataires, baux, quittances, demandeurs, interventions };
+  const rehabilitations = [
+    {lotissementId:ltid(2), logementId:null, objet:"Réhabilitation thermique et mise aux normes électriques", dateDebut:"2026-06-01", dateFinPrevue:"2027-02-28", statut:"En cours", budgetEstime:45000000, entreprise:"SOPADEP TP"},
+    {lotissementId:ltid(1), logementId:gid(4), objet:"Reprise d'étanchéité toiture-terrasse", dateDebut:"2026-03-01", dateFinPrevue:"2026-05-30", statut:"Terminée", budgetEstime:3200000, entreprise:"Polynésie Bâtiment"}
+  ].map(r=>({id:uid("rh_"), ...r}));
+
+  return { lotissements, logements, locataires, baux, quittances, demandeurs, interventions, rehabilitations };
 }
 function migrate(db){
+  if(!db.lotissements) db.lotissements=[];
   if(!db.logements) db.logements=[];
   if(!db.locataires) db.locataires=[];
   if(!db.baux) db.baux=[];
   if(!db.quittances) db.quittances=[];
   if(!db.demandeurs) db.demandeurs=[];
   if(!db.interventions) db.interventions=[];
+  if(!db.rehabilitations) db.rehabilitations=[];
   return db;
 }
 let DB = null;
@@ -339,7 +361,8 @@ function saveSession(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(SE
 function currentLocataire(){ return DB.locataires.find(l=>l.id===SESSION.asId)||null; }
 function currentDemandeur(){ return DB.demandeurs.find(d=>d.id===SESSION.asId)||null; }
 function locataireName(id){ const l=DB.locataires.find(x=>x.id===id); return l?`${l.prenom} ${l.nom}`:"—"; }
-function logementLabel(id){ const l=DB.logements.find(x=>x.id===id); return l?`${l.residence} ${l.numero}`:"—"; }
+function lotissementName(id){ const l=DB.lotissements.find(x=>x.id===id); return l?l.nom:"—"; }
+function logementLabel(id){ const l=DB.logements.find(x=>x.id===id); return l?`${lotissementName(l.lotissementId)} ${l.numero}`:"—"; }
 function bailOf(logementId){ return DB.baux.find(b=>b.logementId===logementId && b.statut!=="Résilié")||null; }
 
 function renderSessionBar(){
@@ -360,7 +383,9 @@ function roleHome(){ return ROLE_MODULES[SESSION.role] ? ROLE_MODULES[SESSION.ro
 /* ---------- Navigation ---------- */
 const NAV_GESTION = [
   {id:"dashboard", label:"Tableau de bord", icon:I.dash},
-  {id:"logements", label:"Patrimoine", icon:I.home, group:"Patrimoine"},
+  {id:"lotissements", label:"Lotissements", icon:I.home, group:"Patrimoine"},
+  {id:"logements", label:"Logements & stationnements", icon:I.key, group:"Patrimoine"},
+  {id:"rehabilitations", label:"Réhabilitations", icon:I.wrench, group:"Patrimoine"},
   {id:"demandeurs", label:"Demandeurs", icon:I.users, group:"Locatif"},
   {id:"locataires", label:"Locataires", icon:I.users, group:"Locatif"},
   {id:"baux", label:"Baux", icon:I.file, group:"Locatif"},
@@ -392,6 +417,7 @@ function renderNav(){
     if(n.id==="demandeurs"){ const c=DB.demandeurs.filter(d=>d.statut==="Déposée"||d.statut==="Instruction").length; if(c) cnt=`<span class="count">${c}</span>`; }
     if(n.id==="quittances"){ const c=DB.quittances.filter(q=>q.statut==="Impayée").length; if(c) cnt=`<span class="count">${c}</span>`; }
     if(n.id==="interventions"){ const c=DB.interventions.filter(i=>i.statut!=="Réalisée").length; if(c) cnt=`<span class="count">${c}</span>`; }
+    if(n.id==="rehabilitations"){ const c=DB.rehabilitations.filter(r=>r.statut==="En cours").length; if(c) cnt=`<span class="count">${c}</span>`; }
     html+=`<a data-nav="${n.id}" class="${active}">${svg(n.icon)}<span>${esc(n.label)}</span>${cnt}</a>`;
   });
   document.getElementById("nav").innerHTML=html;
@@ -424,20 +450,29 @@ function wireToolbar(renderFn, bindFn){
 
 /* ---------- Formulaires génériques (FORMS) ---------- */
 const FORMS = {
+  lotissements:{ title:"lotissement",
+    fields:[
+      {k:"nom",l:"Nom du lotissement",t:"text",req:true},
+      {k:"commune",l:"Commune",t:"select",o:COMMUNES,req:true},
+      {k:"statut",l:"Statut",t:"select",o:["Actif","En réhabilitation"]}
+    ],
+    defaults:()=>({commune:COMMUNES[0], statut:"Actif"})
+  },
   logements:{ title:"logement",
     fields:[
-      {k:"residence",l:"Résidence",t:"text",req:true},
+      {k:"lotissementId",l:"Lotissement",t:"ref",coll:"lotissements",labelFn:l=>l.nom,req:true},
+      {k:"categorie",l:"Catégorie",t:"select",o:["Logement","Stationnement"],req:true},
       {k:"numero",l:"Numéro / porte",t:"text",req:true},
       {k:"adresse",l:"Adresse",t:"text",full:true},
       {k:"direction",l:"Commune",t:"select",o:COMMUNES,req:true},
-      {k:"type",l:"Type",t:"select",o:TYPES_LOGEMENT,req:true},
+      {k:"type",l:"Type",t:"select",o:TYPES_LOGEMENT.concat(TYPES_STATIONNEMENT),req:true},
       {k:"surface",l:"Surface (m²)",t:"number"},
       {k:"etage",l:"Étage",t:"text"},
       {k:"loyerBase",l:"Loyer de base (XPF)",t:"number",req:true},
       {k:"chargesBase",l:"Charges (XPF)",t:"number"},
       {k:"statut",l:"Statut",t:"select",o:["Vacant","Occupé","Travaux"]}
     ],
-    defaults:()=>({direction:COMMUNES[0], type:"T2", surface:45, loyerBase:65000, chargesBase:8000, statut:"Vacant"})
+    defaults:()=>({lotissementId:(DB.lotissements[0]||{}).id, categorie:"Logement", direction:COMMUNES[0], type:"T2", surface:45, loyerBase:65000, chargesBase:8000, statut:"Vacant"})
   },
   demandeurs:{ title:"demandeur",
     fields:[
@@ -475,25 +510,43 @@ const FORMS = {
   baux:{ title:"bail",
     fields:[
       {k:"locataireId",l:"Locataire",t:"ref",coll:"locataires",labelFn:l=>`${l.prenom} ${l.nom}`,req:true},
-      {k:"logementId",l:"Logement",t:"ref",coll:"logements",labelFn:l=>`${l.residence} ${l.numero}`,req:true},
+      {k:"logementId",l:"Logement",t:"ref",coll:"logements",labelFn:l=>logementLabel(l.id),req:true},
+      {k:"modeOccupation",l:"Mode d'occupation",t:"select",o:["Location","Accession à la propriété"]},
       {k:"dateEffet",l:"Date d'effet",t:"date",req:true},
-      {k:"loyer",l:"Loyer mensuel (XPF)",t:"number",req:true},
-      {k:"charges",l:"Charges mensuelles (XPF)",t:"number"},
+      {k:"loyer",l:"Loyer / mensualité (XPF)",t:"number",req:true},
+      {k:"charges",l:"Refacturation de charges (XPF)",t:"number"},
       {k:"depotGarantie",l:"Dépôt de garantie (XPF)",t:"number"},
+      {k:"prixVente",l:"Prix de vente (accession à la propriété, XPF)",t:"number"},
+      {k:"aideType",l:"Aide au logement",t:"select",o:["Aucune","AFL","ALE"]},
+      {k:"aideMontant",l:"Montant de l'aide (XPF)",t:"number"},
       {k:"statut",l:"Statut",t:"select",o:["Actif","Préavis","Résilié"]},
       {k:"dateResiliation",l:"Date de résiliation / fin de préavis",t:"date"}
     ],
-    defaults:()=>({dateEffet:todayISO(),loyer:65000,charges:8000,depotGarantie:65000,statut:"Actif"})
+    defaults:()=>({dateEffet:todayISO(),loyer:65000,charges:8000,depotGarantie:65000,statut:"Actif",modeOccupation:"Location",aideType:"Aucune",aideMontant:0})
   },
   interventions:{ title:"demande d'intervention",
     fields:[
-      {k:"bailId",l:"Bail",t:"ref",coll:"baux",labelFn:b=>`${locataireName(b.locataireId)} · ${logementLabel(b.logementId)}`,req:true},
+      {k:"logementId",l:"Logement",t:"ref",coll:"logements",labelFn:l=>logementLabel(l.id),req:true},
+      {k:"bailId",l:"Bail (si signalé par un locataire)",t:"ref",coll:"baux",labelFn:b=>`${locataireName(b.locataireId)} · ${logementLabel(b.logementId)}`},
       {k:"type",l:"Type",t:"select",o:["Plomberie","Électricité","Serrurerie","Peinture","Autre"],req:true},
       {k:"description",l:"Description",t:"textarea",full:true,req:true},
       {k:"dateDemande",l:"Date de la demande",t:"date",req:true},
       {k:"statut",l:"Statut",t:"select",o:["Signalée","Planifiée","Réalisée"],hideSelf:true}
     ],
     defaults:()=>({dateDemande:todayISO(),type:"Plomberie",statut:"Signalée"})
+  },
+  rehabilitations:{ title:"réhabilitation",
+    fields:[
+      {k:"lotissementId",l:"Lotissement",t:"ref",coll:"lotissements",labelFn:l=>l.nom,req:true},
+      {k:"logementId",l:"Logement concerné (optionnel)",t:"ref",coll:"logements",labelFn:l=>logementLabel(l.id)},
+      {k:"objet",l:"Objet des travaux",t:"text",full:true,req:true},
+      {k:"dateDebut",l:"Date de début",t:"date",req:true},
+      {k:"dateFinPrevue",l:"Fin prévue",t:"date"},
+      {k:"statut",l:"Statut",t:"select",o:["Planifiée","En cours","Terminée"]},
+      {k:"budgetEstime",l:"Budget estimé (XPF)",t:"number"},
+      {k:"entreprise",l:"Entreprise",t:"text"}
+    ],
+    defaults:()=>({dateDebut:todayISO(),statut:"Planifiée"})
   }
 };
 
@@ -563,7 +616,9 @@ function render(){
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
   if(view.module==="dashboard"){ t.textContent="Tableau de bord"; s.textContent="Vue d'ensemble du patrimoine et des demandes"; c.innerHTML=renderDashboard(); bindDashboard(); return; }
-  if(view.module==="logements"){ t.textContent="Patrimoine"; s.textContent="Logements gérés par l'office"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau logement</button>`; c.innerHTML=renderLogements(); wireToolbar(renderLogements, bindLogements); bindLogements(); document.getElementById("addBtn").onclick=()=>openForm("logements"); return; }
+  if(view.module==="lotissements"){ t.textContent="Lotissements"; s.textContent="Ensembles immobiliers gérés par l'office"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau lotissement</button>`; c.innerHTML=renderLotissements(); wireToolbar(renderLotissements, bindLotissements); bindLotissements(); document.getElementById("addBtn").onclick=()=>openForm("lotissements"); return; }
+  if(view.module==="logements"){ t.textContent="Patrimoine"; s.textContent="Logements et stationnements gérés par l'office, répartis en lotissements"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau logement</button>`; c.innerHTML=renderLogements(); wireToolbar(renderLogements, bindLogements); bindLogements(); document.getElementById("addBtn").onclick=()=>openForm("logements"); return; }
+  if(view.module==="rehabilitations"){ t.textContent="Réhabilitations"; s.textContent="Travaux de réhabilitation planifiés et en cours sur le parc"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle réhabilitation</button>`; c.innerHTML=renderRehabilitations(); wireToolbar(renderRehabilitations, bindRehabilitations); bindRehabilitations(); document.getElementById("addBtn").onclick=()=>openForm("rehabilitations"); return; }
   if(view.module==="demandeurs"){ t.textContent="Demandeurs"; s.textContent="Dossiers de demande de logement"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouvelle demande</button>`; c.innerHTML=renderDemandeurs(); wireToolbar(renderDemandeurs, bindDemandeurs); bindDemandeurs(); document.getElementById("addBtn").onclick=()=>openForm("demandeurs"); return; }
   if(view.module==="locataires"){ t.textContent="Locataires"; s.textContent="Occupants sous bail"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau locataire</button>`; c.innerHTML=renderLocataires(); wireToolbar(renderLocataires, bindLocataires); bindLocataires(); document.getElementById("addBtn").onclick=()=>openForm("locataires"); return; }
   if(view.module==="baux"){ t.textContent="Baux"; s.textContent="Contrats de location"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Nouveau bail</button>`; c.innerHTML=renderBaux(); wireToolbar(renderBaux, bindBaux); bindBaux(); document.getElementById("addBtn").onclick=()=>openForm("baux"); return; }
@@ -572,7 +627,7 @@ function render(){
   if(view.module==="mon-espace"){ t.textContent="Mon espace"; s.textContent="Ma situation locative"; c.innerHTML=renderMonEspaceLocataire(); bindMonEspaceLocataire(); return; }
   if(view.module==="mon-bail"){ t.textContent="Mon bail"; s.textContent="Détail de mon contrat de location"; c.innerHTML=renderMonBail(); return; }
   if(view.module==="mes-quittances"){ t.textContent="Mes quittances"; s.textContent="Historique de mes paiements"; c.innerHTML=renderMesQuittances(); return; }
-  if(view.module==="mes-interventions"){ t.textContent="Mes interventions"; s.textContent="Mes demandes de travaux"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Signaler un problème</button>`; c.innerHTML=renderMesInterventions(); document.getElementById("addBtn").onclick=()=>{ const b=DB.baux.find(x=>x.locataireId===SESSION.asId && x.statut!=="Résilié"); if(!b){ toast("Aucun bail actif associé à ce compte"); return; } openForm("interventions", null, {bailId:b.id}, {selfService:true}); }; return; }
+  if(view.module==="mes-interventions"){ t.textContent="Mes interventions"; s.textContent="Mes demandes de travaux"; act.innerHTML=`<button class="btn primary" id="addBtn">${svg(I.plus)} Signaler un problème</button>`; c.innerHTML=renderMesInterventions(); document.getElementById("addBtn").onclick=()=>{ const b=DB.baux.find(x=>x.locataireId===SESSION.asId && x.statut!=="Résilié"); if(!b){ toast("Aucun bail actif associé à ce compte"); return; } openForm("interventions", null, {logementId:b.logementId, bailId:b.id}, {selfService:true}); }; return; }
   if(view.module==="suivi-demande"){ t.textContent="Suivi de ma demande"; s.textContent="État de mon dossier de logement social"; c.innerHTML=renderSuiviDemande(); return; }
 }
 
@@ -609,15 +664,35 @@ function bindDashboard(){
 }
 
 /* ---------- Patrimoine ---------- */
-function renderLogements(){
-  let rows=DB.logements.map(l=>({...l, _search:`${l.residence} ${l.numero} ${l.direction} ${l.type}`, _filterVal:l.statut}));
+function renderLotissements(){
+  let rows=DB.lotissements.map(l=>({...l, _search:`${l.nom} ${l.commune}`, _filterVal:l.statut}));
   rows=filterRows(rows);
-  const cols=[{h:"Logement"},{h:"Commune"},{h:"Type"},{h:"Loyer",num:true},{h:"Statut"},{h:""}];
+  const cols=[{h:"Lotissement"},{h:"Commune"},{h:"Logements"},{h:"Statut"},{h:""}];
+  const body=rows.map(l=>{
+    const n=DB.logements.filter(g=>g.lotissementId===l.id).length;
+    return `<tr>
+      <td class="cell-name">${esc(l.nom)}</td>
+      <td>${esc(l.commune)}</td>
+      <td>${n}</td>
+      <td>${badge(l.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`;
+  }).join("");
+  return toolbar("statut", ["Actif","En réhabilitation"]) + tableShell(cols, body);
+}
+function bindLotissements(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("lotissements", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("lotissements", el.dataset.del));
+}
+function renderLogements(){
+  let rows=DB.logements.map(l=>({...l, _search:`${lotissementName(l.lotissementId)} ${l.numero} ${l.direction} ${l.type}`, _filterVal:l.statut}));
+  rows=filterRows(rows);
+  const cols=[{h:"Bien"},{h:"Commune"},{h:"Catégorie"},{h:"Type"},{h:"Loyer",num:true},{h:"Statut"},{h:""}];
   const body=rows.map(l=>{
     const bail=bailOf(l.id);
     return `<tr>
-      <td><div class="cell-name">${esc(l.residence)} ${esc(l.numero)}</div><div class="cell-sub">${esc(l.surface)} m² · étage ${esc(l.etage||"—")}</div></td>
-      <td>${esc(l.direction)}</td><td>${esc(l.type)}</td>
+      <td><div class="cell-name">${esc(lotissementName(l.lotissementId))} ${esc(l.numero)}</div><div class="cell-sub">${esc(l.surface)} m² · étage ${esc(l.etage||"—")}</div></td>
+      <td>${esc(l.direction)}</td><td>${esc(l.categorie||"Logement")}</td><td>${esc(l.type)}</td>
       <td class="num">${fmtMoney(l.loyerBase+l.chargesBase)}</td>
       <td>${badge(l.statut)}${bail?`<div class="cell-sub">${esc(locataireName(bail.locataireId))}</div>`:""}</td>
       <td><div class="row-actions"><button class="btn ghost sm" data-edit="${l.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${l.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
@@ -628,6 +703,26 @@ function renderLogements(){
 function bindLogements(){
   document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("logements", el.dataset.edit));
   document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("logements", el.dataset.del));
+}
+
+/* ---------- Réhabilitations ---------- */
+function renderRehabilitations(){
+  let rows=DB.rehabilitations.map(r=>({...r, _search:`${lotissementName(r.lotissementId)} ${r.objet} ${r.entreprise||""}`, _filterVal:r.statut}));
+  rows=filterRows(rows).sort((a,b)=>(b.dateDebut||"").localeCompare(a.dateDebut||""));
+  const cols=[{h:"Lotissement"},{h:"Objet"},{h:"Période"},{h:"Budget",num:true},{h:"Statut"},{h:""}];
+  const body=rows.map(r=>`<tr>
+      <td class="cell-name">${esc(lotissementName(r.lotissementId))}${r.logementId?`<div class="cell-sub">${esc(logementLabel(r.logementId))}</div>`:""}</td>
+      <td>${esc(r.objet)}<div class="cell-sub">${esc(r.entreprise||"—")}</div></td>
+      <td>${fmtDate(r.dateDebut)} → ${r.dateFinPrevue?fmtDate(r.dateFinPrevue):"—"}</td>
+      <td class="num">${fmtMoney(r.budgetEstime)}</td>
+      <td>${badge(r.statut)}</td>
+      <td><div class="row-actions"><button class="btn ghost sm" data-edit="${r.id}" title="Modifier">${svg(I.edit,'ic')}</button><button class="btn ghost sm" data-del="${r.id}" title="Supprimer">${svg(I.trash,'ic')}</button></div></td>
+    </tr>`).join("");
+  return toolbar("statut", ["Planifiée","En cours","Terminée"]) + tableShell(cols, body);
+}
+function bindRehabilitations(){
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openForm("rehabilitations", el.dataset.edit));
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>delRecord("rehabilitations", el.dataset.del));
 }
 
 /* ---------- Demandeurs ---------- */
@@ -694,11 +789,11 @@ function openDemandeurDetail(id){
 }
 function openProposerLogement(demandeurId){
   const d=DB.demandeurs.find(x=>x.id===demandeurId);
-  const vacants=DB.logements.filter(l=>l.statut==="Vacant");
+  const vacants=DB.logements.filter(l=>l.statut==="Vacant" && (l.categorie||"Logement")==="Logement");
   const mr=document.getElementById("modalRoot");
   mr.innerHTML=`<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
     <div class="modal-head"><h3>Proposer un logement</h3><div class="spacer"></div><button class="close-x" id="closeModal">${svg(I.x)}</button></div>
-    <div class="modal-body"><div class="field"><label>Logement vacant</label><select id="logSelect">${vacants.length?vacants.map(l=>`<option value="${l.id}">${esc(l.residence)} ${esc(l.numero)} · ${esc(l.type)} · ${esc(l.direction)}</option>`).join(""):'<option value="">Aucun logement vacant</option>'}</select></div></div>
+    <div class="modal-body"><div class="field"><label>Logement vacant</label><select id="logSelect">${vacants.length?vacants.map(l=>`<option value="${l.id}">${esc(lotissementName(l.lotissementId))} ${esc(l.numero)} · ${esc(l.type)} · ${esc(l.direction)}</option>`).join(""):'<option value="">Aucun logement vacant</option>'}</select></div></div>
     <div class="modal-foot"><button class="btn" id="cancelModal">Annuler</button><button class="btn primary" id="okBtn" ${vacants.length?"":"disabled"}>Proposer</button></div>
   </div></div>`;
   const close=()=>{ mr.innerHTML=""; };
@@ -718,7 +813,7 @@ function attribuerLogement(demandeurId){
   if(!logement){ toast("Logement proposé introuvable"); return; }
   const locataire={ id:uid("lo_"), civ:d.civ, nom:d.nom, prenom:d.prenom, dateNaissance:d.dateNaissance, tel:d.tel, email:d.email };
   DB.locataires.push(locataire);
-  const bail={ id:uid("bx_"), locataireId:locataire.id, logementId:logement.id, dateEffet:todayISO(), loyer:logement.loyerBase, charges:logement.chargesBase, depotGarantie:logement.loyerBase, statut:"Actif" };
+  const bail={ id:uid("bx_"), locataireId:locataire.id, logementId:logement.id, dateEffet:todayISO(), loyer:logement.loyerBase, charges:logement.chargesBase, depotGarantie:logement.loyerBase, statut:"Actif", modeOccupation:"Location", aideType:"Aucune", aideMontant:0 };
   DB.baux.push(bail);
   logement.statut="Occupé";
   d.statut="Attribuée"; d.locataireId=locataire.id;
@@ -755,7 +850,7 @@ function renderBaux(){
   const cols=[{h:"Locataire"},{h:"Logement"},{h:"Effet"},{h:"Loyer + charges",num:true},{h:"Statut"},{h:""}];
   const body=rows.map(b=>`<tr>
       <td class="cell-name">${esc(locataireName(b.locataireId))}</td>
-      <td>${esc(logementLabel(b.logementId))}</td>
+      <td>${esc(logementLabel(b.logementId))}${b.modeOccupation==="Accession à la propriété"?'<div class="cell-sub">Accession à la propriété</div>':""}</td>
       <td>${fmtDate(b.dateEffet)}</td>
       <td class="num">${fmtMoney(b.loyer+b.charges)}</td>
       <td>${badge(b.statut)}</td>
@@ -787,7 +882,9 @@ function genererQuittances(){
   let n=0;
   actifs.forEach(b=>{
     if(existants.has(b.id)) return;
-    DB.quittances.push({id:uid("qt_"), bailId:b.id, periode, loyer:b.loyer, charges:b.charges, montant:b.loyer+b.charges, statut:"Émise", datePaiement:null});
+    const brut=b.loyer+b.charges;
+    const aideDeduite = b.aideType && b.aideType!=="Aucune" ? Math.min(b.aideMontant||0, brut) : 0;
+    DB.quittances.push({id:uid("qt_"), bailId:b.id, periode, loyer:b.loyer, charges:b.charges, aideDeduite, montant:brut-aideDeduite, statut:"Émise", datePaiement:null});
     n++;
   });
   save();
@@ -803,7 +900,7 @@ function renderQuittances(){
       <td class="cell-name">${esc(locataireName(b?.locataireId))}</td>
       <td>${esc(logementLabel(b?.logementId))}</td>
       <td>${esc(q.periode)}</td>
-      <td class="num">${fmtMoney(q.montant)}</td>
+      <td class="num">${fmtMoney(q.montant)}${q.aideDeduite?`<div class="cell-sub">dont ${fmtMoney(q.aideDeduite)} d'aide déduite</div>`:""}</td>
       <td>${badge(q.statut)}</td>
       <td><div class="row-actions">
         ${q.statut!=="Payée"?`<button class="btn ghost sm" data-payee="${q.id}" title="Marquer payée">${svg(I.check,'ic')}</button>`:""}
@@ -819,12 +916,12 @@ function bindQuittances(){
 
 /* ---------- Interventions ---------- */
 function renderInterventions(){
-  let rows=DB.interventions.map(i=>({...i, _search:`${i.type} ${locataireName(DB.baux.find(b=>b.id===i.bailId)?.locataireId)}`, _filterVal:i.statut}));
+  let rows=DB.interventions.map(i=>({...i, _search:`${i.type} ${logementLabel(i.logementId)} ${locataireName(DB.baux.find(b=>b.id===i.bailId)?.locataireId)}`, _filterVal:i.statut}));
   rows=filterRows(rows).sort((a,b)=>(b.dateDemande||"").localeCompare(a.dateDemande||""));
-  const cols=[{h:"Locataire"},{h:"Logement"},{h:"Type"},{h:"Signalée le"},{h:"Statut"},{h:""}];
+  const cols=[{h:"Logement"},{h:"Locataire"},{h:"Type"},{h:"Signalée le"},{h:"Statut"},{h:""}];
   const body=rows.map(i=>{ const b=DB.baux.find(x=>x.id===i.bailId); return `<tr>
-      <td class="cell-name">${esc(locataireName(b?.locataireId))}</td>
-      <td>${esc(logementLabel(b?.logementId))}</td>
+      <td class="cell-name">${esc(logementLabel(i.logementId))}</td>
+      <td>${b?esc(locataireName(b.locataireId)):'<span class="badge mut">Partie commune / vacant</span>'}</td>
       <td>${esc(i.type)}<div class="cell-sub">${esc(i.description)}</div></td>
       <td>${fmtDate(i.dateDemande)}</td>
       <td>${badge(i.statut)}</td>
@@ -867,18 +964,22 @@ function renderMonBail(){
   const l=currentLocataire(); const bail=l && DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
   if(!bail) return `<div class="empty">Aucun bail actif associé à ce compte.</div>`;
   const logement=DB.logements.find(x=>x.id===bail.logementId);
+  const loyerLabel = bail.modeOccupation==="Accession à la propriété" ? "Mensualité" : "Loyer";
   return `<div class="detail-cols"><div class="panel"><div class="panel-head"><h3>Logement</h3></div><div class="panel-body"><div class="info-list">
-      <div class="row"><span class="l">Résidence</span><span class="v">${esc(logement.residence)}</span></div>
+      <div class="row"><span class="l">Lotissement</span><span class="v">${esc(lotissementName(logement.lotissementId))}</span></div>
       <div class="row"><span class="l">Porte</span><span class="v">${esc(logement.numero)}</span></div>
       <div class="row"><span class="l">Adresse</span><span class="v">${esc(logement.adresse)}, ${esc(logement.direction)}</span></div>
       <div class="row"><span class="l">Type / surface</span><span class="v">${esc(logement.type)} · ${esc(logement.surface)} m²</span></div>
     </div></div></div>
     <div class="panel"><div class="panel-head"><h3>Contrat</h3></div><div class="panel-body"><div class="info-list">
       <div class="row"><span class="l">Statut</span><span class="v">${badge(bail.statut)}</span></div>
+      <div class="row"><span class="l">Mode d'occupation</span><span class="v">${esc(bail.modeOccupation||"Location")}</span></div>
       <div class="row"><span class="l">Date d'effet</span><span class="v">${fmtDate(bail.dateEffet)}</span></div>
-      <div class="row"><span class="l">Loyer</span><span class="v">${fmtMoney(bail.loyer)}</span></div>
-      <div class="row"><span class="l">Charges</span><span class="v">${fmtMoney(bail.charges)}</span></div>
+      <div class="row"><span class="l">${esc(loyerLabel)}</span><span class="v">${fmtMoney(bail.loyer)}</span></div>
+      <div class="row"><span class="l">Refacturation de charges</span><span class="v">${fmtMoney(bail.charges)}</span></div>
       <div class="row"><span class="l">Dépôt de garantie</span><span class="v">${fmtMoney(bail.depotGarantie)}</span></div>
+      ${bail.aideType && bail.aideType!=="Aucune"?`<div class="row"><span class="l">Aide au logement</span><span class="v">${esc(bail.aideType)} — ${fmtMoney(bail.aideMontant)}</span></div>`:""}
+      ${bail.modeOccupation==="Accession à la propriété" && bail.prixVente?`<div class="row"><span class="l">Prix de vente</span><span class="v">${fmtMoney(bail.prixVente)}</span></div>`:""}
       ${bail.dateResiliation?`<div class="row"><span class="l">Fin de préavis</span><span class="v">${fmtDate(bail.dateResiliation)}</span></div>`:""}
     </div></div></div></div>`;
 }
@@ -886,7 +987,7 @@ function renderMesQuittances(){
   const l=currentLocataire(); const bail=l && DB.baux.find(b=>b.locataireId===l.id && b.statut!=="Résilié");
   const rows=(bail?DB.quittances.filter(q=>q.bailId===bail.id):[]).sort((a,b)=>b.periode.localeCompare(a.periode));
   const cols=[{h:"Période"},{h:"Montant",num:true},{h:"Statut"},{h:"Date de paiement"}];
-  const body=rows.map(q=>`<tr><td class="cell-name">${esc(q.periode)}</td><td class="num">${fmtMoney(q.montant)}</td><td>${badge(q.statut)}</td><td>${q.datePaiement?fmtDate(q.datePaiement):"—"}</td></tr>`).join("");
+  const body=rows.map(q=>`<tr><td class="cell-name">${esc(q.periode)}</td><td class="num">${fmtMoney(q.montant)}${q.aideDeduite?`<div class="cell-sub">dont ${fmtMoney(q.aideDeduite)} d'aide déduite</div>`:""}</td><td>${badge(q.statut)}</td><td>${q.datePaiement?fmtDate(q.datePaiement):"—"}</td></tr>`).join("");
   return tableShell(cols, body);
 }
 function renderMesInterventions(){
