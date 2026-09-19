@@ -1145,7 +1145,6 @@ const NAV = [
 const TAB_LABELS = {conges:"Congés", paie:"Paie", formations:"Formations", visites:"Visites méd.", accidents:"Accidents", deplacements:"Déplacements", carriere:"Carrière", documents:"Documents", allaitement:"Allaitement", notations:"Notations", maternite:"Maternité"};
 // Menus restreints affichés selon le profil de test (chacun n'a accès qu'à son propre périmètre).
 const AGENT_NAV = [
-  {id:"mon-dashboard", label:"Mon espace", icon:I.dash},
   {id:"mon-dossier", label:"Mon dossier", icon:I.agents},
   {id:"mes-conges", label:"Mes congés & absences", icon:I.conges}
 ];
@@ -1222,7 +1221,6 @@ function render(){
   const c=document.getElementById("content");
   const t=document.getElementById("pageTitle"), s=document.getElementById("pageSub"), act=document.getElementById("pageActions");
   act.innerHTML="";
-  if(view.module==="mon-dashboard"){ t.textContent="Mon espace"; s.textContent="Ma situation personnelle"; c.innerHTML=renderMonEspace(); bindMonEspace(); return; }
   if(view.module==="mon-dossier"){ view.agentId=SESSION.asAgentId; renderAgentDetail(); return; }
   if(view.module==="mes-conges"){
     t.textContent="Mes congés & absences"; s.textContent="Solde, historique et demandes";
@@ -1259,47 +1257,6 @@ function render(){
   if(view.module==="maternite") document.getElementById("rappelsConfigBtn").onclick=()=>openRappelsConfigForm();
 }
 
-/* ---------- Espace self-service (profil Agent) ---------- */
-function renderMonEspace(){
-  const a=DB.agents.find(x=>x.id===SESSION.asAgentId);
-  if(!a) return `<div class="empty">Profil introuvable.</div>`;
-  const mesConges=DB.conges.filter(c=>c.agentId===a.id);
-  const pend=mesConges.filter(c=>c.statut==="En attente");
-  const recentes=mesConges.slice().sort((x,y)=>(y.debut||"").localeCompare(x.debut||"")).slice(0,5);
-  return `
-    <div class="detail-head">
-      <div class="av">${initials(a.nom,a.prenom)}</div>
-      <div style="flex:1">
-        <h2>${esc(a.civ||"")} ${esc(a.prenom)} ${esc(a.nom)}</h2>
-        <div class="meta"><span class="tag">${esc(a.matricule)}</span><span>${esc(a.fonction||"—")}</span> · <span>${esc(a.direction)}</span></div>
-      </div>
-    </div>
-    <div class="kpi-grid">
-      <div class="kpi" tabindex="0" data-goto="mon-dossier"><div class="k-lbl">Ancienneté</div><div class="k-val" style="font-size:21px">${ancienneteLabel(a.entree)}</div></div>
-      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Solde congés</div><div class="k-val">${a.solde??0}</div><div class="k-meta mut">jours disponibles</div></div>
-      <div class="kpi" tabindex="0" data-goto="mes-conges"><div class="k-lbl">Demandes en attente</div><div class="k-val">${pend.length}</div><div class="k-meta ${pend.length?'warn':'ok'}">${pend.length?"En cours de validation":"Aucune"}</div></div>
-    </div>
-    <div class="panels">
-      <div class="panel">
-        <div class="panel-head"><h3>Mes dernières demandes de congés</h3></div>
-        <div class="panel-body">
-          ${recentes.length?recentes.map(c=>`<div class="mini-row" data-goto="mes-conges"><div><div class="who">${esc(c.type)}</div><div class="det">${fmtDate(c.debut)} → ${fmtDate(c.fin)} · ${c.jours} j</div></div><div class="spacer"></div>${badge(c.statut)}</div>`).join(""):`<div class="empty">Aucune demande enregistrée.</div>`}
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Raccourcis</h3></div>
-        <div class="panel-body" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px">
-          <button class="btn" data-goto="mon-dossier">${svg(I.agents,'ic')} Consulter mon dossier</button>
-          <button class="btn primary" id="newCongeShortcut">${svg(I.plus,'ic')} Nouvelle demande de congé</button>
-        </div>
-      </div>
-    </div>`;
-}
-function bindMonEspace(){
-  document.querySelectorAll("[data-goto]").forEach(el=>{ el.onclick=()=>go(el.dataset.goto); });
-  const btn=document.getElementById("newCongeShortcut");
-  if(btn) btn.onclick=()=>openForm("conges", null, {agentId:SESSION.asAgentId}, {selfService:true});
-}
 function renderMesConges(){
   let rows=DB.conges.filter(c=>c.agentId===SESSION.asAgentId).map(c=>({...c,_search:`${c.type} ${c.statut}`,_filterVal:c.statut}));
   rows=filterRows(rows).sort((a,b)=>(b.debut||"").localeCompare(a.debut||""));
@@ -1735,9 +1692,11 @@ function renderAgentDetail(){
   document.getElementById("pageSub").textContent=`${a.matricule} · ${a.direction}`;
   const backLabel = access==="rh" ? "Retour" : access==="team" ? "Mon équipe" : "Mon espace";
   const backTarget = access==="rh" ? "agents" : access==="team" ? "resp-equipe" : roleHome();
+  // Pour le profil Agent, ce dossier est l'écran d'accueil : pas de bouton "retour" vers lui-même.
+  const showBack = !(access==="self" && SESSION.role==="agent");
   document.getElementById("pageActions").innerHTML = access==="rh"
     ? `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button> <button class="btn primary" id="editAgentBtn">${svg(I.edit)} Modifier</button>`
-    : `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button>`;
+    : showBack ? `<button class="btn" id="backBtn">${svg(I.back)} ${backLabel}</button>` : "";
 
   const rel = coll => DB[coll].filter(x=>x.agentId===a.id);
   const c=document.getElementById("content");
@@ -1770,6 +1729,12 @@ function renderAgentDetail(){
         </div>
       </div>
     </div>
+    ${access==="self"?`<div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><h3>Raccourcis</h3></div>
+      <div class="panel-body" style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px">
+        <button class="btn primary" id="newCongeShortcut">${svg(I.plus,'ic')} Nouvelle demande de congé</button>
+      </div>
+    </div>`:""}
     <div class="detail-cols">
       <div class="panel">
         <div class="panel-head"><h3>Informations</h3></div>
@@ -1819,7 +1784,10 @@ function renderAgentDetail(){
       </div>
     </div>`;
 
-  document.getElementById("backBtn").onclick=()=>go(backTarget);
+  const backBtn=document.getElementById("backBtn");
+  if(backBtn) backBtn.onclick=()=>go(backTarget);
+  const newCongeShortcut=document.getElementById("newCongeShortcut");
+  if(newCongeShortcut) newCongeShortcut.onclick=()=>openForm("conges", null, {agentId:a.id}, {selfService:true});
   const editHoraireBtn=document.getElementById("editHoraireBtn");
   if(editHoraireBtn) editHoraireBtn.onclick=()=>openHoraireForm(a.id);
   const editAgentBtn=document.getElementById("editAgentBtn");
