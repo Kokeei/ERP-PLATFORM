@@ -479,3 +479,115 @@ test.describe("Achats — migration des anciens statuts BC/facture (cas limite)"
     await expect(page.locator("#mandaterBtn")).toBeVisible();
   });
 });
+
+test.describe("Achats — parseur de devis (parseDevisText, cas nominal et limites)", () => {
+  // Fonction pure testée directement (déterministe), sans dépendre du chargement réel de
+  // pdf.js ni d'un fichier PDF : elle reçoit le texte déjà reconstitué par extractPdfText().
+  test("reconnaît n° devis, date, fournisseur et lignes (cas nominal)", async ({ page }) => {
+    await page.goto("/achats/");
+    const result = await page.evaluate(() => window.parseDevisText(
+      "DEVIS\nPolynésie Bâtiment\nDevis n° DV-2026-0456\nDate : 12/03/2026\n" +
+      "Réfection toiture bâtiment A 1 850000 0% 16% 850000\n" +
+      "Pose de gouttières 4 45000 5% 16% 171000\n" +
+      "Total HT 1021000"
+    ));
+    expect(result.numeroDevis).toBe("DV-2026-0456");
+    expect(result.dateDevis).toBe("2026-03-12");
+    expect(result.tiersId).not.toBeNull();
+    expect(result.lignes).toEqual([
+      { designation: "Réfection toiture bâtiment A", quantite: 1, puHT: 850000, remisePct: 0, type: "Produit" },
+      { designation: "Pose de gouttières", quantite: 4, puHT: 45000, remisePct: 5, type: "Produit" },
+    ]);
+  });
+
+  test("une seule valeur en % sur la ligne est interprétée comme la TVA, pas une remise (cas limite)", async ({ page }) => {
+    await page.goto("/achats/");
+    const lignes = await page.evaluate(() => window.parseDevisLignes(
+      "Maçonnerie 2 300000 13%\nFourniture matériel 3 850 000 16%"
+    ));
+    expect(lignes).toEqual([
+      { designation: "Maçonnerie", quantite: 2, puHT: 300000, remisePct: 0, type: "Prestation" },
+      { designation: "Fourniture matériel", quantite: 3, puHT: 850000, remisePct: 0, type: "Produit" },
+    ]);
+  });
+
+  test("les lignes de total/TVA récapitulative/conditions ne sont pas prises pour des lignes de devis (cas limite)", async ({ page }) => {
+    await page.goto("/achats/");
+    const lignes = await page.evaluate(() => window.parseDevisLignes(
+      "Page 1 sur 2\nTVA 16% 163333\nSous-total HT 1021000\nNet à payer 1184333\nConditions de paiement 30 jours"
+    ));
+    expect(lignes).toEqual([]);
+  });
+
+  test("un texte sans devis reconnaissable ne renvoie aucune donnée (cas erreur)", async ({ page }) => {
+    await page.goto("/achats/");
+    const result = await page.evaluate(() => window.parseDevisText("Texte quelconque sans structure de devis"));
+    expect(result.numeroDevis).toBeNull();
+    expect(result.dateDevis).toBeNull();
+    expect(result.tiersId).toBeNull();
+    expect(result.lignes).toEqual([]);
+  });
+});
+
+test.describe("Achats — scan de devis PDF pour pré-remplir une commande", () => {
+  // pdf.js est stubbé (aucun vrai chargement réseau ni PDF réel) : ce test vérifie
+  // l'orchestration (upload → extraction → pré-remplissage), pas la fidélité de l'OCR/PDF.
+  async function stubPdfJs(page, lines) {
+    await page.evaluate((lines) => {
+      window.pdfjsLib = {
+        getDocument: () => ({
+          promise: Promise.resolve({
+            numPages: 1,
+            getPage: () => Promise.resolve({
+              getTextContent: () => Promise.resolve({
+                items: lines.map((str, i) => ({ str, transform: [1, 0, 0, 1, 50, 800 - i * 20] })),
+              }),
+            }),
+          }),
+        }),
+      };
+    }, lines);
+  }
+
+  test("analyse un devis PDF et pré-remplit une nouvelle commande à vérifier (cas nominal)", async ({ page }) => {
+    await page.goto("/achats/");
+    await page.locator("[data-nav='commandes']").click();
+    await page.click("#scanDevisBtn");
+    await stubPdfJs(page, [
+      "DEVIS", "Polynésie Bâtiment", "Devis n° DV-2026-0456", "Date : 12/03/2026",
+      "Réfection toiture bâtiment A 1 850000 0% 16% 850000",
+      "Pose de gouttières 4 45000 5% 16% 171000",
+    ]);
+    await page.setInputFiles("#devisFileInp", { name: "devis.pdf", mimeType: "application/pdf", buffer: Buffer.from("dummy") });
+    await page.click("#analyserBtn");
+
+    await expect(page.locator(".modal-head h3")).toHaveText("Nouvelle commande");
+    await expect(page.locator("#numeroDevisInp")).toHaveValue("DV-2026-0456");
+    await expect(page.locator("#dateDevisInp")).toHaveValue("2026-03-12");
+    const expectedTiersId = await page.locator("#tiersSelect option", { hasText: "Polynésie Bâtiment" }).getAttribute("value");
+    await expect(page.locator("#tiersSelect")).toHaveValue(expectedTiersId);
+    await expect(page.locator("#lignesBody tr")).toHaveCount(2);
+    await expect(page.locator("#lignesBody tr").nth(0).locator('[data-f="designation"]')).toHaveValue("Réfection toiture bâtiment A");
+  });
+
+  test("un devis sans ligne reconnue ouvre quand même le formulaire, à compléter manuellement (cas limite)", async ({ page }) => {
+    await page.goto("/achats/");
+    await page.locator("[data-nav='commandes']").click();
+    await page.click("#scanDevisBtn");
+    await stubPdfJs(page, ["Texte sans structure de devis reconnaissable"]);
+    await page.setInputFiles("#devisFileInp", { name: "devis.pdf", mimeType: "application/pdf", buffer: Buffer.from("dummy") });
+    await page.click("#analyserBtn");
+
+    await expect(page.locator("#toast")).toHaveText(/aucune ligne reconnue/);
+    await expect(page.locator(".modal-head h3")).toHaveText("Nouvelle commande");
+    await expect(page.locator("#lignesBody tr")).toHaveCount(1);
+  });
+
+  test("analyser sans avoir choisi de fichier est refusé (cas erreur)", async ({ page }) => {
+    await page.goto("/achats/");
+    await page.locator("[data-nav='commandes']").click();
+    await page.click("#scanDevisBtn");
+    await page.click("#analyserBtn");
+    await expect(page.locator("#toast")).toHaveText("Choisis un fichier PDF");
+  });
+});
