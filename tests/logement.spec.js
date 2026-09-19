@@ -34,14 +34,132 @@ test.describe("Logement — tableau de bord et patrimoine (profil Gestion)", () 
     await expect(vacants.first()).toContainText("Vacant");
   });
 
-  test("crée un nouveau logement (cas nominal)", async ({ page }) => {
+  test("crée un nouveau logement rattaché à un lotissement (cas nominal)", async ({ page }) => {
     await page.locator("[data-nav='logements']").click();
     await page.click("#addBtn");
-    await page.fill('input[data-k="residence"]', "Résidence Test");
+    await page.selectOption('select[data-k="lotissementId"]', { label: "Manutahi" });
     await page.fill('input[data-k="numero"]', "Z99");
     await page.click("#saveModal");
     await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
-    await expect(page.locator("tbody tr", { hasText: "Résidence Test" })).toBeVisible();
+    await expect(page.locator("tbody tr", { hasText: "Manutahi Z99" })).toBeVisible();
+  });
+
+  test("crée un stationnement (garage) au sein d'un lotissement (cas nominal)", async ({ page }) => {
+    await page.locator("[data-nav='logements']").click();
+    await page.click("#addBtn");
+    await page.selectOption('select[data-k="lotissementId"]', { label: "Teavaraa" });
+    await page.selectOption('select[data-k="categorie"]', "Stationnement");
+    await page.selectOption('select[data-k="type"]', "Garage");
+    await page.fill('input[data-k="numero"]', "G-B02");
+    await page.click("#saveModal");
+    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
+    const row = page.locator("tbody tr", { hasText: "Teavaraa G-B02" });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("Stationnement");
+  });
+});
+
+test.describe("Logement — lotissements (profil Gestion)", () => {
+  test("liste les lotissements avec le nombre de logements associés (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='lotissements']").click();
+    await expect(page.locator("#pageTitle")).toHaveText("Lotissements");
+    const row = page.locator("tbody tr", { hasText: "Manutahi" });
+    await expect(row).toBeVisible();
+  });
+
+  test("crée un nouveau lotissement (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='lotissements']").click();
+    await page.click("#addBtn");
+    await page.fill('input[data-k="nom"]', "Nouveau Lotissement Test");
+    await page.click("#saveModal");
+    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
+    await expect(page.locator("tbody tr", { hasText: "Nouveau Lotissement Test" })).toBeVisible();
+  });
+});
+
+test.describe("Logement — réhabilitations (profil Gestion)", () => {
+  test("liste les réhabilitations planifiées et en cours sur le parc (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='rehabilitations']").click();
+    await expect(page.locator("#pageTitle")).toHaveText("Réhabilitations");
+    await expect(page.locator("tbody tr", { hasText: "SOPADEP TP" })).toBeVisible();
+  });
+
+  test("crée une nouvelle réhabilitation rattachée à un lotissement (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='rehabilitations']").click();
+    await page.click("#addBtn");
+    await page.selectOption('select[data-k="lotissementId"]', { label: "Punavai" });
+    await page.fill('input[data-k="objet"]', "Réfection des réseaux d'eau");
+    await page.fill('input[data-k="dateDebut"]', "2026-11-01");
+    await page.click("#saveModal");
+    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
+    await expect(page.locator("tbody tr", { hasText: "Réfection des réseaux d'eau" })).toBeVisible();
+  });
+});
+
+test.describe("Logement — entretien de l'ensemble du parc (profil Gestion)", () => {
+  test("une intervention peut cibler un logement vacant sans bail ni locataire (cas limite)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='interventions']").click();
+    const row = page.locator("tbody tr", { hasText: "Rafraîchissement des peintures" });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("Partie commune / vacant");
+  });
+
+  test("crée une intervention sur un logement vacant, sans passer par un bail (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='interventions']").click();
+    await page.click("#addBtn");
+    await page.selectOption('select[data-k="logementId"]', { label: "Ariiheue C02" });
+    await page.fill('textarea[data-k="description"]', "Contrôle de la VMC avant remise en location");
+    await page.click("#saveModal");
+    await expect(page.locator("#toast")).toHaveText("Enregistrement créé");
+    await expect(page.locator("tbody tr", { hasText: "Contrôle de la VMC" })).toBeVisible();
+  });
+});
+
+test.describe("Logement — aides au logement (AFL/ALE) sur les quittances", () => {
+  test("le montant de la quittance déduit l'aide au logement du bail éligible (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='quittances']").click();
+    await page.click("#genBtn");
+    const row = page.locator("tbody tr", { hasText: "TEPAVA" }).first();
+    await expect(row).toContainText("d'aide déduite");
+  });
+
+  test("un bail sans aide au logement n'affiche aucune déduction sur sa quittance (cas limite)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='quittances']").click();
+    await page.click("#genBtn");
+    const row = page.locator("tbody tr", { hasText: "TERIIERO" }).first();
+    await expect(row).not.toContainText("d'aide déduite");
+  });
+});
+
+test.describe("Logement — accession à la propriété", () => {
+  test("un bail en accession à la propriété apparaît distinctement dans la liste des baux (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.locator("[data-nav='baux']").click();
+    await expect(page.locator("tbody tr", { hasText: "Accession à la propriété" })).toBeVisible();
+  });
+
+  test("le locataire en accession voit \"Mensualité\" et le prix de vente au lieu du loyer (cas nominal)", async ({ page }) => {
+    await page.goto("/logement/");
+    await page.evaluate(() => {
+      const logement = DB.logements.find(l => l.statut === "Vacant" && (l.categorie || "Logement") === "Logement");
+      const locataire = { id: "lo_test_accession", civ: "M.", nom: "ACCESSIONTEST", prenom: "Jean" };
+      DB.locataires.push(locataire);
+      DB.baux.push({ id: "bx_test_accession", locataireId: locataire.id, logementId: logement.id, dateEffet: todayISO(), loyer: 90000, charges: 0, depotGarantie: 0, statut: "Actif", modeOccupation: "Accession à la propriété", prixVente: 20000000, aideType: "Aucune", aideMontant: 0 });
+      save();
+    });
+    await page.selectOption("#sessRole", "locataire");
+    await page.selectOption("#sessId", { label: "Jean ACCESSIONTEST" });
+    await page.locator("#nav a", { hasText: "Mon bail" }).click();
+    await expect(page.locator(".info-list .row", { hasText: "Mensualité" })).toBeVisible();
+    await expect(page.locator(".info-list .row", { hasText: "Prix de vente" })).toBeVisible();
   });
 });
 
