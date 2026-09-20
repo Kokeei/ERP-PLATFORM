@@ -35,6 +35,17 @@ test.describe("Recherche dans les listes déroulantes — module Achats", () => 
     await expect(page.locator("#tiersSelect")).not.toHaveValue(expectedValue);
   });
 
+  test("le champ affiche déjà la sélection en cours à l'ouverture d'un formulaire d'édition (cas nominal)", async ({ page }) => {
+    await page.goto("/achats/");
+    await page.locator("[data-nav='commandes']").click();
+    await page.locator("tbody tr", { hasText: "Fournitures de bureau" }).locator("[data-edit]").click();
+    const wrap = page.locator("#tiersSelect").locator("xpath=preceding-sibling::div[contains(@class,'select-search-wrap')]");
+    await expect(wrap.locator(".select-search-input")).toHaveValue("SOPAD Polynésie");
+    // Masqué visuellement (opacité 0) pour ne pas afficher deux listes qui se contredisent,
+    // mais toujours présent et actionnable (page.selectOption continue de fonctionner ailleurs).
+    await expect(page.locator("#tiersSelect")).toHaveCSS("opacity", "0");
+  });
+
   test("une recherche sans résultat affiche un message plutôt qu'une liste vide (cas limite)", async ({ page }) => {
     await page.goto("/achats/");
     await page.locator("[data-nav='commandes']").click();
