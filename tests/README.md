@@ -27,6 +27,8 @@ Autres commandes utiles :
 - `smoke.spec.js` — vérification de base (le portail se charge, le module RH est accessible).
 - `agents.spec.js`, `conges.spec.js`, `paie.spec.js`, `formations.spec.js`, `maternite.spec.js` — parcours métier du module RH.
 - `ged.spec.js` — module GED (accès, création de dossier, dépôt, consultation/téléchargement, versioning, corbeille/restauration, droits, audit, intégration avec le dossier agent RH). Utilise les fixtures de `tests/fixtures/`.
+- `achats.spec.js`, `logement.spec.js` — modules Achats & Finances et Gestion Locative, y compris l'accès depuis les cartes du portail.
+- `select-search.spec.js` — recherche par saisie dans les listes déroulantes (`shared/select-search.js`), commune à tous les modules.
 
 ## Notes
 
