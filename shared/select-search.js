@@ -1,11 +1,12 @@
-// Ajoute une recherche par saisie aux listes déroulantes (<select>) qui ont beaucoup d'options
-// (tiers, comptes budgétaires, agents, logements, documents…), dans tous les modules de l'ERP.
-// Le <select> d'origine n'est jamais remplacé (même id, mêmes valeurs, évènement "change"
-// toujours déclenché normalement), donc toujours pilotable par page.selectOption() dans les
-// tests. La saisie fait apparaître une liste de suggestions cliquables juste en dessous : la
-// choisir met à jour le <select> (et donc son affichage), plutôt que de masquer ses <option> —
-// un <select> fermé continue sinon d'afficher l'option sélectionnée même si elle est masquée,
-// ce qui est trompeur (constaté sur mobile : la recherche semblait ne rien faire).
+// Remplace visuellement les listes déroulantes (<select>) qui ont beaucoup d'options (tiers,
+// comptes budgétaires, agents, logements, documents…) par un champ de recherche, dans tous les
+// modules de l'ERP. Le <select> d'origine n'est jamais retiré du DOM ni désactivé (même id,
+// mêmes valeurs, évènement "change" toujours déclenché normalement) — seulement masqué à
+// l'écran (pas en display:none/visibility:hidden, pour rester actionnable) — donc toujours
+// pilotable par page.selectOption() dans les tests. Taper dans le champ fait apparaître une
+// liste de suggestions cliquables ; en choisir une met à jour le <select> cité et donc ce que
+// le champ affiche. Le champ reflète aussi la sélection déjà en place à l'ouverture d'un
+// formulaire d'édition.
 (function(){
   const SEUIL_OPTIONS = 6; // en dessous, une recherche n'apporte rien et ajoute du bruit visuel
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -21,6 +22,7 @@
       .select-search-item{padding:8px 11px;font-size:13.5px;color:var(--ink,#111);cursor:pointer}
       .select-search-item:hover,.select-search-item.active{background:var(--surface-2,var(--bg,#f0f0f0))}
       .select-search-empty{padding:8px 11px;font-size:13px;color:var(--ink-3,#888)}
+      .select-search-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;opacity:0;pointer-events:none}
     `;
     document.head.appendChild(style);
   }
@@ -28,6 +30,11 @@
     if(select.dataset.searchEnhanced) return;
     if(select.multiple || select.options.length<=SEUIL_OPTIONS) return;
     select.dataset.searchEnhanced="1";
+    // Le <select> natif est masqué visuellement (pas en display:none/visibility:hidden, pour
+    // rester actionnable par les tests) : la recherche + ses suggestions le remplacent
+    // entièrement à l'écran, pour ne pas avoir deux façons différentes de choisir affichées
+    // en même temps.
+    select.classList.add("select-search-hidden");
 
     const wrap=document.createElement("div");
     wrap.className="select-search-wrap";
@@ -64,6 +71,15 @@
       input.value=label;
       fermer();
     }
+    // Le <select> étant masqué, le champ de recherche est la seule chose visible : il doit
+    // toujours refléter la sélection réelle (valeur initiale à l'ouverture d'un formulaire
+    // d'édition, ou changement fait par un autre moyen que cette recherche), sauf pendant que
+    // l'utilisateur est en train d'y taper une nouvelle recherche.
+    function syncInputDepuisSelect(){
+      if(document.activeElement===input) return;
+      const opt=select.options[select.selectedIndex];
+      input.value=(opt && opt.value!=="") ? opt.textContent : "";
+    }
 
     input.addEventListener("input", ()=>ouvrir(input.value));
     input.addEventListener("focus", ()=>{ if(input.value) ouvrir(input.value); });
@@ -82,10 +98,8 @@
       choisir(item.dataset.value, item.textContent);
     });
     document.addEventListener("click", (e)=>{ if(!wrap.contains(e.target)) fermer(); });
-
-    // Si le <select> est resélectionné par un autre moyen (natif, ou par le code de l'appli),
-    // on garde le champ de recherche vide plutôt que désynchronisé avec la sélection réelle.
-    select.addEventListener("change", ()=>{ if(document.activeElement!==input) input.value=""; });
+    select.addEventListener("change", syncInputDepuisSelect);
+    syncInputDepuisSelect();
   }
   function parcourir(racine){
     (racine||document).querySelectorAll("select").forEach(ameliorer);
