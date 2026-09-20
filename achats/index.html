@@ -208,6 +208,7 @@ td.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
 
 <script src="../ged/ged-core.js"></script>
 <script src="../ged/ged-ui.js"></script>
+<script src="../shared/select-search.js"></script>
 <script>
 "use strict";
 const KEY = "oph_achats_v1";
@@ -294,7 +295,7 @@ function parseDevisDate(str){
   return `${y}-${mo}-${d}`;
 }
 function matchTiersInText(text){
-  const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   const t=norm(text);
   const found=DB.tiers.find(ti=>ti.raisonSociale && t.includes(norm(ti.raisonSociale)));
   return found?found.id:null;
